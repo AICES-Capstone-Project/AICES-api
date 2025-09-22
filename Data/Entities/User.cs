@@ -17,9 +17,6 @@ namespace Data.Entities
         [Key]
         public int UserId { get; set; }
 
-        [ForeignKey("Role")]
-        public int RoleId { get; set; }
-
         [Required, MaxLength(255)]
         public string Email { get; set; } = string.Empty;
 
@@ -32,7 +29,8 @@ namespace Data.Entities
         public string? ProviderId { get; set; } // id từ provider
 
         // Navigation
-        public Role? Role { get; set; }
+        public int RoleId { get; set; }
+        public Role Role { get; set; } = null!;
         public Profile? Profile { get; set; }
     }
 }
