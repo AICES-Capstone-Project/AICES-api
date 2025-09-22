@@ -38,6 +38,15 @@ namespace DataAccessLayer
                     foreignKey.DeleteBehavior = DeleteBehavior.NoAction;
                 }
             }
+            base.OnModelCreating(modelBuilder);
+
+            // Seed dữ liệu cho Roles
+            modelBuilder.Entity<Role>().HasData(
+                new Role { RoleId = 1, RoleName = "Admin"},
+                new Role { RoleId = 2, RoleName = "Manager"},
+                new Role { RoleId = 3, RoleName = "Recruiter"},
+                new Role { RoleId = 4, RoleName = "Candidate"}
+            );
         }
     }
 }

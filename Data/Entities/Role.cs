@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace Data.Entities
 {
     [Table("Roles")]
-    public class Role : BaseEntity
+    public class Role
     {
         [Key]
         public int RoleId { get; set; }

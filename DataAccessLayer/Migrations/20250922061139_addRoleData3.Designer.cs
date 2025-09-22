@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DataAccessLayer.Migrations
 {
     [DbContext(typeof(AICESDbContext))]
-    [Migration("20250922060110_updateEntities")]
-    partial class updateEntities
+    [Migration("20250922061139_addRoleData3")]
+    partial class addRoleData3
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -75,12 +75,6 @@ namespace DataAccessLayer.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RoleId"));
 
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
                     b.Property<string>("RoleName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -89,6 +83,28 @@ namespace DataAccessLayer.Migrations
                     b.HasKey("RoleId");
 
                     b.ToTable("Roles");
+
+                    b.HasData(
+                        new
+                        {
+                            RoleId = 1,
+                            RoleName = "Admin"
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            RoleName = "Manager"
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            RoleName = "Recruiter"
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            RoleName = "Candidate"
+                        });
                 });
 
             modelBuilder.Entity("Data.Entities.User", b =>
