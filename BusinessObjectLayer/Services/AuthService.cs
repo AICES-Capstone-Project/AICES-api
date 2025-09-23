@@ -1,22 +1,91 @@
-﻿using BusinessObjectLayer.IServices;
+﻿using BCrypt.Net;
 using Data.Entities;
-using Data.Models.DTO;
-using DataAccessLayer;
-using Microsoft.EntityFrameworkCore;
+using DataAccessLayer.IRepositories;
+using BusinessObjectLayer.IServices;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using System;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using Data.Models.Response;
 
 namespace BusinessObjectLayer.Services
 {
-    public class AuthService
+    public class AuthService : IAuthService
     {
-        
+        private readonly IAuthRepository _authRepository;
+        private readonly IProfileService _profileService;
+        private readonly IConfiguration _configuration;
+
+        public AuthService(IAuthRepository authRepository, IProfileService profileService, IConfiguration configuration)
+        {
+            _authRepository = authRepository;
+            _profileService = profileService;
+            _configuration = configuration;
+        }
+
+        public async Task<string> RegisterAsync(string email, string password, int roleId)
+        {
+            if (await _authRepository.EmailExistsAsync(email))
+                throw new Exception("Email already exists.");
+
+            var user = new User
+            {
+                Email = email,
+                Password = BCrypt.Net.BCrypt.HashPassword(password),
+                RoleId = 4 // Mặc định RoleId là 4
+            };
+
+            var addedUser = await _authRepository.AddAsync(user);
+            await _profileService.CreateDefaultProfileAsync(addedUser.UserId);
+            return "Registration successful.";
+        }
+
+        public async Task<AuthResponse> LoginAsync(string email, string password)
+        {
+            var user = await _authRepository.GetByEmailAsync(email);
+            if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.Password) || !user.IsActive)
+                throw new Exception("Invalid email, password, or account inactive.");
+
+       
+            if (user.Profile == null)
+            {
+                await _profileService.CreateDefaultProfileAsync(user.UserId);
+                user = await _authRepository.GetByEmailAsync(email); 
+            }
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+ 
+            var claims = new[]
+            {
+                new Claim("email", user.Email),
+                new Claim("userId", user.UserId.ToString()),
+                new Claim("role", user.Role?.RoleName ?? "Unknown"),
+                new Claim("fullName", user.Profile?.FullName ?? ""),
+                new Claim("phoneNumber", user.Profile?.PhoneNumber ?? ""),
+                new Claim("address", user.Profile?.Address ?? ""),
+                new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? ""),
+                new Claim("exp", new DateTimeOffset(DateTime.UtcNow.AddMinutes(60)).ToUnixTimeSeconds().ToString()),
+                new Claim("iss", _configuration["JwtConfig:Issuer"] ?? "AICES"),
+                new Claim("aud", _configuration["JwtConfig:Audience"] ?? "AICESApp")
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["JwtConfig:Issuer"],
+                audience: _configuration["JwtConfig:Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(60),
+                signingCredentials: creds);
+
+            return new AuthResponse
+            {
+                Token = new JwtSecurityTokenHandler().WriteToken(token),
+                UserId = user.UserId,
+                RoleName = user.Role?.RoleName
+            };
+        }
     }
 }

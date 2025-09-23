@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Data.Models.DTO
+namespace Data.Models.Request
 {
-    public class UserDTO
+    public class LoginRequest
     {
         public string Email { get; set; }
         public string Password { get; set; }
