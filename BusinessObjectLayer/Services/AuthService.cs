@@ -9,6 +9,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 using Data.Models.Response;
+using Data.Enum;
 
 namespace BusinessObjectLayer.Services
 {
@@ -25,30 +26,49 @@ namespace BusinessObjectLayer.Services
             _configuration = configuration;
         }
 
-        public async Task<string> RegisterAsync(string email, string password, int roleId)
+        public async Task<ServiceResponse> RegisterAsync(string email, string password, int roleId)
         {
             if (await _authRepository.EmailExistsAsync(email))
-                throw new Exception("Email already exists.");
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Duplicated,
+                    Message = "Email already exists."
+                };
+            }
 
             var user = new User
             {
                 Email = email,
                 Password = BCrypt.Net.BCrypt.HashPassword(password),
-                RoleId = 4 // Mặc định RoleId là 4
+                RoleId = 4 // Mặc định Candidate
             };
 
             var addedUser = await _authRepository.AddAsync(user);
+
+            // tạo profile mặc định sau khi đăng ký
             await _profileService.CreateDefaultProfileAsync(addedUser.UserId);
-            return "Registration successful.";
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "Registration successful.",
+            };
         }
 
-        public async Task<AuthResponse> LoginAsync(string email, string password)
+        public async Task<ServiceResponse> LoginAsync(string email, string password)
         {
             var user = await _authRepository.GetByEmailAsync(email);
             if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.Password) || !user.IsActive)
-                throw new Exception("Invalid email, password, or account inactive.");
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "Invalid email, password, or account inactive."
+                };
+            }
 
-       
+
             if (user.Profile == null)
             {
                 await _profileService.CreateDefaultProfileAsync(user.UserId);
@@ -80,11 +100,16 @@ namespace BusinessObjectLayer.Services
                 expires: DateTime.UtcNow.AddMinutes(60),
                 signingCredentials: creds);
 
-            return new AuthResponse
+            return new ServiceResponse
             {
-                Token = new JwtSecurityTokenHandler().WriteToken(token),
-                UserId = user.UserId,
-                RoleName = user.Role?.RoleName
+                Status = SRStatus.Success,
+                Message = "Login successful",
+                Data = new AuthResponse
+                {
+                    Token = new JwtSecurityTokenHandler().WriteToken(token),
+                    UserId = user.UserId,
+                    RoleName = user.Role?.RoleName
+                }
             };
         }
     }
