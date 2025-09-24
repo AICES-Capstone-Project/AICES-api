@@ -8,7 +8,7 @@ namespace Data.Models.Response
 {
     public class AuthResponse
     {
-        public string Token { get; set; }
+        public string accessToken { get; set; }
         public int UserId { get; set; }
         public string RoleName { get; set; }
     }

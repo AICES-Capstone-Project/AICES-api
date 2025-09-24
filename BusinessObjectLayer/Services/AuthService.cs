@@ -106,7 +106,7 @@ namespace BusinessObjectLayer.Services
                 Message = "Login successful",
                 Data = new AuthResponse
                 {
-                    Token = new JwtSecurityTokenHandler().WriteToken(token),
+                    accessToken = new JwtSecurityTokenHandler().WriteToken(token),
                     UserId = user.UserId,
                     RoleName = user.Role?.RoleName
                 }
