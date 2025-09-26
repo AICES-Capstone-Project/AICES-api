@@ -21,7 +21,7 @@ namespace API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            var serviceResponse = await _authService.RegisterAsync(request.Email, request.Password, 0);
+            var serviceResponse = await _authService.RegisterAsync(request.Email, request.Password); 
             return ControllerResponse.Response(serviceResponse);
         }
 
@@ -30,6 +30,13 @@ namespace API.Controllers
         {
             var serviceResponse = await _authService.LoginAsync(request.Email, request.Password);
 
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpGet("verify-email")]
+        public async Task<IActionResult> VerifyEmail(string token)
+        {
+            var serviceResponse = await _authService.VerifyEmailAsync(token);
             return ControllerResponse.Response(serviceResponse);
         }
     }
