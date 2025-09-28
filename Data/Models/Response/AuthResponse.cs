@@ -10,6 +10,8 @@ namespace Data.Models.Response
     {
         public string accessToken { get; set; }
         public int UserId { get; set; }
+        public string Email { get; set; }
+        public string FullName { get; set; }
         public string RoleName { get; set; }
     }
 }

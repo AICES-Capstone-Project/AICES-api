@@ -29,21 +29,22 @@ namespace BusinessObjectLayer.Services
             _configuration = configuration;
         }
 
-        public async Task<ServiceResponse> RegisterAsync(string email, string password) // Loại bỏ roleId
+        public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName) 
         {
             if (await _authRepository.EmailExistsAsync(email))
             {
+                var verificationToken = GenerateVerificationToken(email);
+                await SendVerificationEmail(email, verificationToken);
+
                 return new ServiceResponse
                 {
-                    Status = SRStatus.Duplicated,
-                    Message = "Email already exists."
+                    Status = SRStatus.Success,
+                    Message = "Registration successful. Please check your email to verify your account."
                 };
             }
-
            
             int roleId = 4;
 
-    
             if (!await _authRepository.RoleExistsAsync(roleId))
             {
                 return new ServiceResponse
@@ -62,10 +63,10 @@ namespace BusinessObjectLayer.Services
             };
 
             var addedUser = await _authRepository.AddAsync(user);
-            await _profileService.CreateDefaultProfileAsync(addedUser.UserId);
+            await _profileService.CreateDefaultProfileAsync(addedUser.UserId, fullName);
 
-            var verificationToken = GenerateVerificationToken(email);
-            await SendVerificationEmail(email, verificationToken);
+            var newVerificationToken = GenerateVerificationToken(email);
+            await SendVerificationEmail(email, newVerificationToken);
 
             return new ServiceResponse
             {
@@ -84,12 +85,6 @@ namespace BusinessObjectLayer.Services
                     Status = SRStatus.Unauthorized,
                     Message = "Invalid email, password, or account inactive."
                 };
-            }
-
-            if (user.Profile == null)
-            {
-                await _profileService.CreateDefaultProfileAsync(user.UserId);
-                user = await _authRepository.GetByEmailAsync(email);
             }
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
@@ -125,6 +120,8 @@ namespace BusinessObjectLayer.Services
                 {
                     accessToken = new JwtSecurityTokenHandler().WriteToken(token),
                     UserId = user.UserId,
+                    Email = user.Email,
+                    FullName = user.Profile?.FullName,
                     RoleName = user.Role?.RoleName
                 }
             };
@@ -167,8 +164,11 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var user = await _authRepository.GetByEmailAsync(email);
-                if (user == null || user.IsActive)
-                    return new ServiceResponse { Status = SRStatus.Error, Message = "User not found or already verified." };
+                if (user == null)
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "User not found." };
+
+                if (user.IsActive)
+                    return new ServiceResponse { Status = SRStatus.Success, Message = "Email already verified. You can now log in." };
 
                 user.IsActive = true;
                 await _authRepository.UpdateAsync(user);
@@ -226,7 +226,7 @@ namespace BusinessObjectLayer.Services
             message.Subject = "Verify Your Email";
 
             var builder = new BodyBuilder();
-            var verificationLink = $"{_configuration["AppUrl"]}/api/auth/verify-email?token={verificationToken}";
+            var verificationLink = $"{_configuration["AppUrl:ClientUrl"]}/verify-email?token={verificationToken}";
             builder.HtmlBody = $"<h1>Verify Your Account</h1><p>Please click the link below to verify your email:</p><a href='{verificationLink}'>{verificationLink}</a>";
             message.Body = builder.ToMessageBody();
 

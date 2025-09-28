@@ -9,7 +9,7 @@ namespace BusinessObjectLayer.IServices
 {
     public interface IProfileService
     {
-        Task<Profile> CreateDefaultProfileAsync(int userId);
+        Task<Profile> CreateDefaultProfileAsync(int userId, string fullName);
     }
 }
 

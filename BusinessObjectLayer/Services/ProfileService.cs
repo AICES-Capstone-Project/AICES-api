@@ -18,9 +18,13 @@ namespace BusinessObjectLayer.Services
             _profileRepository = profileRepository;
         }
 
-        public async Task<Profile> CreateDefaultProfileAsync(int userId)
+        public async Task<Profile> CreateDefaultProfileAsync(int userId, string fullName)
         {
-            var profile = new Profile { UserId = userId };
+            var profile = new Profile 
+            { 
+                UserId = userId, 
+                FullName = fullName 
+            };
             return await _profileRepository.AddAsync(profile);
         }
     }

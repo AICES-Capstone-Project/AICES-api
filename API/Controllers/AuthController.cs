@@ -21,7 +21,7 @@ namespace API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            var serviceResponse = await _authService.RegisterAsync(request.Email, request.Password); 
+            var serviceResponse = await _authService.RegisterAsync(request.Email, request.Password, request.FullName); 
             return ControllerResponse.Response(serviceResponse);
         }
 

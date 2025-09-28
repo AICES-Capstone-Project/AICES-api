@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,7 +10,20 @@ namespace Data.Models.Request
 {
     public class LoginRequest
     {
+        [Required(ErrorMessage = "Email is required.")]
+        [EmailAddress(ErrorMessage = "Invalid email format.")]
+        [MinLength(5, ErrorMessage = "Email must be at least 5 characters.")]
+        [MaxLength(255, ErrorMessage = "Email cannot exceed 255 characters.")]
+        [DefaultValue("user@example.com")]
         public string Email { get; set; }
+
+        [Required(ErrorMessage = "Password is required.")]
+        [MinLength(8, ErrorMessage = "Password must be at least 8 characters.")]
+        [MaxLength(100, ErrorMessage = "Password cannot exceed 100 characters.")]
+        [RegularExpression(
+            @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{8,}$",
+            ErrorMessage = "Password must include one uppercase, one lowercase, one number, and one special character.")]
+        [DefaultValue("Abc@12345")]
         public string Password { get; set; }
     }
 }

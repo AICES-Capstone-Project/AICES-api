@@ -11,7 +11,7 @@ namespace BusinessObjectLayer.IServices
 {
     public interface IAuthService
     {
-        Task<ServiceResponse> RegisterAsync(string email, string password); 
+        Task<ServiceResponse> RegisterAsync(string email, string password, string fullName); 
         Task<ServiceResponse> LoginAsync(string email, string password);
         Task<ServiceResponse> VerifyEmailAsync(string token);
     }
