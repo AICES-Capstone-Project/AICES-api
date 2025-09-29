@@ -49,20 +49,9 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse
                     {
                         Status = SRStatus.Success,
-                        Message = "Registration successful. Please check your email to verify your account."
+                        Message = "Email is already registered. Please check your email to verify your account."
                     };
                 }
-            }
-            if (await _authRepository.EmailExistsAsync(email))
-            {
-                var verificationToken = GenerateVerificationToken(email);
-                await SendVerificationEmail(email, verificationToken);
-
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Success,
-                    Message = "Registration successful. Please check your email to verify your account."
-                };
             }
            
             int roleId = 4;
