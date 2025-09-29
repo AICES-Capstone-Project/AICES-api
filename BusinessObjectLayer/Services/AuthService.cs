@@ -31,6 +31,28 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName) 
         {
+            var existedUser = await _authRepository.GetByEmailAsync(email);
+            if (existedUser != null)
+            {
+                if (existedUser.IsActive)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Duplicated,
+                        Message = "Email is already registered and verified."
+                    };
+                }
+                else
+                {
+                    var verificationToken = GenerateVerificationToken(email);
+                    await SendVerificationEmail(email, verificationToken);
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Registration successful. Please check your email to verify your account."
+                    };
+                }
+            }
             if (await _authRepository.EmailExistsAsync(email))
             {
                 var verificationToken = GenerateVerificationToken(email);
