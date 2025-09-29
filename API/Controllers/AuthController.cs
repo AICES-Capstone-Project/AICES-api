@@ -39,5 +39,12 @@ namespace API.Controllers
             var serviceResponse = await _authService.VerifyEmailAsync(token);
             return ControllerResponse.Response(serviceResponse);
         }
+
+        [HttpPost("google")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+        {
+            var serviceResponse = await _authService.GoogleLoginAsync(request.IdToken);
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }

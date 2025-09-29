@@ -1,5 +1,6 @@
 ﻿using Data.Entities;
 using DataAccessLayer.IRepositories;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,6 +25,17 @@ namespace DataAccessLayer.Repositories
             _context.Profiles.Add(profile);
             await _context.SaveChangesAsync();
             return profile;
+        }
+
+        public async Task<Profile> GetByUserIdAsync(int userId)
+        {
+            return await _context.Profiles.FirstOrDefaultAsync(p => p.UserId == userId);
+        }
+
+        public async Task UpdateAsync(Profile profile)
+        {
+            _context.Profiles.Update(profile);
+            await _context.SaveChangesAsync();
         }
     }
 }

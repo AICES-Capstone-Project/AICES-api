@@ -1,18 +1,20 @@
 ﻿using BCrypt.Net;
-using Data.Entities;
-using DataAccessLayer.IRepositories;
 using BusinessObjectLayer.IServices;
+using Data.Entities;
+using Data.Enum;
+using Data.Models.Response;
+using DataAccessLayer.IRepositories;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using MimeKit;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
+using Google.Apis.Auth;
 using System.Threading.Tasks;
-using Data.Models.Response;
-using Data.Enum;
-using MailKit.Net.Smtp;
-using MimeKit;
-using MailKit.Security;
 
 namespace BusinessObjectLayer.Services
 {
@@ -113,7 +115,7 @@ namespace BusinessObjectLayer.Services
                 new Claim("avatarUrl", user.Profile?.AvatarUrl ?? ""),
                 new Claim("exp", new DateTimeOffset(DateTime.UtcNow.AddMinutes(300)).ToUnixTimeSeconds().ToString()),
                 new Claim("iss", _configuration["JwtConfig:Issuer"] ?? "AICES"),
-                new Claim("aud", _configuration["JwtConfig:Audience"] ?? "AICESApp")
+                new Claim("aud", _configuration["JwtConfig:Issuer"] ?? "AICESApp")
             };
 
             var token = new JwtSecurityToken(
@@ -246,6 +248,102 @@ namespace BusinessObjectLayer.Services
             await client.AuthenticateAsync(emailConfig["Username"], emailConfig["Password"]);
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
+        }
+
+        public async Task<ServiceResponse> GoogleLoginAsync(string idToken)
+        {
+            try
+            {
+                // 1. Validate ID token with Google (secure way)
+                var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, new GoogleJsonWebSignature.ValidationSettings());
+
+                if (!payload.EmailVerified)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Google email not verified."
+                    };
+                }
+
+                // 2. Check if user exists by ProviderId or Email
+                var user = await _authRepository.GetByEmailAsync(payload.Email);
+
+                if (user == null)
+                {
+                    // Create new user
+                    user = new User
+                    {
+                        Email = payload.Email,
+                        AuthProvider = "Google",
+                        ProviderId = payload.Subject,
+                        RoleId = 4, // default role
+                        IsActive = true
+                    };
+
+                    user = await _authRepository.AddAsync(user);
+
+                    // Create profile with Google name & avatar
+                    await _profileService.CreateDefaultProfileAsync(user.UserId, payload.Name, payload.Picture);
+                }
+
+                // 3. Build claims
+                var claims = new[]
+                {
+                    new Claim("email", user.Email),
+                    new Claim("userId", user.UserId.ToString()),
+                    new Claim("role", user.Role?.RoleName ?? "User"),
+                    new Claim("provider", user.AuthProvider ?? "Local"),
+                    new Claim("providerId", user.ProviderId ?? "")
+                };
+
+                // 4. Generate JWT
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
+                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+                var token = new JwtSecurityToken(
+                    issuer: _configuration["JwtConfig:Issuer"],
+                    audience: _configuration["JwtConfig:Audience"],
+                    claims: claims,
+                    expires: DateTime.UtcNow.AddMinutes(300),
+                    signingCredentials: creds
+                );
+
+                var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+
+                // 5. Return success response
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Google login successful",
+                    Data = new AuthResponse
+                    {
+                        accessToken = jwt,
+                        UserId = user.UserId,
+                        Email = user.Email,
+                        AvatarUrl = user.Profile?.AvatarUrl ?? payload.Picture,
+                        FullName = user.Profile?.FullName ?? payload.Name,
+                        RoleName = user.Role?.RoleName ?? "User"
+                    }
+                };
+            }
+            catch (InvalidJwtException)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "Invalid Google ID token."
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Google login error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred during Google login."
+                };
+            }
         }
     }
 }

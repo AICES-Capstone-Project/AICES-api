@@ -14,6 +14,6 @@ namespace DataAccessLayer.IRepositories
         Task<bool> EmailExistsAsync(string email);
         Task UpdateAsync(User user);
         Task<bool> RoleExistsAsync(int roleId);
-
+        Task<User> GetByProviderAsync(string provider, string providerId);
     }
 }

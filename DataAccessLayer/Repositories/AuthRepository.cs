@@ -49,5 +49,13 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Roles.AnyAsync(r => r.RoleId == roleId);
         }
+
+        public async Task<User> GetByProviderAsync(string provider, string providerId)
+        {
+            return await _context.Users
+                .Include(u => u.Role)
+                .Include(u => u.Profile)
+                .FirstOrDefaultAsync(u => u.AuthProvider == provider && u.ProviderId == providerId);
+        }
     }
 }

@@ -26,4 +26,10 @@ namespace Data.Models.Request
         [DefaultValue("Abc@12345")]
         public string Password { get; set; }
     }
+
+    public class GoogleLoginRequest
+    {
+        [Required(ErrorMessage = "Google Access Token is required.")]
+        public string IdToken { get; set; }
+    }
 }
