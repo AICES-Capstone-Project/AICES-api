@@ -102,6 +102,8 @@ namespace BusinessObjectLayer.Services
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var issuer = _configuration.GetSection("JwtConfig:Issuers").Get<string[]>()[0];
+            var audience = _configuration.GetSection("JwtConfig:Audiences").Get<string[]>()[0];
 
             var claims = new[]
             {
@@ -113,14 +115,13 @@ namespace BusinessObjectLayer.Services
                 new Claim("address", user.Profile?.Address ?? ""),
                 new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? ""),
                 new Claim("avatarUrl", user.Profile?.AvatarUrl ?? ""),
-                new Claim("exp", new DateTimeOffset(DateTime.UtcNow.AddMinutes(300)).ToUnixTimeSeconds().ToString()),
-                new Claim("iss", _configuration["JwtConfig:Issuer"] ?? "AICES"),
-                new Claim("aud", _configuration["JwtConfig:Issuer"] ?? "AICESApp")
+                new Claim("iss", issuer),
+                new Claim("aud", audience)
             };
 
             var token = new JwtSecurityToken(
-                issuer: _configuration["JwtConfig:Issuer"],
-                audience: _configuration["JwtConfig:Audience"],
+                issuer: _configuration["JwtConfig:Issuers"],
+                audience: _configuration["JwtConfig:Audiences"],
                 claims: claims,
                 expires: DateTime.UtcNow.AddMinutes(300),
                 signingCredentials: creds);
@@ -131,13 +132,10 @@ namespace BusinessObjectLayer.Services
                 Message = "Login successful",
                 Data = new AuthResponse
                 {
-                    accessToken = new JwtSecurityTokenHandler().WriteToken(token),
-                    UserId = user.UserId,
-                    Email = user.Email,
-                    FullName = user.Profile?.FullName,
-                    RoleName = user.Role?.RoleName
+                    AccessToken = new JwtSecurityTokenHandler().WriteToken(token)
                 }
             };
+
         }
 
         public async Task<ServiceResponse> VerifyEmailAsync(string token)
@@ -300,10 +298,12 @@ namespace BusinessObjectLayer.Services
                 // 4. Generate JWT
                 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
                 var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+                var issuer = _configuration.GetSection("JwtConfig:Issuers").Get<string[]>()[0];
+                var audience = _configuration.GetSection("JwtConfig:Audiences").Get<string[]>()[0];
 
                 var token = new JwtSecurityToken(
-                    issuer: _configuration["JwtConfig:Issuer"],
-                    audience: _configuration["JwtConfig:Audience"],
+                    issuer: issuer,
+                    audience: audience,
                     claims: claims,
                     expires: DateTime.UtcNow.AddMinutes(300),
                     signingCredentials: creds
@@ -318,12 +318,7 @@ namespace BusinessObjectLayer.Services
                     Message = "Google login successful",
                     Data = new AuthResponse
                     {
-                        accessToken = jwt,
-                        UserId = user.UserId,
-                        Email = user.Email,
-                        AvatarUrl = user.Profile?.AvatarUrl ?? payload.Picture,
-                        FullName = user.Profile?.FullName ?? payload.Name,
-                        RoleName = user.Role?.RoleName ?? "User"
+                        AccessToken = jwt
                     }
                 };
             }
@@ -342,6 +337,57 @@ namespace BusinessObjectLayer.Services
                 {
                     Status = SRStatus.Error,
                     Message = "An error occurred during Google login."
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> GetCurrentUserInfoAsync(ClaimsPrincipal userClaims)
+        {
+            var emailClaim = userClaims.FindFirst(ClaimTypes.Email)?.Value
+                 ?? userClaims.FindFirst("email")?.Value;
+            if (string.IsNullOrEmpty(emailClaim))
+            {
+                throw new UnauthorizedAccessException("Email claim not found in token.");
+            }
+
+            var user = await _authRepository.GetByEmailAsync(emailClaim);
+            if (user == null)
+            {
+                throw new UnauthorizedAccessException("User not found.");
+            }
+
+            try
+            {
+                //var user = await GetCurrentUserAsync(userClaims);
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "User information retrieved successfully",
+                    Data = new UserResponse
+                    {
+                        UserId = user.UserId,
+                        Email = user.Email,
+                        FullName = user.Profile?.FullName,
+                        RoleName = user.Role?.RoleName,
+                        AvatarUrl = user.Profile?.AvatarUrl,
+                        IsActive = user.IsActive    
+                    }
+                };
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = ex.Message
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving user information."
                 };
             }
         }

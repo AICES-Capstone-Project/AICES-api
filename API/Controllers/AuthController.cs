@@ -1,9 +1,10 @@
-﻿using BusinessObjectLayer.IServices;
-using Data.Models.Response;
+﻿using API.Common;
+using BusinessObjectLayer.IServices;
 using Data.Models.Request;
+using Data.Models.Response;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using API.Common;
 
 namespace API.Controllers
 {
@@ -44,6 +45,14 @@ namespace API.Controllers
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
         {
             var serviceResponse = await _authService.GoogleLoginAsync(request.IdToken);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> GetMe()
+        {
+            var serviceResponse = await _authService.GetCurrentUserInfoAsync(User);
             return ControllerResponse.Response(serviceResponse);
         }
     }
