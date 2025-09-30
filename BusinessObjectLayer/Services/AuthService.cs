@@ -15,6 +15,7 @@ using System.Text;
 using System.Text.Json;
 using Google.Apis.Auth;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace BusinessObjectLayer.Services
 {
@@ -23,12 +24,14 @@ namespace BusinessObjectLayer.Services
         private readonly IAuthRepository _authRepository;
         private readonly IProfileService _profileService;
         private readonly IConfiguration _configuration;
+        private readonly IMemoryCache _cache;
 
-        public AuthService(IAuthRepository authRepository, IProfileService profileService, IConfiguration configuration)
+        public AuthService(IAuthRepository authRepository, IProfileService profileService, IConfiguration configuration, IMemoryCache cache)
         {
             _authRepository = authRepository;
             _profileService = profileService;
             _configuration = configuration;
+            _cache = cache;
         }
 
         public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName) 
@@ -345,5 +348,89 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> RequestPasswordResetAsync(string email)
+        {
+            var user = await _authRepository.GetByEmailAsync(email);
+            if (user == null || !user.IsActive)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "User not found or account inactive."
+                };
+            }
+
+            var otp = GenerateOtp();
+            _cache.Set($"otp_{email}", otp, TimeSpan.FromMinutes(_configuration.GetValue<int>("OtpConfig:ExpiryMinutes"))); // Lưu OTP trong cache
+
+            await SendOtpEmail(email, otp);
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "OTP has been sent to your email."
+            };
+        }
+
+        public async Task<ServiceResponse> VerifyOtpAndResetPasswordAsync(string email, string otp, string newPassword)
+        {
+            if (!_cache.TryGetValue($"otp_{email}", out string storedOtp) || storedOtp != otp)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "Invalid or expired OTP."
+                };
+            }
+
+            var user = await _authRepository.GetByEmailAsync(email);
+            if (user == null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "User not found."
+                };
+            }
+
+            user.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            await _authRepository.UpdateAsync(user);
+            _cache.Remove($"otp_{email}"); // Xóa OTP sau khi sử dụng
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "Password has been reset successfully."
+            };
+        }
+
+        private string GenerateOtp()
+        {
+            var random = new Random();
+            var otp = new string(Enumerable.Repeat("0123456789", 6).Select(s => s[random.Next(s.Length)]).ToArray());
+            return otp;
+        }
+
+        private async Task SendOtpEmail(string email, string otp)
+        {
+            var emailConfig = _configuration.GetSection("EmailConfig");
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress("AICES", emailConfig["From"]));
+            message.To.Add(new MailboxAddress("", email));
+            message.Subject = "Your OTP Code for Password Reset";
+
+            var builder = new BodyBuilder();
+            builder.HtmlBody = $"<h1>Password Reset OTP</h1><p>Your OTP code is: <strong>{otp}</strong><p>This code expires in 2 minutes.</p>";
+            message.Body = builder.ToMessageBody();
+
+            using var client = new SmtpClient();
+            await client.ConnectAsync(emailConfig["SmtpServer"], int.Parse(emailConfig["SmtpPort"]), SecureSocketOptions.StartTls);
+            await client.AuthenticateAsync(emailConfig["Username"], emailConfig["Password"]);
+            await client.SendAsync(message);
+            await client.DisconnectAsync(true);
+        }
+
+
     }
 }

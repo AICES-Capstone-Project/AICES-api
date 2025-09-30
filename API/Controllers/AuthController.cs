@@ -46,5 +46,19 @@ namespace API.Controllers
             var serviceResponse = await _authService.GoogleLoginAsync(request.IdToken);
             return ControllerResponse.Response(serviceResponse);
         }
+
+        [HttpPost("request-password-reset")]
+        public async Task<IActionResult> RequestPasswordReset([FromBody] PasswordResetRequest request)
+        {
+            var serviceResponse = await _authService.RequestPasswordResetAsync(request.Email);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            var serviceResponse = await _authService.VerifyOtpAndResetPasswordAsync(request.Email, request.Otp, request.NewPassword);
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
