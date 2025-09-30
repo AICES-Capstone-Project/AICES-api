@@ -16,6 +16,8 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> LoginAsync(string email, string password);
         Task<ServiceResponse> VerifyEmailAsync(string token);
         Task<ServiceResponse> GoogleLoginAsync(string googleToken);
+        Task<ServiceResponse> RequestPasswordResetAsync(string email); 
+        Task<ServiceResponse> VerifyOtpAndResetPasswordAsync(string email, string otp, string newPassword); 
         Task<ServiceResponse> GetCurrentUserInfoAsync(ClaimsPrincipal userClaims);
     }
 }

@@ -15,6 +15,7 @@ using System.Text;
 using System.Text.Json;
 using Google.Apis.Auth;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace BusinessObjectLayer.Services
 {
@@ -23,12 +24,14 @@ namespace BusinessObjectLayer.Services
         private readonly IAuthRepository _authRepository;
         private readonly IProfileService _profileService;
         private readonly IConfiguration _configuration;
+        private readonly IMemoryCache _cache;
 
-        public AuthService(IAuthRepository authRepository, IProfileService profileService, IConfiguration configuration)
+        public AuthService(IAuthRepository authRepository, IProfileService profileService, IConfiguration configuration, IMemoryCache cache)
         {
             _authRepository = authRepository;
             _profileService = profileService;
             _configuration = configuration;
+            _cache = cache;
         }
 
         public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName) 

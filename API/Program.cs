@@ -36,11 +36,14 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<AICESDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnectionString")));
 
+builder.Services.AddMemoryCache();
+
 // Register Repositories and Services
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
+
 
 // Configure Authentication (JWT)
 builder.Services.AddAuthentication(options =>

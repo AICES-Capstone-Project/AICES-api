@@ -48,6 +48,20 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
+        [HttpPost("request-password-reset")]
+        public async Task<IActionResult> RequestPasswordReset([FromBody] PasswordResetRequest request)
+        {
+            var serviceResponse = await _authService.RequestPasswordResetAsync(request.Email);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            var serviceResponse = await _authService.VerifyOtpAndResetPasswordAsync(request.Email, request.Otp, request.NewPassword);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
         [HttpGet("me")]
         [Authorize]
         public async Task<IActionResult> GetMe()
