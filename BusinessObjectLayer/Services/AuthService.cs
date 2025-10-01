@@ -75,6 +75,7 @@ namespace BusinessObjectLayer.Services
                 Email = email,
                 Password = BCrypt.Net.BCrypt.HashPassword(password),
                 RoleId = roleId,
+                AuthProvider = "Local",
                 IsActive = false
             };
 
@@ -113,18 +114,17 @@ namespace BusinessObjectLayer.Services
                 new Claim("email", user.Email),
                 new Claim("userId", user.UserId.ToString()),
                 new Claim("role", user.Role?.RoleName ?? "Unknown"),
+                new Claim("provider", user.AuthProvider ?? "Local"),
                 new Claim("fullName", user.Profile?.FullName ?? ""),
                 new Claim("phoneNumber", user.Profile?.PhoneNumber ?? ""),
                 new Claim("address", user.Profile?.Address ?? ""),
                 new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? ""),
                 new Claim("avatarUrl", user.Profile?.AvatarUrl ?? ""),
-                new Claim("iss", issuer),
-                new Claim("aud", audience)
             };
 
             var token = new JwtSecurityToken(
-                issuer: _configuration["JwtConfig:Issuers"],
-                audience: _configuration["JwtConfig:Audiences"],
+                issuer: issuer,      
+                audience: audience,  
                 claims: claims,
                 expires: DateTime.UtcNow.AddMinutes(300),
                 signingCredentials: creds);
@@ -267,18 +267,22 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                var adminEmail = _configuration["EmailConfig:Username"];
+
                 // 2. Check if user exists by ProviderId or Email
                 var user = await _authRepository.GetByEmailAsync(payload.Email);
 
                 if (user == null)
                 {
+                    int roleId = payload.Email == adminEmail ? 1 : 4;
+
                     // Create new user
                     user = new User
                     {
                         Email = payload.Email,
                         AuthProvider = "Google",
                         ProviderId = payload.Subject,
-                        RoleId = 4, // default role
+                        RoleId = roleId, 
                         IsActive = true
                     };
 
@@ -287,15 +291,29 @@ namespace BusinessObjectLayer.Services
                     // Create profile with Google name & avatar
                     await _profileService.CreateDefaultProfileAsync(user.UserId, payload.Name, payload.Picture);
                 }
+                else
+                {
+                    // Nếu đã tồn tại user nhưng là admin email thì ép role về 1
+                    if (payload.Email == adminEmail && user.RoleId != 1)
+                    {
+                        user.RoleId = 1;
+                        await _authRepository.UpdateAsync(user);
+                    }
+                }
 
                 // 3. Build claims
                 var claims = new[]
                 {
                     new Claim("email", user.Email),
                     new Claim("userId", user.UserId.ToString()),
-                    new Claim("role", user.Role?.RoleName ?? "User"),
-                    new Claim("provider", user.AuthProvider ?? "Local"),
-                    new Claim("providerId", user.ProviderId ?? "")
+                    new Claim("role", user.Role?.RoleName ?? "Candidate"),
+                    new Claim("provider", user.AuthProvider ?? "Google"),
+                    new Claim("providerId", user.ProviderId ?? ""),
+                    new Claim("phoneNumber", user.Profile?.PhoneNumber ?? ""),
+                    new Claim("address", user.Profile?.Address ?? ""),
+                    new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? ""),
+                    new Claim("avatarUrl", user.Profile?.AvatarUrl ?? ""),
+
                 };
 
                 // 4. Generate JWT
