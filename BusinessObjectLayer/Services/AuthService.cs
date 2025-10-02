@@ -379,94 +379,6 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> RequestPasswordResetAsync(string email)
-        {
-            var user = await _authRepository.GetByEmailAsync(email);
-            if (user == null || !user.IsActive)
-            {
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "User not found or account inactive."
-                };
-            }
-
-            var otp = GenerateOtp();
-            var otpExpiryMins = int.Parse(Environment.GetEnvironmentVariable("OTPCONFIG__EXPIRYMINUTES") ?? "2");
-            _cache.Set($"otp_{email}", otp, TimeSpan.FromMinutes(otpExpiryMins)); // Lưu OTP trong cache
-
-            await SendOtpEmail(email, otp);
-
-            return new ServiceResponse
-            {
-                Status = SRStatus.Success,
-                Message = "OTP has been sent to your email."
-            };
-        }
-
-        public async Task<ServiceResponse> VerifyOtpAndResetPasswordAsync(string email, string otp, string newPassword)
-        {
-            if (!_cache.TryGetValue($"otp_{email}", out string storedOtp) || storedOtp != otp)
-            {
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "Invalid or expired OTP."
-                };
-            }
-
-            var user = await _authRepository.GetByEmailAsync(email);
-            if (user == null)
-            {
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "User not found."
-                };
-            }
-
-            user.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
-            await _authRepository.UpdateAsync(user);
-            _cache.Remove($"otp_{email}"); // Xóa OTP sau khi sử dụng
-
-            return new ServiceResponse
-            {
-                Status = SRStatus.Success,
-                Message = "Password has been reset successfully."
-            };
-        }
-
-        private string GenerateOtp()
-        {
-            var random = new Random();
-            var otp = new string(Enumerable.Repeat("0123456789", 6).Select(s => s[random.Next(s.Length)]).ToArray());
-            return otp;
-        }
-
-        private async Task SendOtpEmail(string email, string otp)
-        {
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress("AICES", Environment.GetEnvironmentVariable("EMAILCONFIG__FROM")));
-            message.To.Add(new MailboxAddress("", email));
-            message.Subject = "Your OTP Code for Password Reset";
-
-            var builder = new BodyBuilder();
-            var otpExpiryMins = Environment.GetEnvironmentVariable("OTPCONFIG__EXPIRYMINUTES") ?? "2";
-            builder.HtmlBody = $"<h1>Password Reset OTP</h1><p>Your OTP code is: <strong>{otp}</strong><p>This code expires in {otpExpiryMins} minutes.</p>";
-            message.Body = builder.ToMessageBody();
-
-            using var client = new SmtpClient();
-            await client.ConnectAsync(
-                Environment.GetEnvironmentVariable("EMAILCONFIG__SMTPSERVER"), 
-                int.Parse(Environment.GetEnvironmentVariable("EMAILCONFIG__SMTPPORT") ?? "587"), 
-                SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(
-                Environment.GetEnvironmentVariable("EMAILCONFIG__USERNAME"), 
-                Environment.GetEnvironmentVariable("EMAILCONFIG__PASSWORD"));
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
-        }
-
         public async Task<ServiceResponse> GetCurrentUserInfoAsync(ClaimsPrincipal userClaims)
         {
             var emailClaim = userClaims.FindFirst(ClaimTypes.Email)?.Value
@@ -513,9 +425,123 @@ namespace BusinessObjectLayer.Services
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
-                    Message = ex.Message
+                    Message = "An error occurred while retrieving user information."
                 };
             }
+        }
+
+        public async Task<ServiceResponse> RequestPasswordResetAsync(string email)
+        {
+            var user = await _authRepository.GetByEmailAsync(email);
+            if (user == null || !user.IsActive)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "User not found or account inactive."
+                };
+            }
+
+            var resetToken = GenerateResetToken(user.Email);
+            await SendResetEmail(email, resetToken);
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "Password reset link has been sent to your email."
+            };
+        }
+
+        public async Task<ServiceResponse> ResetPasswordAsync(string token, string newPassword)
+        {
+            try
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
+                var validationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = key,
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero
+                };
+
+                var principal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
+                var email = principal.FindFirst(ClaimTypes.Email)?.Value;
+
+                if (string.IsNullOrEmpty(email))
+                {
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "Invalid reset token." };
+                }
+
+                var user = await _authRepository.GetByEmailAsync(email);
+                if (user == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "User not found." };
+                }
+
+                user.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
+                await _authRepository.UpdateAsync(user);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Password has been reset successfully."
+                };
+            }
+            catch (SecurityTokenExpiredException)
+            {
+                return new ServiceResponse { Status = SRStatus.Error, Message = "Reset token has expired." };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Reset password error: {ex.Message}");
+                return new ServiceResponse { Status = SRStatus.Error, Message = "Invalid or expired reset token." };
+            }
+        }
+
+        private string GenerateResetToken(string email)
+        {
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim("email", email)
+            };
+
+            var token = new JwtSecurityToken(
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(15), // Token hết hạn sau 15 phút
+                signingCredentials: creds);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private async Task SendResetEmail(string email, string resetToken)
+        {
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress("AICES", Environment.GetEnvironmentVariable("EMAILCONFIG__FROM")));
+            message.To.Add(new MailboxAddress("", email));
+            message.Subject = "Reset Your Password";
+
+            var builder = new BodyBuilder();
+            var resetLink = $"{_configuration["AppUrl:ClientUrl"]}/reset-password?token={resetToken}";
+            builder.HtmlBody = $"<h1>Reset Your Password</h1><p>Please click the link below to reset your password:</p><a href='{resetLink}'>{resetLink}</a><p>This link will expire in 15 minutes.</p>";
+            message.Body = builder.ToMessageBody();
+
+            using var client = new SmtpClient();
+            await client.ConnectAsync(
+                Environment.GetEnvironmentVariable("EMAILCONFIG__SMTPSERVER"), 
+                int.Parse(Environment.GetEnvironmentVariable("EMAILCONFIG__SMTPPORT") ?? "587"), 
+                SecureSocketOptions.StartTls);
+            await client.AuthenticateAsync(
+                Environment.GetEnvironmentVariable("EMAILCONFIG__USERNAME"), 
+                Environment.GetEnvironmentVariable("EMAILCONFIG__PASSWORD"));
+            await client.SendAsync(message);
+            await client.DisconnectAsync(true);
         }
     }
 }

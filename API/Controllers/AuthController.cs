@@ -58,7 +58,7 @@ namespace API.Controllers
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
         {
-            var serviceResponse = await _authService.VerifyOtpAndResetPasswordAsync(request.Email, request.Otp, request.NewPassword);
+            var serviceResponse = await _authService.ResetPasswordAsync(request.Token, request.NewPassword);
             return ControllerResponse.Response(serviceResponse);
         }
 
