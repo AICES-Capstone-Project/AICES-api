@@ -8,8 +8,29 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using System.Text;
+using DotNetEnv;
+
+
+// Load .env from the solution root (parent directory)
+var envPath = Path.Combine(Directory.GetCurrentDirectory(), "..", ".env");
+if (File.Exists(envPath))
+{
+    Env.Load(envPath);
+    Console.WriteLine($".env file loaded from: {envPath}");
+}
+else
+{
+    Console.WriteLine($".env file not found at: {envPath}");
+}
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Explicitly add environment variables to configuration
+builder.Configuration.AddEnvironmentVariables();
+
+// Debug: Check both System.Environment and Configuration
+var jwtKeyFromEnv = Environment.GetEnvironmentVariable("JWTCONFIG__KEY");
+
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -19,10 +40,11 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new() { Title = "AICES API", Version = "v1" });
     c.AddSecurityDefinition("Bearer", new()
     {
-        Name = "Authorization",
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\""
+        Description = "Enter your JWT token (without 'Bearer' prefix)"
     });
     c.AddSecurityRequirement(new()
     {
@@ -34,7 +56,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.AddDbContext<AICESDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnectionString")));
+    options.UseSqlServer(Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__DEFAULTCONNECTIONSTRING")));
 
 builder.Services.AddMemoryCache();
 
@@ -61,9 +83,15 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuers = builder.Configuration.GetSection("JwtConfig:Issuers").Get<string[]>(),
-        ValidAudiences = builder.Configuration.GetSection("JwtConfig:Audiences").Get<string[]>(),
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtConfig:Key"]!)),
+        ValidIssuers = new[] { Environment.GetEnvironmentVariable("JWTCONFIG__ISSUERS__0") },
+        ValidAudiences = new[] { 
+            Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__0"), 
+            Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__1") 
+        },
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")!)
+        ),
+
         ClockSkew = TimeSpan.Zero
     };
 });
@@ -71,7 +99,7 @@ builder.Services.AddAuthentication(options =>
 // Configure CORS
 builder.Services.AddCors(p => p.AddPolicy("Cors", policy =>
 {
-    policy.WithOrigins("https://aices.com", "http://localhost:5173")
+    policy.WithOrigins("https://localhost:7220/", "http://localhost:5173")
           .AllowAnyHeader()
           .AllowAnyMethod()
           .AllowCredentials();
@@ -86,7 +114,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "AICES API v1");
-        c.RoutePrefix = string.Empty; // ??t Swagger ? root[](http://localhost:7220/)
+        c.RoutePrefix = string.Empty; // ??t Swagger ? root[](https://localhost:7220/)
     });
 }
 

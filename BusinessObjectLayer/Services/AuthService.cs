@@ -104,16 +104,17 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var issuer = _configuration.GetSection("JwtConfig:Issuers").Get<string[]>()[0];
-            var audience = _configuration.GetSection("JwtConfig:Audiences").Get<string[]>()[0];
+            var issuer = Environment.GetEnvironmentVariable("JWTCONFIG__ISSUERS__0");
+            var audience = Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__0");
+            var expiryMins = int.Parse(Environment.GetEnvironmentVariable("JWTCONFIG__TOKENVALIDITYMINS") ?? "300");
 
             var claims = new[]
             {
-                new Claim("email", user.Email),
-                new Claim("userId", user.UserId.ToString()),
-                new Claim("role", user.Role?.RoleName ?? "Unknown"),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+                new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "Candidate"),
                 new Claim("provider", user.AuthProvider ?? "Local"),
                 new Claim("fullName", user.Profile?.FullName ?? ""),
                 new Claim("phoneNumber", user.Profile?.PhoneNumber ?? ""),
@@ -126,8 +127,9 @@ namespace BusinessObjectLayer.Services
                 issuer: issuer,      
                 audience: audience,  
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(300),
-                signingCredentials: creds);
+                expires: DateTime.UtcNow.AddMinutes(expiryMins),
+                signingCredentials: creds
+            );
 
             return new ServiceResponse
             {
@@ -149,7 +151,7 @@ namespace BusinessObjectLayer.Services
                 Console.WriteLine($"Received token length: {token?.Length ?? 0}");
 
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")));
                 var validationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
@@ -215,12 +217,12 @@ namespace BusinessObjectLayer.Services
 
         private string GenerateVerificationToken(string email)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var claims = new[]
             {
-                new Claim("email", email)
+                new Claim(ClaimTypes.Email, email)
             };
 
             var token = new JwtSecurityToken(
@@ -233,20 +235,29 @@ namespace BusinessObjectLayer.Services
 
         private async Task SendVerificationEmail(string email, string verificationToken)
         {
-            var emailConfig = _configuration.GetSection("EmailConfig");
             var message = new MimeMessage();
-            message.From.Add(new MailboxAddress("AICES", emailConfig["From"]));
+            message.From.Add(new MailboxAddress("AICES", Environment.GetEnvironmentVariable("EMAILCONFIG__FROM")));
             message.To.Add(new MailboxAddress("", email));
             message.Subject = "Verify Your Email";
 
             var builder = new BodyBuilder();
-            var verificationLink = $"{_configuration["AppUrl:ClientUrl"]}/verify-email?token={verificationToken}";
-            builder.HtmlBody = $"<h1>Verify Your Account</h1><p>Please click the link below to verify your email:</p><a href='{verificationLink}'>{verificationLink}</a>";
+            var verificationLink = $"{Environment.GetEnvironmentVariable("APPURL__CLIENTURL")}/verify-email?token={verificationToken}";
+            builder.HtmlBody = $@"
+                <h1>Verify Your Account</h1>
+                <p>Please click the link below to verify your email:</p>
+                <a href='{verificationLink}'>{verificationLink}</a>";
+
             message.Body = builder.ToMessageBody();
 
             using var client = new SmtpClient();
-            await client.ConnectAsync(emailConfig["SmtpServer"], int.Parse(emailConfig["SmtpPort"]), SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(emailConfig["Username"], emailConfig["Password"]);
+            await client.ConnectAsync(
+                Environment.GetEnvironmentVariable("EMAILCONFIG__SMTPSERVER"),
+                int.Parse(Environment.GetEnvironmentVariable("EMAILCONFIG__SMTPPORT") ?? "587"),
+                SecureSocketOptions.StartTls);
+
+            await client.AuthenticateAsync(
+                Environment.GetEnvironmentVariable("EMAILCONFIG__USERNAME"),
+                Environment.GetEnvironmentVariable("EMAILCONFIG__PASSWORD"));
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
         }
@@ -267,9 +278,10 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var adminEmail = _configuration["EmailConfig:Username"];
+                var adminEmail = Environment.GetEnvironmentVariable("EMAILCONFIG__USERNAME");
 
                 // 2. Check if user exists by ProviderId or Email
+                // TODO: CheckProviderId
                 var user = await _authRepository.GetByEmailAsync(payload.Email);
 
                 if (user == null)
@@ -304,9 +316,10 @@ namespace BusinessObjectLayer.Services
                 // 3. Build claims
                 var claims = new[]
                 {
-                    new Claim("email", user.Email),
-                    new Claim("userId", user.UserId.ToString()),
-                    new Claim("role", user.Role?.RoleName ?? "Candidate"),
+                    new Claim(ClaimTypes.Email, user.Email),
+                    new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+                    new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "Candidate"),
+                    new Claim("fullName", user.Profile?.FullName ?? ""),
                     new Claim("provider", user.AuthProvider ?? "Google"),
                     new Claim("providerId", user.ProviderId ?? ""),
                     new Claim("phoneNumber", user.Profile?.PhoneNumber ?? ""),
@@ -317,16 +330,20 @@ namespace BusinessObjectLayer.Services
                 };
 
                 // 4. Generate JWT
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
+                var key = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")));
+
                 var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-                var issuer = _configuration.GetSection("JwtConfig:Issuers").Get<string[]>()[0];
-                var audience = _configuration.GetSection("JwtConfig:Audiences").Get<string[]>()[0];
+
+                var issuer = Environment.GetEnvironmentVariable("JWTCONFIG__ISSUERS__0");
+                var audience = Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__0");
+                var tokenValidity = int.Parse(Environment.GetEnvironmentVariable("JWTCONFIG__TOKENVALIDITYMINS") ?? "300");
 
                 var token = new JwtSecurityToken(
                     issuer: issuer,
                     audience: audience,
                     claims: claims,
-                    expires: DateTime.UtcNow.AddMinutes(300),
+                    expires: DateTime.UtcNow.AddMinutes(tokenValidity),
                     signingCredentials: creds
                 );
 
@@ -375,7 +392,8 @@ namespace BusinessObjectLayer.Services
             }
 
             var otp = GenerateOtp();
-            _cache.Set($"otp_{email}", otp, TimeSpan.FromMinutes(_configuration.GetValue<int>("OtpConfig:ExpiryMinutes"))); // Lưu OTP trong cache
+            var otpExpiryMins = int.Parse(Environment.GetEnvironmentVariable("OTPCONFIG__EXPIRYMINUTES") ?? "2");
+            _cache.Set($"otp_{email}", otp, TimeSpan.FromMinutes(otpExpiryMins)); // Lưu OTP trong cache
 
             await SendOtpEmail(email, otp);
 
@@ -427,19 +445,24 @@ namespace BusinessObjectLayer.Services
 
         private async Task SendOtpEmail(string email, string otp)
         {
-            var emailConfig = _configuration.GetSection("EmailConfig");
             var message = new MimeMessage();
-            message.From.Add(new MailboxAddress("AICES", emailConfig["From"]));
+            message.From.Add(new MailboxAddress("AICES", Environment.GetEnvironmentVariable("EMAILCONFIG__FROM")));
             message.To.Add(new MailboxAddress("", email));
             message.Subject = "Your OTP Code for Password Reset";
 
             var builder = new BodyBuilder();
-            builder.HtmlBody = $"<h1>Password Reset OTP</h1><p>Your OTP code is: <strong>{otp}</strong><p>This code expires in 2 minutes.</p>";
+            var otpExpiryMins = Environment.GetEnvironmentVariable("OTPCONFIG__EXPIRYMINUTES") ?? "2";
+            builder.HtmlBody = $"<h1>Password Reset OTP</h1><p>Your OTP code is: <strong>{otp}</strong><p>This code expires in {otpExpiryMins} minutes.</p>";
             message.Body = builder.ToMessageBody();
 
             using var client = new SmtpClient();
-            await client.ConnectAsync(emailConfig["SmtpServer"], int.Parse(emailConfig["SmtpPort"]), SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(emailConfig["Username"], emailConfig["Password"]);
+            await client.ConnectAsync(
+                Environment.GetEnvironmentVariable("EMAILCONFIG__SMTPSERVER"), 
+                int.Parse(Environment.GetEnvironmentVariable("EMAILCONFIG__SMTPPORT") ?? "587"), 
+                SecureSocketOptions.StartTls);
+            await client.AuthenticateAsync(
+                Environment.GetEnvironmentVariable("EMAILCONFIG__USERNAME"), 
+                Environment.GetEnvironmentVariable("EMAILCONFIG__PASSWORD"));
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
         }
@@ -490,7 +513,7 @@ namespace BusinessObjectLayer.Services
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
-                    Message = "An error occurred while retrieving user information."
+                    Message = ex.Message
                 };
             }
         }
