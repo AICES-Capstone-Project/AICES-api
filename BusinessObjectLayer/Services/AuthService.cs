@@ -34,6 +34,16 @@ namespace BusinessObjectLayer.Services
             _cache = cache;
         }
 
+        private static string GetEnvOrThrow(string key)
+        {
+            var value = Environment.GetEnvironmentVariable(key);
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new InvalidOperationException($"Missing environment variable: {key}");
+            }
+            return value;
+        }
+
         public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName) 
         {
             var existedUser = await _authRepository.GetByEmailAsync(email);
@@ -104,10 +114,10 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var issuer = Environment.GetEnvironmentVariable("JWTCONFIG__ISSUERS__0");
-            var audience = Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__0");
+            var issuer = GetEnvOrThrow("JWTCONFIG__ISSUERS__0");
+            var audience = GetEnvOrThrow("JWTCONFIG__AUDIENCES__0");
             var expiryMins = int.Parse(Environment.GetEnvironmentVariable("JWTCONFIG__TOKENVALIDITYMINS") ?? "300");
 
             var claims = new[]
@@ -151,7 +161,7 @@ namespace BusinessObjectLayer.Services
                 Console.WriteLine($"Received token length: {token?.Length ?? 0}");
 
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")));
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
                 var validationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
@@ -217,7 +227,7 @@ namespace BusinessObjectLayer.Services
 
         private string GenerateVerificationToken(string email)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var claims = new[]
@@ -278,7 +288,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var adminEmail = Environment.GetEnvironmentVariable("EMAILCONFIG__USERNAME");
+                var adminEmail = GetEnvOrThrow("EMAILCONFIG__USERNAME");
 
                 // 2. Check if user exists by ProviderId or Email
                 // TODO: CheckProviderId
@@ -331,12 +341,12 @@ namespace BusinessObjectLayer.Services
 
                 // 4. Generate JWT
                 var key = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")));
+                    Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
 
                 var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-                var issuer = Environment.GetEnvironmentVariable("JWTCONFIG__ISSUERS__0");
-                var audience = Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__0");
+                var issuer = GetEnvOrThrow("JWTCONFIG__ISSUERS__0");
+                var audience = GetEnvOrThrow("JWTCONFIG__AUDIENCES__0");
                 var tokenValidity = int.Parse(Environment.GetEnvironmentVariable("JWTCONFIG__TOKENVALIDITYMINS") ?? "300");
 
                 var token = new JwtSecurityToken(
@@ -457,7 +467,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")));
                 var validationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
@@ -504,12 +514,12 @@ namespace BusinessObjectLayer.Services
 
         private string GenerateResetToken(string email)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtConfig:Key"]));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var claims = new[]
             {
-                new Claim("email", email)
+                new Claim(ClaimTypes.Email, email)
             };
 
             var token = new JwtSecurityToken(
@@ -528,7 +538,7 @@ namespace BusinessObjectLayer.Services
             message.Subject = "Reset Your Password";
 
             var builder = new BodyBuilder();
-            var resetLink = $"{_configuration["AppUrl:ClientUrl"]}/reset-password?token={resetToken}";
+            var resetLink = $"{Environment.GetEnvironmentVariable("APPURL__CLIENTURL")}/reset-password?token={resetToken}";
             builder.HtmlBody = $"<h1>Reset Your Password</h1><p>Please click the link below to reset your password:</p><a href='{resetLink}'>{resetLink}</a><p>This link will expire in 15 minutes.</p>";
             message.Body = builder.ToMessageBody();
 
