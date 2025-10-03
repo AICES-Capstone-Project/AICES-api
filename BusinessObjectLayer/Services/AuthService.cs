@@ -558,7 +558,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        private static string GenerateResetToken(string email)
+        private string GenerateResetToken(string email)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -576,26 +576,27 @@ namespace BusinessObjectLayer.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        private static async Task SendResetEmail(string email, string resetToken)
+        private async Task SendResetEmail(string email, string resetToken)
         {
             var message = new MimeMessage();
-            message.From.Add(new MailboxAddress("AICES", Environment.GetEnvironmentVariable("EMAILCONFIG__FROM")));
+            message.From.Add(new MailboxAddress("AICES", GetEnvOrThrow("EMAILCONFIG__FROM")));
             message.To.Add(new MailboxAddress("", email));
             message.Subject = "Reset Your Password";
 
             var builder = new BodyBuilder();
-            var resetLink = $"{Environment.GetEnvironmentVariable("APPURL__CLIENTURL")}/reset-password?token={resetToken}";
+            var encodedToken = System.Web.HttpUtility.UrlEncode(resetToken);
+            var resetLink = $"{GetEnvOrThrow("APPURL__CLIENTURL")}/reset-password?token={encodedToken}";
             builder.HtmlBody = $"<h1>Reset Your Password</h1><p>Please click the link below to reset your password:</p><a href='{resetLink}'>{resetLink}</a><p>This link will expire in 15 minutes.</p>";
             message.Body = builder.ToMessageBody();
 
             using var client = new SmtpClient();
             await client.ConnectAsync(
-                Environment.GetEnvironmentVariable("EMAILCONFIG__SMTPSERVER"), 
-                int.Parse(Environment.GetEnvironmentVariable("EMAILCONFIG__SMTPPORT") ?? "587"), 
+                GetEnvOrThrow("EMAILCONFIG__SMTPSERVER"), 
+                int.Parse(GetEnvOrThrow("EMAILCONFIG__SMTPPORT")), 
                 SecureSocketOptions.StartTls);
             await client.AuthenticateAsync(
-                Environment.GetEnvironmentVariable("EMAILCONFIG__USERNAME"), 
-                Environment.GetEnvironmentVariable("EMAILCONFIG__PASSWORD"));
+                GetEnvOrThrow("EMAILCONFIG__USERNAME"), 
+                GetEnvOrThrow("EMAILCONFIG__PASSWORD"));
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
         }
