@@ -21,16 +21,16 @@ namespace Data.Entities
         public string Email { get; set; } = string.Empty;
 
         [MaxLength(255)]
-        public string Password { get; set; } = string.Empty;
-
-        [MaxLength(50)]
-        public string? AuthProvider { get; set; } // google, local, facebook...
-
-        public string? ProviderId { get; set; } // id từ provider
+        public string? Password { get; set; } // với social login có thể null
 
         // Navigation
+        [ForeignKey("Role")]
         public int RoleId { get; set; }
         public Role Role { get; set; } = null!;
+
         public Profile? Profile { get; set; }
+
+        public ICollection<LoginProvider>? LoginProviders { get; set; }
+        public ICollection<RefreshToken>? RefreshTokens { get; set; }
     }
 }

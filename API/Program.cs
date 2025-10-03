@@ -30,7 +30,18 @@ builder.Configuration.AddEnvironmentVariables();
 
 // Debug: Check both System.Environment and Configuration
 var jwtKeyFromEnv = Environment.GetEnvironmentVariable("JWTCONFIG__KEY");
+var jwtKeyFromConfig = builder.Configuration["JWTCONFIG__KEY"];
+Console.WriteLine($"JWT Key from System.Environment: {(string.IsNullOrEmpty(jwtKeyFromEnv) ? "NULL/EMPTY" : "SUCCESS")}");
+Console.WriteLine($"JWT Key from Configuration: {(string.IsNullOrEmpty(jwtKeyFromConfig) ? "NULL/EMPTY" : "SUCCESS")}");
 
+// Test a few more key environment variables
+var emailFrom = Environment.GetEnvironmentVariable("EMAILCONFIG__FROM");
+var clientUrl = Environment.GetEnvironmentVariable("APPURL__CLIENTURL");
+var dbConnection = Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__DEFAULTCONNECTIONSTRING");
+
+Console.WriteLine($"Email From: {(string.IsNullOrEmpty(emailFrom) ? "NULL/EMPTY" : "SUCCESS")}");
+Console.WriteLine($"Client URL: {(string.IsNullOrEmpty(clientUrl) ? "NULL/EMPTY" : "SUCCESS")}");
+Console.WriteLine($"DB Connection: {(string.IsNullOrEmpty(dbConnection) ? "NULL/EMPTY" : "SUCCESS")}");
 
 // Add services to the container.
 builder.Services.AddControllers();

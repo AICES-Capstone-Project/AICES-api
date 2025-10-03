@@ -14,6 +14,8 @@ namespace DataAccessLayer
         public virtual DbSet<User> Users { get; set; }
         public virtual DbSet<Role> Roles { get; set; }
         public virtual DbSet<Profile> Profiles { get; set; }
+        public virtual DbSet<LoginProvider> LoginProviders { get; set; }
+        public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -32,15 +34,13 @@ namespace DataAccessLayer
         {
             try
             {
-                IConfiguration configuration = new ConfigurationBuilder()
-                    .SetBasePath(Directory.GetCurrentDirectory())
-                    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                    .Build();
-                return configuration["ConnectionStrings:DefaultConnectionString"] ?? string.Empty;
+                
+                DotNetEnv.Env.Load();
+
+                return Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__DEFAULTCONNECTIONSTRING") ?? string.Empty;
             }
             catch (Exception ex)
             {
-                // Có thể thêm logging ở đây (ví dụ: Serilog)
                 Console.WriteLine($"Error loading connection string: {ex.Message}");
                 return string.Empty;
             }
@@ -48,7 +48,6 @@ namespace DataAccessLayer
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Cấu hình mối quan hệ (tùy chọn để làm rõ ràng)
             modelBuilder.Entity<User>()
                 .HasOne(u => u.Role)
                 .WithMany(r => r.Users)
@@ -60,6 +59,16 @@ namespace DataAccessLayer
                 .WithOne(p => p.User)
                 .HasForeignKey<Profile>(p => p.UserId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.LoginProviders)
+                .WithOne(lp => lp.User)
+                .HasForeignKey(lp => lp.UserId);
+
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.RefreshTokens)
+                .WithOne(rt => rt.User)
+                .HasForeignKey(rt => rt.UserId);
 
             // Ngăn cascade delete cho tất cả foreign keys
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())

@@ -15,5 +15,7 @@ namespace DataAccessLayer.IRepositories
         Task UpdateAsync(User user);
         Task<bool> RoleExistsAsync(int roleId);
         Task<User> GetByProviderAsync(string provider, string providerId);
+        Task<LoginProvider> AddLoginProviderAsync(LoginProvider loginProvider);
+        Task<LoginProvider?> GetLoginProviderAsync(int userId, string provider);
     }
 }

@@ -44,6 +44,17 @@ namespace BusinessObjectLayer.Services
             return value;
         }
 
+        private async Task<string> GetUserProviderAsync(int userId)
+        {
+            var googleProvider = await _authRepository.GetLoginProviderAsync(userId, "Google");
+            if (googleProvider != null) return "Google";
+            
+            var localProvider = await _authRepository.GetLoginProviderAsync(userId, "Local");
+            if (localProvider != null) return "Local";
+            
+            return "Unknown";
+        }
+
         public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName) 
         {
             var existedUser = await _authRepository.GetByEmailAsync(email);
@@ -85,12 +96,20 @@ namespace BusinessObjectLayer.Services
                 Email = email,
                 Password = BCrypt.Net.BCrypt.HashPassword(password),
                 RoleId = roleId,
-                AuthProvider = "Local",
                 IsActive = false
             };
 
             var addedUser = await _authRepository.AddAsync(user);
             await _profileService.CreateDefaultProfileAsync(addedUser.UserId, fullName);
+
+            // Add Local login provider
+            var localProvider = new LoginProvider
+            {
+                UserId = addedUser.UserId,
+                AuthProvider = "Local",
+                ProviderId = "" // Local login doesn't have external provider ID
+            };
+            await _authRepository.AddLoginProviderAsync(localProvider);
 
             var newVerificationToken = GenerateVerificationToken(email);
             await SendVerificationEmail(email, newVerificationToken);
@@ -120,12 +139,13 @@ namespace BusinessObjectLayer.Services
             var audience = GetEnvOrThrow("JWTCONFIG__AUDIENCES__0");
             var expiryMins = int.Parse(Environment.GetEnvironmentVariable("JWTCONFIG__TOKENVALIDITYMINS") ?? "300");
 
+            var userProvider = await GetUserProviderAsync(user.UserId);
             var claims = new[]
             {
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
                 new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "Candidate"),
-                new Claim("provider", user.AuthProvider ?? "Local"),
+                new Claim("provider", userProvider),
                 new Claim("fullName", user.Profile?.FullName ?? ""),
                 new Claim("phoneNumber", user.Profile?.PhoneNumber ?? ""),
                 new Claim("address", user.Profile?.Address ?? ""),
@@ -291,8 +311,13 @@ namespace BusinessObjectLayer.Services
                 var adminEmail = GetEnvOrThrow("EMAILCONFIG__USERNAME");
 
                 // 2. Check if user exists by ProviderId or Email
-                // TODO: CheckProviderId
-                var user = await _authRepository.GetByEmailAsync(payload.Email);
+                var user = await _authRepository.GetByProviderAsync("Google", payload.Subject);
+                
+                if (user == null)
+                {
+                    // Try to find by email (in case user exists but no Google provider)
+                    user = await _authRepository.GetByEmailAsync(payload.Email);
+                }
 
                 if (user == null)
                 {
@@ -302,8 +327,6 @@ namespace BusinessObjectLayer.Services
                     user = new User
                     {
                         Email = payload.Email,
-                        AuthProvider = "Google",
-                        ProviderId = payload.Subject,
                         RoleId = roleId, 
                         IsActive = true
                     };
@@ -312,9 +335,32 @@ namespace BusinessObjectLayer.Services
 
                     // Create profile with Google name & avatar
                     await _profileService.CreateDefaultProfileAsync(user.UserId, payload.Name, payload.Picture);
+
+                    // Add Google login provider
+                    var googleProvider = new LoginProvider
+                    {
+                        UserId = user.UserId,
+                        AuthProvider = "Google",
+                        ProviderId = payload.Subject
+                    };
+                    await _authRepository.AddLoginProviderAsync(googleProvider);
                 }
                 else
                 {
+                    // Check if Google provider already exists for this user
+                    var existingGoogleProvider = await _authRepository.GetLoginProviderAsync(user.UserId, "Google");
+                    if (existingGoogleProvider == null)
+                    {
+                        // Add Google login provider if it doesn't exist
+                        var googleProvider = new LoginProvider
+                        {
+                            UserId = user.UserId,
+                            AuthProvider = "Google",
+                            ProviderId = payload.Subject
+                        };
+                        await _authRepository.AddLoginProviderAsync(googleProvider);
+                    }
+
                     // Nếu đã tồn tại user nhưng là admin email thì ép role về 1
                     if (payload.Email == adminEmail && user.RoleId != 1)
                     {
@@ -324,14 +370,15 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // 3. Build claims
+                var userProvider = await GetUserProviderAsync(user.UserId);
                 var claims = new[]
                 {
                     new Claim(ClaimTypes.Email, user.Email),
                     new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
                     new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "Candidate"),
                     new Claim("fullName", user.Profile?.FullName ?? ""),
-                    new Claim("provider", user.AuthProvider ?? "Google"),
-                    new Claim("providerId", user.ProviderId ?? ""),
+                    new Claim("provider", userProvider),
+                    new Claim("providerId", payload.Subject),
                     new Claim("phoneNumber", user.Profile?.PhoneNumber ?? ""),
                     new Claim("address", user.Profile?.Address ?? ""),
                     new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? ""),
@@ -467,7 +514,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")));
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
                 var validationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
@@ -514,7 +561,7 @@ namespace BusinessObjectLayer.Services
 
         private string GenerateResetToken(string email)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var claims = new[]

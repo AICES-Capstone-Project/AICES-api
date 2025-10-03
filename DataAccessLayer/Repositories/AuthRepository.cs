@@ -55,7 +55,22 @@ namespace DataAccessLayer.Repositories
             return await _context.Users
                 .Include(u => u.Role)
                 .Include(u => u.Profile)
-                .FirstOrDefaultAsync(u => u.AuthProvider == provider && u.ProviderId == providerId);
+                .Include(u => u.LoginProviders)
+                .FirstOrDefaultAsync(u => u.LoginProviders.Any(lp => lp.AuthProvider == provider && lp.ProviderId == providerId));
+        }
+
+        public async Task<LoginProvider> AddLoginProviderAsync(LoginProvider loginProvider)
+        {
+            loginProvider.CreatedAt = DateTime.UtcNow;
+            _context.LoginProviders.Add(loginProvider);
+            await _context.SaveChangesAsync();
+            return loginProvider;
+        }
+
+        public async Task<LoginProvider?> GetLoginProviderAsync(int userId, string provider)
+        {
+            return await _context.LoginProviders
+                .FirstOrDefaultAsync(lp => lp.UserId == userId && lp.AuthProvider == provider);
         }
     }
 }
