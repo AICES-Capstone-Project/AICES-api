@@ -77,10 +77,10 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        [HttpPost("revoke")]
-        public async Task<IActionResult> RevokeToken([FromBody] RefreshTokenRequest request)
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
         {
-            var serviceResponse = await _authService.RevokeTokenAsync(request.RefreshToken);
+            var serviceResponse = await _authService.LogoutAsync(request.RefreshToken);
             return ControllerResponse.Response(serviceResponse);
         }
     }

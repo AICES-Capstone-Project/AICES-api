@@ -679,7 +679,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> RevokeTokenAsync(string refreshToken)
+        public async Task<ServiceResponse> LogoutAsync(string refreshToken)
         {
             try
             {
@@ -699,16 +699,16 @@ namespace BusinessObjectLayer.Services
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
-                    Message = "Token revoked successfully."
+                    Message = "Logged out successfully."
                 };
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Revoke token error: {ex.Message}");
+                Console.WriteLine($"Logout error: {ex.Message}");
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
-                    Message = "An error occurred while revoking token."
+                    Message = "An error occurred while logging out."
                 };
             }
         }
