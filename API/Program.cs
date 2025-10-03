@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using System.Text;
 using DotNetEnv;
+using Microsoft.AspNetCore.StaticFiles;
 
 
 // Load .env from the solution root (parent directory)
@@ -126,6 +127,7 @@ app.UseExceptionHandler(errorApp =>
 
 app.UseCors("Cors");
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
