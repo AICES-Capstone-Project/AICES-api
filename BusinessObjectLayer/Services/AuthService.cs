@@ -4,18 +4,19 @@ using Data.Entities;
 using Data.Enum;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using Google.Apis.Auth;
 using MailKit.Net.Smtp;
 using MailKit.Security;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using MimeKit;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Google.Apis.Auth;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace BusinessObjectLayer.Services
 {
@@ -55,12 +56,17 @@ namespace BusinessObjectLayer.Services
             return "Unknown";
         }
 
-        private string GenerateRefreshToken()
+        private static string GenerateRefreshToken()
         {
-            return Guid.NewGuid().ToString();
+            var randomNumber = new byte[64];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomNumber);
+                return Convert.ToBase64String(randomNumber);
+            }
         }
 
-        private async Task<(string accessToken, string refreshToken)> GenerateTokensAsync(User user)
+        private async Task<AuthTokenResponse> GenerateTokensAsync(User user)
         {
             var userProvider = await GetUserProviderAsync(user.UserId);
             var claims = new[]
@@ -104,7 +110,11 @@ namespace BusinessObjectLayer.Services
 
             await _authRepository.AddRefreshTokenAsync(refreshToken);
 
-            return (accessTokenString, refreshTokenString);
+            return new AuthTokenResponse
+            {
+                AccessToken = accessTokenString,
+                RefreshToken = refreshTokenString
+            };
         }
 
         public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName) 
@@ -185,23 +195,13 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var issuer = GetEnvOrThrow("JWTCONFIG__ISSUERS__0");
-            var audience = GetEnvOrThrow("JWTCONFIG__AUDIENCES__0");
-            var expiryMins = int.Parse(Environment.GetEnvironmentVariable("JWTCONFIG__TOKENVALIDITYMINS") ?? "300");
-
-            var (accessToken, refreshToken) = await GenerateTokensAsync(user);
+            var tokens = await GenerateTokensAsync(user);
 
             return new ServiceResponse
             {
                 Status = SRStatus.Success,
                 Message = "Login successful",
-                Data = new AuthResponse
-                {
-                    AccessToken = accessToken,
-                    RefreshToken = refreshToken
-                }
+                Data = tokens // Return AuthTokenResponse (controller will handle separation)
             };
 
         }
@@ -304,11 +304,14 @@ namespace BusinessObjectLayer.Services
             message.Subject = "Verify Your Email";
 
             var builder = new BodyBuilder();
-            var verificationLink = $"{Environment.GetEnvironmentVariable("APPURL__CLIENTURL")}/verify-email?token={verificationToken}";
+            // URL encode the token to prevent issues with special characters
+            var encodedToken = System.Web.HttpUtility.UrlEncode(verificationToken);
+            var verificationLink = $"{Environment.GetEnvironmentVariable("APPURL__CLIENTURL")}/verify-email?token={encodedToken}";
             builder.HtmlBody = $@"
                 <h1>Verify Your Account</h1>
                 <p>Please click the link below to verify your email:</p>
-                <a href='{verificationLink}'>{verificationLink}</a>";
+                <a href='{verificationLink}'>Verify Email</a>
+                <p><small>This link will expire in 15 minutes.</small></p>";
 
             message.Body = builder.ToMessageBody();
 
@@ -403,18 +406,14 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // 3. Generate tokens
-                var (accessToken, refreshToken) = await GenerateTokensAsync(user);
+                var tokens = await GenerateTokensAsync(user);
 
                 // 4. Return success response
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "Google login successful",
-                    Data = new AuthResponse
-                    {
-                        AccessToken = accessToken,
-                        RefreshToken = refreshToken
-                    }
+                    Data = tokens 
                 };
             }
             catch (InvalidJwtException)
@@ -559,7 +558,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        private string GenerateResetToken(string email)
+        private static string GenerateResetToken(string email)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -577,7 +576,7 @@ namespace BusinessObjectLayer.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        private async Task SendResetEmail(string email, string resetToken)
+        private static async Task SendResetEmail(string email, string resetToken)
         {
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress("AICES", Environment.GetEnvironmentVariable("EMAILCONFIG__FROM")));
@@ -655,17 +654,13 @@ namespace BusinessObjectLayer.Services
                 await _authRepository.UpdateRefreshTokenAsync(storedToken);
 
                 // 6. Generate new tokens
-                var (newAccessToken, newRefreshToken) = await GenerateTokensAsync(storedToken.User);
+                var tokens = await GenerateTokensAsync(storedToken.User);
 
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "Tokens refreshed successfully",
-                    Data = new AuthResponse
-                    {
-                        AccessToken = newAccessToken,
-                        RefreshToken = newRefreshToken
-                    }
+                    Data = tokens // Return AuthTokenResponse (controller will handle separation)
                 };
             }
             catch (Exception ex)

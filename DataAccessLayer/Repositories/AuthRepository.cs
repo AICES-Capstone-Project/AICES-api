@@ -28,7 +28,6 @@ namespace DataAccessLayer.Repositories
 
         public async Task<User> AddAsync(User user)
         {
-            user.CreatedAt = DateTime.UtcNow; 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
             return user;
@@ -61,7 +60,6 @@ namespace DataAccessLayer.Repositories
 
         public async Task<LoginProvider> AddLoginProviderAsync(LoginProvider loginProvider)
         {
-            loginProvider.CreatedAt = DateTime.UtcNow;
             _context.LoginProviders.Add(loginProvider);
             await _context.SaveChangesAsync();
             return loginProvider;
@@ -76,7 +74,6 @@ namespace DataAccessLayer.Repositories
         // Refresh Token methods
         public async Task<RefreshToken> AddRefreshTokenAsync(RefreshToken refreshToken)
         {
-            refreshToken.CreatedAt = DateTime.UtcNow;
             _context.RefreshTokens.Add(refreshToken);
             await _context.SaveChangesAsync();
             return refreshToken;

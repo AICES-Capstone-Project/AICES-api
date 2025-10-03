@@ -31,6 +31,15 @@ namespace API.Controllers
         {
             var serviceResponse = await _authService.LoginAsync(request.Email, request.Password);
 
+            // Set refresh token as HTTP-only cookie and return only access token
+            if (serviceResponse.Status == Data.Enum.SRStatus.Success && serviceResponse.Data is AuthTokenResponse tokens)
+            {
+                SetRefreshTokenCookie(tokens.RefreshToken);
+                
+                // Replace with LoginResponse (only accessToken)
+                serviceResponse.Data = new LoginResponse { AccessToken = tokens.AccessToken };
+            }
+
             return ControllerResponse.Response(serviceResponse);
         }
 
@@ -45,6 +54,16 @@ namespace API.Controllers
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
         {
             var serviceResponse = await _authService.GoogleLoginAsync(request.IdToken);
+
+            // Set refresh token as HTTP-only cookie and return only access token
+            if (serviceResponse.Status == Data.Enum.SRStatus.Success && serviceResponse.Data is AuthTokenResponse tokens)
+            {
+                SetRefreshTokenCookie(tokens.RefreshToken);
+                
+                // Replace with LoginResponse (only accessToken)
+                serviceResponse.Data = new LoginResponse { AccessToken = tokens.AccessToken };
+            }
+
             return ControllerResponse.Response(serviceResponse);
         }
 
@@ -71,17 +90,73 @@ namespace API.Controllers
         }
 
         [HttpPost("refresh")]
-        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+        public async Task<IActionResult> RefreshToken()
         {
-            var serviceResponse = await _authService.RefreshTokenAsync(request.RefreshToken);
+            // Get refresh token from cookie
+            var refreshToken = Request.Cookies["refreshToken"];
+            
+            if (string.IsNullOrEmpty(refreshToken))
+            {
+                var errorResponse = new ServiceResponse
+                {
+                    Status = Data.Enum.SRStatus.Unauthorized,
+                    Message = "Refresh token not found."
+                };
+                return ControllerResponse.Response(errorResponse);
+            }
+
+            var serviceResponse = await _authService.RefreshTokenAsync(refreshToken);
+
+            // Set new refresh token as HTTP-only cookie and return only access token
+            if (serviceResponse.Status == Data.Enum.SRStatus.Success && serviceResponse.Data is AuthTokenResponse tokens)
+            {
+                SetRefreshTokenCookie(tokens.RefreshToken);
+                
+                // Replace with LoginResponse (only accessToken)
+                serviceResponse.Data = new LoginResponse { AccessToken = tokens.AccessToken };
+            }
+
             return ControllerResponse.Response(serviceResponse);
         }
 
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
+        public async Task<IActionResult> Logout()
         {
-            var serviceResponse = await _authService.LogoutAsync(request.RefreshToken);
+            // Get refresh token from cookie
+            var refreshToken = Request.Cookies["refreshToken"];
+            
+            ServiceResponse serviceResponse;
+            
+            if (!string.IsNullOrEmpty(refreshToken))
+            {
+                serviceResponse = await _authService.LogoutAsync(refreshToken);
+            }
+            else
+            {
+                serviceResponse = new ServiceResponse
+                {
+                    Status = Data.Enum.SRStatus.Success,
+                    Message = "Already logged out."
+                };
+            }
+
+            // Clear the refresh token cookie
+            Response.Cookies.Delete("refreshToken");
+
             return ControllerResponse.Response(serviceResponse);
+        }
+
+        private void SetRefreshTokenCookie(string refreshToken)
+        {
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,              // Cannot be accessed by JavaScript
+                Secure = true,                // Only sent over HTTPS
+                SameSite = SameSiteMode.Strict, // CSRF protection
+                Expires = DateTimeOffset.UtcNow.AddDays(7) // Same as refresh token expiry
+            };
+
+            Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
         }
     }
 }
