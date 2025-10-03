@@ -17,5 +17,11 @@ namespace DataAccessLayer.IRepositories
         Task<User> GetByProviderAsync(string provider, string providerId);
         Task<LoginProvider> AddLoginProviderAsync(LoginProvider loginProvider);
         Task<LoginProvider?> GetLoginProviderAsync(int userId, string provider);
+        
+        // Refresh Token methods
+        Task<RefreshToken> AddRefreshTokenAsync(RefreshToken refreshToken);
+        Task<RefreshToken?> GetRefreshTokenAsync(string token);
+        Task UpdateRefreshTokenAsync(RefreshToken refreshToken);
+        Task RevokeAllRefreshTokensAsync(int userId);
     }
 }

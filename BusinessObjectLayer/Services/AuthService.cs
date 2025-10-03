@@ -55,6 +55,58 @@ namespace BusinessObjectLayer.Services
             return "Unknown";
         }
 
+        private string GenerateRefreshToken()
+        {
+            return Guid.NewGuid().ToString();
+        }
+
+        private async Task<(string accessToken, string refreshToken)> GenerateTokensAsync(User user)
+        {
+            var userProvider = await GetUserProviderAsync(user.UserId);
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+                new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "Candidate"),
+                new Claim("provider", userProvider),
+                new Claim("fullName", user.Profile?.FullName ?? ""),
+                new Claim("phoneNumber", user.Profile?.PhoneNumber ?? ""),
+                new Claim("address", user.Profile?.Address ?? ""),
+                new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? ""),
+                new Claim("avatarUrl", user.Profile?.AvatarUrl ?? ""),
+            };
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var issuer = GetEnvOrThrow("JWTCONFIG__ISSUERS__0");
+            var audience = GetEnvOrThrow("JWTCONFIG__AUDIENCES__0");
+            var expiryMins = int.Parse(Environment.GetEnvironmentVariable("JWTCONFIG__TOKENVALIDITYMINS") ?? "60"); // 1 hour
+
+            var accessToken = new JwtSecurityToken(
+                issuer: issuer,
+                audience: audience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(expiryMins),
+                signingCredentials: creds
+            );
+
+            var accessTokenString = new JwtSecurityTokenHandler().WriteToken(accessToken);
+            var refreshTokenString = GenerateRefreshToken();
+
+            // Save refresh token to database
+            var refreshToken = new RefreshToken
+            {
+                UserId = user.UserId,
+                Token = refreshTokenString,
+                ExpiryDate = DateTime.UtcNow.AddDays(7), // 7 days
+                IsActive = true
+            };
+
+            await _authRepository.AddRefreshTokenAsync(refreshToken);
+
+            return (accessTokenString, refreshTokenString);
+        }
+
         public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName) 
         {
             var existedUser = await _authRepository.GetByEmailAsync(email);
@@ -80,7 +132,7 @@ namespace BusinessObjectLayer.Services
                 }
             }
            
-            int roleId = 4;
+            int roleId = 4; //Candidate
 
             if (!await _authRepository.RoleExistsAsync(roleId))
             {
@@ -107,7 +159,7 @@ namespace BusinessObjectLayer.Services
             {
                 UserId = addedUser.UserId,
                 AuthProvider = "Local",
-                ProviderId = "" // Local login doesn't have external provider ID
+                ProviderId = "" 
             };
             await _authRepository.AddLoginProviderAsync(localProvider);
 
@@ -139,27 +191,7 @@ namespace BusinessObjectLayer.Services
             var audience = GetEnvOrThrow("JWTCONFIG__AUDIENCES__0");
             var expiryMins = int.Parse(Environment.GetEnvironmentVariable("JWTCONFIG__TOKENVALIDITYMINS") ?? "300");
 
-            var userProvider = await GetUserProviderAsync(user.UserId);
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-                new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "Candidate"),
-                new Claim("provider", userProvider),
-                new Claim("fullName", user.Profile?.FullName ?? ""),
-                new Claim("phoneNumber", user.Profile?.PhoneNumber ?? ""),
-                new Claim("address", user.Profile?.Address ?? ""),
-                new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? ""),
-                new Claim("avatarUrl", user.Profile?.AvatarUrl ?? ""),
-            };
-
-            var token = new JwtSecurityToken(
-                issuer: issuer,      
-                audience: audience,  
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(expiryMins),
-                signingCredentials: creds
-            );
+            var (accessToken, refreshToken) = await GenerateTokensAsync(user);
 
             return new ServiceResponse
             {
@@ -167,7 +199,8 @@ namespace BusinessObjectLayer.Services
                 Message = "Login successful",
                 Data = new AuthResponse
                 {
-                    AccessToken = new JwtSecurityTokenHandler().WriteToken(token)
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken
                 }
             };
 
@@ -369,51 +402,18 @@ namespace BusinessObjectLayer.Services
                     }
                 }
 
-                // 3. Build claims
-                var userProvider = await GetUserProviderAsync(user.UserId);
-                var claims = new[]
-                {
-                    new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-                    new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "Candidate"),
-                    new Claim("fullName", user.Profile?.FullName ?? ""),
-                    new Claim("provider", userProvider),
-                    new Claim("providerId", payload.Subject),
-                    new Claim("phoneNumber", user.Profile?.PhoneNumber ?? ""),
-                    new Claim("address", user.Profile?.Address ?? ""),
-                    new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? ""),
-                    new Claim("avatarUrl", user.Profile?.AvatarUrl ?? ""),
+                // 3. Generate tokens
+                var (accessToken, refreshToken) = await GenerateTokensAsync(user);
 
-                };
-
-                // 4. Generate JWT
-                var key = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
-
-                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-                var issuer = GetEnvOrThrow("JWTCONFIG__ISSUERS__0");
-                var audience = GetEnvOrThrow("JWTCONFIG__AUDIENCES__0");
-                var tokenValidity = int.Parse(Environment.GetEnvironmentVariable("JWTCONFIG__TOKENVALIDITYMINS") ?? "300");
-
-                var token = new JwtSecurityToken(
-                    issuer: issuer,
-                    audience: audience,
-                    claims: claims,
-                    expires: DateTime.UtcNow.AddMinutes(tokenValidity),
-                    signingCredentials: creds
-                );
-
-                var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-                // 5. Return success response
+                // 4. Return success response
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "Google login successful",
                     Data = new AuthResponse
                     {
-                        AccessToken = jwt
+                        AccessToken = accessToken,
+                        RefreshToken = refreshToken
                     }
                 };
             }
@@ -599,6 +599,118 @@ namespace BusinessObjectLayer.Services
                 Environment.GetEnvironmentVariable("EMAILCONFIG__PASSWORD"));
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
+        }
+
+        public async Task<ServiceResponse> RefreshTokenAsync(string refreshToken)
+        {
+            try
+            {
+                // 1. Find refresh token in database
+                var storedToken = await _authRepository.GetRefreshTokenAsync(refreshToken);
+                if (storedToken == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "Invalid refresh token."
+                    };
+                }
+
+                // 2. Check if token is active
+                if (!storedToken.IsActive)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "Refresh token has been revoked."
+                    };
+                }
+
+                // 3. Check if token is expired
+                if (storedToken.ExpiryDate < DateTime.UtcNow)
+                {
+                    // Mark token as inactive
+                    storedToken.IsActive = false;
+                    await _authRepository.UpdateRefreshTokenAsync(storedToken);
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "Refresh token has expired."
+                    };
+                }
+
+                // 4. Check if user is still active
+                if (!storedToken.User.IsActive)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User account is inactive."
+                    };
+                }
+
+                // 5. Revoke old refresh token
+                storedToken.IsActive = false;
+                await _authRepository.UpdateRefreshTokenAsync(storedToken);
+
+                // 6. Generate new tokens
+                var (newAccessToken, newRefreshToken) = await GenerateTokensAsync(storedToken.User);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Tokens refreshed successfully",
+                    Data = new AuthResponse
+                    {
+                        AccessToken = newAccessToken,
+                        RefreshToken = newRefreshToken
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Refresh token error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while refreshing tokens."
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> RevokeTokenAsync(string refreshToken)
+        {
+            try
+            {
+                var storedToken = await _authRepository.GetRefreshTokenAsync(refreshToken);
+                if (storedToken == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Invalid refresh token."
+                    };
+                }
+
+                storedToken.IsActive = false;
+                await _authRepository.UpdateRefreshTokenAsync(storedToken);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Token revoked successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Revoke token error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while revoking token."
+                };
+            }
         }
     }
 }

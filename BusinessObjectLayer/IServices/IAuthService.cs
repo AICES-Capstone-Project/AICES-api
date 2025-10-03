@@ -19,5 +19,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> RequestPasswordResetAsync(string email);
         Task<ServiceResponse> ResetPasswordAsync(string token, string newPassword);
         Task<ServiceResponse> GetCurrentUserInfoAsync(ClaimsPrincipal userClaims);
+        Task<ServiceResponse> RefreshTokenAsync(string refreshToken);
+        Task<ServiceResponse> RevokeTokenAsync(string refreshToken);
     }
 }

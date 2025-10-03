@@ -69,5 +69,19 @@ namespace API.Controllers
             var serviceResponse = await _authService.GetCurrentUserInfoAsync(User);
             return ControllerResponse.Response(serviceResponse);
         }
+
+        [HttpPost("refresh")]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+        {
+            var serviceResponse = await _authService.RefreshTokenAsync(request.RefreshToken);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpPost("revoke")]
+        public async Task<IActionResult> RevokeToken([FromBody] RefreshTokenRequest request)
+        {
+            var serviceResponse = await _authService.RevokeTokenAsync(request.RefreshToken);
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
