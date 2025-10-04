@@ -5,6 +5,7 @@ using Data.Models.Response;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics;
 
 namespace API.Controllers
 {
@@ -150,10 +151,10 @@ namespace API.Controllers
         {
             var cookieOptions = new CookieOptions
             {
-                HttpOnly = true,              // Cannot be accessed by JavaScript
-                Secure = true,                // Only sent over HTTPS
-                SameSite = SameSiteMode.Strict, // CSRF protection
-                Expires = DateTimeOffset.UtcNow.AddDays(7) // Same as refresh token expiry
+                HttpOnly = true,              
+                Secure = true, // Required when SameSite=None (and you're using HTTPS in dev)
+                SameSite = SameSiteMode.None, // Required for cross-origin requests
+                Expires = DateTimeOffset.UtcNow.AddDays(7) 
             };
 
             Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
