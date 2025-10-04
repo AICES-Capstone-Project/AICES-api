@@ -195,6 +195,9 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
+            // Revoke all existing refresh tokens on new login (security: invalidate old sessions)
+            await _authRepository.RevokeAllRefreshTokensAsync(user.UserId);
+
             var tokens = await GenerateTokensAsync(user);
 
             return new ServiceResponse
@@ -405,10 +408,13 @@ namespace BusinessObjectLayer.Services
                     }
                 }
 
-                // 3. Generate tokens
+                // 3. Revoke all existing refresh tokens on new login (security: invalidate old sessions)
+                await _authRepository.RevokeAllRefreshTokensAsync(user.UserId);
+
+                // 4. Generate tokens
                 var tokens = await GenerateTokensAsync(user);
 
-                // 4. Return success response
+                // 5. Return success response
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
@@ -493,7 +499,7 @@ namespace BusinessObjectLayer.Services
             {
                 return new ServiceResponse
                 {
-                    Status = SRStatus.Error,
+                    Status = SRStatus.NotFound,
                     Message = "User not found or account inactive."
                 };
             }
@@ -650,9 +656,8 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // 5. Revoke old refresh token
-                storedToken.IsActive = false;
-                await _authRepository.UpdateRefreshTokenAsync(storedToken);
+                // 5. Revoke ALL refresh tokens for this user (security: force logout on all other devices)
+                await _authRepository.RevokeAllRefreshTokensAsync(storedToken.UserId);
 
                 // 6. Generate new tokens
                 var tokens = await GenerateTokensAsync(storedToken.User);
@@ -661,7 +666,7 @@ namespace BusinessObjectLayer.Services
                 {
                     Status = SRStatus.Success,
                     Message = "Tokens refreshed successfully",
-                    Data = tokens // Return AuthTokenResponse (controller will handle separation)
+                    Data = tokens 
                 };
             }
             catch (Exception ex)
@@ -684,7 +689,7 @@ namespace BusinessObjectLayer.Services
                 {
                     return new ServiceResponse
                     {
-                        Status = SRStatus.Error,
+                        Status = SRStatus.NotFound,
                         Message = "Invalid refresh token."
                     };
                 }

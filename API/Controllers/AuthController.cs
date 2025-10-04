@@ -120,6 +120,7 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
+        [Authorize]
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
@@ -136,13 +137,13 @@ namespace API.Controllers
             {
                 serviceResponse = new ServiceResponse
                 {
-                    Status = Data.Enum.SRStatus.Success,
+                    Status = Data.Enum.SRStatus.NotFound,
                     Message = "Already logged out."
                 };
             }
 
-            // Clear the refresh token cookie
-            Response.Cookies.Delete("refreshToken");
+            // Clear the refresh token cookie (must use same options as when setting)
+            ClearRefreshTokenCookie();
 
             return ControllerResponse.Response(serviceResponse);
         }
@@ -158,6 +159,19 @@ namespace API.Controllers
             };
 
             Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
+        }
+
+        private void ClearRefreshTokenCookie()
+        {
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTimeOffset.UtcNow.AddDays(-1) // Expire immediately
+            };
+
+            Response.Cookies.Append("refreshToken", "", cookieOptions);
         }
     }
 }
