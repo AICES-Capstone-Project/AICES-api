@@ -1,4 +1,5 @@
-﻿using BusinessObjectLayer.IServices;
+﻿using API.Common;
+using BusinessObjectLayer.IServices;
 using Data.Models.Request;
 using Data.Models.Response;
 using Microsoft.AspNetCore.Authorization;
@@ -23,18 +24,19 @@ namespace API.Controllers
         [HttpPatch("update")]
         public async Task<IActionResult> UpdateProfile([FromForm] UpdateProfileRequest request)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState); // Trả về lỗi validation
+            }
+
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
             if (userId == 0)
             {
-                return Unauthorized(new ServiceResponse
-                {
-                    Status = Data.Enum.SRStatus.Unauthorized,
-                    Message = "Invalid token."
-                });
+                return Unauthorized("Invalid token.");
             }
 
             var serviceResponse = await _profileService.UpdateProfileAsync(userId, request);
-            return Ok(serviceResponse); // Trả về JSON trực tiếp
+            return ControllerResponse.Response(serviceResponse);
         }
     }
 }

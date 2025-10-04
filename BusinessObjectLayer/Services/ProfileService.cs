@@ -1,28 +1,33 @@
 ﻿using BusinessObjectLayer.IServices;
+using CloudinaryDotNet;
+using CloudinaryDotNet.Actions;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
+using Org.BouncyCastle.Utilities;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Hosting;
 
 namespace BusinessObjectLayer.Services
 {
     public class ProfileService : IProfileService
     {
         private readonly IProfileRepository _profileRepository;
-        private readonly IWebHostEnvironment _environment;
+       
+        private readonly Cloudinary _cloudinary;
 
-        public ProfileService(IProfileRepository profileRepository, IWebHostEnvironment environment)
+        public ProfileService(IProfileRepository profileRepository, Cloudinary cloudinary)
         {
             _profileRepository = profileRepository;
-            _environment = environment;
+             _cloudinary = cloudinary;
         }
 
         public async Task<Profile> CreateDefaultProfileAsync(int userId, string fullName)
@@ -73,10 +78,10 @@ namespace BusinessObjectLayer.Services
             // Cập nhật thông tin text
             if (!string.IsNullOrEmpty(request.FullName)) profile.FullName = request.FullName;
             if (!string.IsNullOrEmpty(request.Address)) profile.Address = request.Address;
-            if (request.DateOfBirth.HasValue) profile.DateOfBirth = request.DateOfBirth;
+            if (request.DateOfBirth.HasValue) profile.DateOfBirth = request.DateOfBirth?.Date;
             if (!string.IsNullOrEmpty(request.PhoneNumber)) profile.PhoneNumber = request.PhoneNumber;
 
-            // Xử lý upload ảnh nếu có
+            // Xử lý upload avatar nếu có
             if (request.AvatarFile != null && request.AvatarFile.Length > 0)
             {
                 // Kiểm tra loại file
@@ -91,22 +96,23 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Lưu file vào wwwroot/avatars
-                var uploadsFolder = Path.Combine(_environment.WebRootPath, "avatars");
-                if (!Directory.Exists(uploadsFolder))
-                {
-                    Directory.CreateDirectory(uploadsFolder);
-                }
+                // Đọc stream thành byte[]
+                using var stream = request.AvatarFile.OpenReadStream();
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                memoryStream.Position = 0;
 
-                var fileName = $"{userId}_{DateTime.UtcNow.Ticks}{extension}";
-                var filePath = Path.Combine(uploadsFolder, fileName);
-                using (var stream = new FileStream(filePath, FileMode.Create))
+                // Upload lên Cloudinary với byte[]
+                var uploadParams = new ImageUploadParams()
                 {
-                    await request.AvatarFile.CopyToAsync(stream);
-                }
+                    File = new FileDescription(request.AvatarFile.FileName, memoryStream), 
+                    PublicId = $"avatars/{userId}_{DateTime.UtcNow.Ticks}",
+                    Folder = "avatars"
+                };
 
-                // Cập nhật AvatarUrl
-                profile.AvatarUrl = $"/avatars/{fileName}";
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+                var avatarUrl = uploadResult.SecureUrl.ToString();
+                profile.AvatarUrl = avatarUrl;
             }
 
             await _profileRepository.UpdateAsync(profile);
@@ -119,9 +125,9 @@ namespace BusinessObjectLayer.Services
                 {
                     FullName = profile.FullName,
                     Address = profile.Address,
-                    DateOfBirth = profile.DateOfBirth?.ToString("yyyy-MM-dd"), 
-                    AvatarUrl = profile.AvatarUrl,
-                    PhoneNumber = profile.PhoneNumber
+                    DateOfBirth = profile.DateOfBirth?.ToString("yyyy-MM-dd"),
+                    PhoneNumber = profile.PhoneNumber,
+                    AvatarUrl = profile.AvatarUrl
                 }
             };
         }

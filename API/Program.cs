@@ -9,10 +9,11 @@ using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using System.Text;
 using DotNetEnv;
-using Microsoft.AspNetCore.StaticFiles;
+using CloudinaryDotNet;
 
-
-// Load .env from the solution root (parent directory)
+// ------------------------
+// ?? LOAD ENVIRONMENT FILE
+// ------------------------
 var envPath = Path.Combine(Directory.GetCurrentDirectory(), "..", ".env");
 if (File.Exists(envPath))
 {
@@ -24,12 +25,12 @@ else
     Console.WriteLine($".env file not found at: {envPath}");
 }
 
+// ------------------------
+// ?? CREATE BUILDER
+// ------------------------
 var builder = WebApplication.CreateBuilder(args);
-
-// Explicitly add environment variables to configuration
 builder.Configuration.AddEnvironmentVariables();
 
-// Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -52,28 +53,63 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// ------------------------
+// ?? DATABASE CONFIGURATION
+// ------------------------
+var connectionString = Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__DEFAULTCONNECTIONSTRING");
+if (string.IsNullOrEmpty(connectionString))
+{
+    Console.WriteLine("?? Database connection string not found in .env");
+}
 builder.Services.AddDbContext<AICESDbContext>(options =>
-    options.UseSqlServer(Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__DEFAULTCONNECTIONSTRING")));
+    options.UseSqlServer(connectionString));
 
-builder.Services.AddMemoryCache();
+// ------------------------
+// ?? CLOUDINARY CONFIGURATION
+// ------------------------
+var cloudName = Environment.GetEnvironmentVariable("CLOUDINARY__CLOUDNAME");
+var apiKey = Environment.GetEnvironmentVariable("CLOUDINARY__APIKEY");
+var apiSecret = Environment.GetEnvironmentVariable("CLOUDINARY__APISECRET");
 
-// Register Repositories and Services
+if (!string.IsNullOrEmpty(cloudName) && !string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(apiSecret))
+{
+    var account = new Account(cloudName, apiKey, apiSecret);
+    var cloudinary = new Cloudinary(account) { Api = { Secure = true } };
+    builder.Services.AddSingleton(cloudinary);
+    Console.WriteLine($"? Cloudinary configured successfully: {cloudName}");
+}
+else
+{
+    Console.WriteLine("?? Cloudinary configuration missing in .env file.");
+}
+
+// ------------------------
+// ?? REGISTER REPOSITORIES & SERVICES
+// ------------------------
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 
+// ------------------------
+// ?? JWT AUTHENTICATION CONFIGURATION
+// ------------------------
+var jwtKey = Environment.GetEnvironmentVariable("JWTCONFIG__KEY");
+if (string.IsNullOrEmpty(jwtKey))
+{
+    Console.WriteLine("?? JWT Key is missing in .env");
+}
 
-// Configure Authentication (JWT)
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(options =>
+})
+.AddJwtBearer(options =>
 {
     options.SaveToken = true;
-    options.RequireHttpsMetadata = false; // Set to true after deployment
+    options.RequireHttpsMetadata = false; // Set true when deploy
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -81,41 +117,50 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         ValidIssuers = new[] { Environment.GetEnvironmentVariable("JWTCONFIG__ISSUERS__0") },
-        ValidAudiences = new[] { 
-            Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__0"), 
-            Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__1") 
+        ValidAudiences = new[]
+        {
+            Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__0"),
+            Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__1")
         },
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWTCONFIG__KEY")!)
-        ),
-
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey ?? "DEFAULT_KEY")),
         ClockSkew = TimeSpan.Zero
     };
 });
 
-// Configure CORS (AllowCredentials already enabled for cookies)
+// ------------------------
+// ?? CORS CONFIGURATION
+// ------------------------
 builder.Services.AddCors(p => p.AddPolicy("Cors", policy =>
 {
     policy.WithOrigins("http://localhost:5173", "https://localhost:7220")
           .AllowAnyHeader()
           .AllowAnyMethod()
-          .AllowCredentials(); // Required for cookies
+          .AllowCredentials();
 }));
 
+builder.Services.AddMemoryCache();
+
+// ------------------------
+// ?? BUILD APP
+// ------------------------
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// ------------------------
+// ?? SWAGGER
+// ------------------------
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "AICES API v1");
-        c.RoutePrefix = string.Empty; // ??t Swagger ? root[](https://localhost:7220/)
+        c.RoutePrefix = string.Empty;
     });
 }
 
-// Global exception handling
+// ------------------------
+// ?? GLOBAL EXCEPTION HANDLER
+// ------------------------
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -125,11 +170,13 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
+// ------------------------
+// ?? MIDDLEWARE PIPELINE
+// ------------------------
 app.UseCors("Cors");
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-
 app.Run();
