@@ -53,7 +53,7 @@ namespace Data.Models.Request
         {
             if (file == null) return ValidationResult.Success;
 
-            const long maxFileSize = 10 * 1024 * 1024; // 10 MB
+            const long maxFileSize = 5 * 1024 * 1024; // 5 MB
             if (file.Length > maxFileSize)
                 return new ValidationResult("Avatar file size cannot exceed 10 MB.");
 

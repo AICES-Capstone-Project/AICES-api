@@ -70,49 +70,35 @@ namespace BusinessObjectLayer.Services
             {
                 return new ServiceResponse
                 {
-                    Status = SRStatus.Error,
-                    Message = "Profile not found. Please create a profile first."
+                    Status = SRStatus.NotFound,
+                    Message = "Profile not found."
                 };
             }
 
-            // Cập nhật thông tin text
-            if (!string.IsNullOrEmpty(request.FullName)) profile.FullName = request.FullName;
-            if (!string.IsNullOrEmpty(request.Address)) profile.Address = request.Address;
-            if (request.DateOfBirth.HasValue) profile.DateOfBirth = request.DateOfBirth?.Date;
-            if (!string.IsNullOrEmpty(request.PhoneNumber)) profile.PhoneNumber = request.PhoneNumber;
+            if (!string.IsNullOrEmpty(request.FullName)) 
+                profile.FullName = request.FullName;
+            
+            if (!string.IsNullOrEmpty(request.Address)) 
+                profile.Address = request.Address;
+            
+            if (request.DateOfBirth.HasValue) 
+                profile.DateOfBirth = request.DateOfBirth.Value.Date;
+            
+            if (!string.IsNullOrEmpty(request.PhoneNumber)) 
+                profile.PhoneNumber = request.PhoneNumber;
 
-            // Xử lý upload avatar nếu có
             if (request.AvatarFile != null && request.AvatarFile.Length > 0)
             {
-                // Kiểm tra loại file
-                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
-                var extension = Path.GetExtension(request.AvatarFile.FileName).ToLowerInvariant();
-                if (!allowedExtensions.Contains(extension))
+                var avatarUploadResult = await UploadAvatarAsync(userId, request.AvatarFile);
+                if (!avatarUploadResult.Success)
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.Error,
-                        Message = "Invalid file type. Only JPG, PNG, GIF allowed."
+                        Message = avatarUploadResult.ErrorMessage
                     };
                 }
-
-                // Đọc stream thành byte[]
-                using var stream = request.AvatarFile.OpenReadStream();
-                using var memoryStream = new MemoryStream();
-                await stream.CopyToAsync(memoryStream);
-                memoryStream.Position = 0;
-
-                // Upload lên Cloudinary với byte[]
-                var uploadParams = new ImageUploadParams()
-                {
-                    File = new FileDescription(request.AvatarFile.FileName, memoryStream), 
-                    PublicId = $"avatars/{userId}_{DateTime.UtcNow.Ticks}",
-                    Folder = "avatars"
-                };
-
-                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
-                var avatarUrl = uploadResult.SecureUrl.ToString();
-                profile.AvatarUrl = avatarUrl;
+                profile.AvatarUrl = avatarUploadResult.Url;
             }
 
             await _profileRepository.UpdateAsync(profile);
@@ -121,15 +107,58 @@ namespace BusinessObjectLayer.Services
             {
                 Status = SRStatus.Success,
                 Message = "Profile updated successfully.",
-                Data = new
+                Data = new ProfileResponse
                 {
+                    UserId = profile.UserId,
                     FullName = profile.FullName,
                     Address = profile.Address,
-                    DateOfBirth = profile.DateOfBirth?.ToString("yyyy-MM-dd"),
+                    DateOfBirth = profile.DateOfBirth,
                     PhoneNumber = profile.PhoneNumber,
                     AvatarUrl = profile.AvatarUrl
                 }
             };
+        }
+
+        private async Task<(bool Success, string? Url, string? ErrorMessage)> UploadAvatarAsync(int userId, Microsoft.AspNetCore.Http.IFormFile file)
+        {
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            
+            if (!allowedExtensions.Contains(extension))
+            {
+                return (false, null, "Invalid file type. Only JPG, PNG, GIF, WEBP allowed.");
+            }
+
+            const int maxFileSize = 5 * 1024 * 1024; // 5MB
+            if (file.Length > maxFileSize)
+            {
+                return (false, null, "File size exceeds 5MB limit.");
+            }
+
+            try
+            {
+                using var stream = file.OpenReadStream();
+                var uploadParams = new ImageUploadParams()
+                {
+                    File = new FileDescription(file.FileName, stream),
+                    PublicId = $"avatars/{userId}_{DateTime.UtcNow.Ticks}",
+                    Folder = "avatars",
+                    Transformation = new Transformation().Width(500).Height(500).Crop("fill")
+                };
+
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+                
+                if (uploadResult.Error != null)
+                {
+                    return (false, null, $"Upload failed: {uploadResult.Error.Message}");
+                }
+
+                return (true, uploadResult.SecureUrl.ToString(), null);
+            }
+            catch (Exception ex)
+            {
+                return (false, null, $"Upload error: {ex.Message}");
+            }
         }
     }
 }

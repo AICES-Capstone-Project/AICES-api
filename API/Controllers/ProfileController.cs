@@ -1,5 +1,6 @@
 ﻿using API.Common;
 using BusinessObjectLayer.IServices;
+using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using Microsoft.AspNetCore.Authorization;
@@ -11,7 +12,7 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // Yêu cầu JWT
+    [Authorize]
     public class ProfileController : ControllerBase
     {
         private readonly IProfileService _profileService;
@@ -26,17 +27,34 @@ namespace API.Controllers
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(ModelState); // Trả về lỗi validation
+                var errorResponse = new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "Validation failed.",
+                    Data = ModelState
+                };
+                return ControllerResponse.Response(errorResponse);
             }
 
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            var userId = GetUserIdFromClaims();
             if (userId == 0)
             {
-                return Unauthorized("Invalid token.");
+                var errorResponse = new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "Invalid token."
+                };
+                return ControllerResponse.Response(errorResponse);
             }
 
             var serviceResponse = await _profileService.UpdateProfileAsync(userId, request);
             return ControllerResponse.Response(serviceResponse);
+        }
+
+        private int GetUserIdFromClaims()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(userIdClaim, out var userId) ? userId : 0;
         }
     }
 }
