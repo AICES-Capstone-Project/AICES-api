@@ -90,14 +90,17 @@ else
 // ------------------------
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>(); 
+builder.Services.AddScoped<IUserService, UserService>();
 
 // Auth Services
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
-// Other Services
-builder.Services.AddScoped<IProfileService, ProfileService>();
+
+
 
 // ------------------------
 // ?? JWT AUTHENTICATION CONFIGURATION
@@ -183,7 +186,7 @@ app.UseExceptionHandler(errorApp =>
 // ------------------------
 app.UseCors("Cors");
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+app.UseStaticFiles(); 
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
