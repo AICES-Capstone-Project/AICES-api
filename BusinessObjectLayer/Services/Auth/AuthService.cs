@@ -44,7 +44,7 @@ namespace BusinessObjectLayer.Services.Auth
 
         private static bool IsAdminEmail(string email)
         {
-            var adminEnv = GetEnvOrThrow("ADMIN__EMAILS");
+            var adminEnv = GetEnvOrThrow("EMAILCONFIG__USERNAME");
             var configured = (adminEnv ?? string.Empty)
                 .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(e => e.Trim().ToLowerInvariant())
