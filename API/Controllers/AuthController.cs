@@ -1,5 +1,5 @@
 ﻿using API.Common;
-using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices.Auth;
 using Data.Models.Request;
 using Data.Models.Response;
 using Microsoft.AspNetCore.Authorization;
@@ -54,7 +54,7 @@ namespace API.Controllers
         [HttpPost("google")]
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
         {
-            var serviceResponse = await _authService.GoogleLoginAsync(request.IdToken);
+            var serviceResponse = await _authService.GoogleLoginAsync(request.AccessToken);
 
             // Set refresh token as HTTP-only cookie and return only access token
             if (serviceResponse.Status == Data.Enum.SRStatus.Success && serviceResponse.Data is AuthTokenResponse tokens)
@@ -62,6 +62,20 @@ namespace API.Controllers
                 SetRefreshTokenCookie(tokens.RefreshToken);
                 
                 // Replace with LoginResponse (only accessToken)
+                serviceResponse.Data = new LoginResponse { AccessToken = tokens.AccessToken };
+            }
+
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpPost("github")]
+        public async Task<IActionResult> GitHubLogin([FromBody] GitHubLoginRequest request)
+        {
+            var serviceResponse = await _authService.GitHubLoginAsync(request.Code);
+
+            if (serviceResponse.Status == Data.Enum.SRStatus.Success && serviceResponse.Data is AuthTokenResponse tokens)
+            {
+                SetRefreshTokenCookie(tokens.RefreshToken);
                 serviceResponse.Data = new LoginResponse { AccessToken = tokens.AccessToken };
             }
 

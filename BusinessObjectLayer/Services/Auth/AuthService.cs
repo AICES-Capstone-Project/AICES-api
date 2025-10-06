@@ -1,38 +1,35 @@
-﻿using BCrypt.Net;
+using BCrypt.Net;
 using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices.Auth;
+using BusinessObjectLayer.Services.Auth.Models;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
-using Google.Apis.Auth;
-using MailKit.Net.Smtp;
-using MailKit.Security;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using MimeKit;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
-namespace BusinessObjectLayer.Services
+namespace BusinessObjectLayer.Services.Auth
 {
     public class AuthService : IAuthService
     {
         private readonly IAuthRepository _authRepository;
         private readonly IProfileService _profileService;
-        private readonly IConfiguration _configuration;
-        private readonly IMemoryCache _cache;
+        private readonly ITokenService _tokenService;
+        private readonly IEmailService _emailService;
 
-        public AuthService(IAuthRepository authRepository, IProfileService profileService, IConfiguration configuration, IMemoryCache cache)
+        public AuthService(
+            IAuthRepository authRepository,
+            IProfileService profileService,
+            ITokenService tokenService,
+            IEmailService emailService)
         {
             _authRepository = authRepository;
             _profileService = profileService;
-            _configuration = configuration;
-            _cache = cache;
+            _tokenService = tokenService;
+            _emailService = emailService;
         }
 
         private static string GetEnvOrThrow(string key)
@@ -45,79 +42,7 @@ namespace BusinessObjectLayer.Services
             return value;
         }
 
-        private async Task<string> GetUserProviderAsync(int userId)
-        {
-            var googleProvider = await _authRepository.GetLoginProviderAsync(userId, "Google");
-            if (googleProvider != null) return "Google";
-            
-            var localProvider = await _authRepository.GetLoginProviderAsync(userId, "Local");
-            if (localProvider != null) return "Local";
-            
-            return "Unknown";
-        }
-
-        private static string GenerateRefreshToken()
-        {
-            var randomNumber = new byte[64];
-            using (var rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(randomNumber);
-                return Convert.ToBase64String(randomNumber);
-            }
-        }
-
-        private async Task<AuthTokenResponse> GenerateTokensAsync(User user)
-        {
-            var userProvider = await GetUserProviderAsync(user.UserId);
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-                new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "Candidate"),
-                new Claim("provider", userProvider),
-                new Claim("fullName", user.Profile?.FullName ?? ""),
-                new Claim("phoneNumber", user.Profile?.PhoneNumber ?? ""),
-                new Claim("address", user.Profile?.Address ?? ""),
-                new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? ""),
-                new Claim("avatarUrl", user.Profile?.AvatarUrl ?? ""),
-            };
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var issuer = GetEnvOrThrow("JWTCONFIG__ISSUERS__0");
-            var audience = GetEnvOrThrow("JWTCONFIG__AUDIENCES__0");
-            var expiryMins = int.Parse(Environment.GetEnvironmentVariable("JWTCONFIG__TOKENVALIDITYMINS") ?? "60"); // 1 hour
-
-            var accessToken = new JwtSecurityToken(
-                issuer: issuer,
-                audience: audience,
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(expiryMins),
-                signingCredentials: creds
-            );
-
-            var accessTokenString = new JwtSecurityTokenHandler().WriteToken(accessToken);
-            var refreshTokenString = GenerateRefreshToken();
-
-            // Save refresh token to database
-            var refreshToken = new RefreshToken
-            {
-                UserId = user.UserId,
-                Token = refreshTokenString,
-                ExpiryDate = DateTime.UtcNow.AddDays(7), // 7 days
-                IsActive = true
-            };
-
-            await _authRepository.AddRefreshTokenAsync(refreshToken);
-
-            return new AuthTokenResponse
-            {
-                AccessToken = accessTokenString,
-                RefreshToken = refreshTokenString
-            };
-        }
-
-        public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName) 
+        public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName)
         {
             var existedUser = await _authRepository.GetByEmailAsync(email);
             if (existedUser != null)
@@ -132,8 +57,8 @@ namespace BusinessObjectLayer.Services
                 }
                 else
                 {
-                    var verificationToken = GenerateVerificationToken(email);
-                    await SendVerificationEmail(email, verificationToken);
+                    var verificationToken = _tokenService.GenerateVerificationToken(email);
+                    await _emailService.SendVerificationEmailAsync(email, verificationToken);
                     return new ServiceResponse
                     {
                         Status = SRStatus.Success,
@@ -141,7 +66,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
             }
-           
+
             int roleId = 4; //Candidate
 
             if (!await _authRepository.RoleExistsAsync(roleId))
@@ -169,12 +94,12 @@ namespace BusinessObjectLayer.Services
             {
                 UserId = addedUser.UserId,
                 AuthProvider = "Local",
-                ProviderId = "" 
+                ProviderId = ""
             };
             await _authRepository.AddLoginProviderAsync(localProvider);
 
-            var newVerificationToken = GenerateVerificationToken(email);
-            await SendVerificationEmail(email, newVerificationToken);
+            var newVerificationToken = _tokenService.GenerateVerificationToken(email);
+            await _emailService.SendVerificationEmailAsync(email, newVerificationToken);
 
             return new ServiceResponse
             {
@@ -198,7 +123,7 @@ namespace BusinessObjectLayer.Services
             // Revoke all existing refresh tokens on new login (security: invalidate old sessions)
             await _authRepository.RevokeAllRefreshTokensAsync(user.UserId);
 
-            var tokens = await GenerateTokensAsync(user);
+            var tokens = await _tokenService.GenerateTokensAsync(user);
 
             return new ServiceResponse
             {
@@ -206,7 +131,6 @@ namespace BusinessObjectLayer.Services
                 Message = "Login successful",
                 Data = tokens // Return AuthTokenResponse (controller will handle separation)
             };
-
         }
 
         public async Task<ServiceResponse> VerifyEmailAsync(string token)
@@ -216,24 +140,12 @@ namespace BusinessObjectLayer.Services
                 Console.WriteLine("Starting token validation...");
                 Console.WriteLine($"Received token length: {token?.Length ?? 0}");
 
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
-                var validationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = key,
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.Zero
-                };
-
-                var principal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
-                var email = principal.FindFirst(ClaimTypes.Email)?.Value; // Sử dụng ClaimTypes.Email thay vì "email"
+                var principal = _tokenService.ValidateToken(token);
+                var email = principal.FindFirst(ClaimTypes.Email)?.Value;
 
                 Console.WriteLine($"Decoded email from token: {email ?? "NULL"}");
 
-                // Log tất cả claims để kiểm tra
+                // Log all claims for verification
                 foreach (var claim in principal.Claims)
                 {
                     Console.WriteLine($"Claim: {claim.Type} = {claim.Value}");
@@ -281,64 +193,38 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        private string GenerateVerificationToken(string email)
-        {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.Email, email)
-            };
-
-            var token = new JwtSecurityToken(
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(15),
-                signingCredentials: creds);
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
-        }
-
-        private async Task SendVerificationEmail(string email, string verificationToken)
-        {
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress("AICES", Environment.GetEnvironmentVariable("EMAILCONFIG__FROM")));
-            message.To.Add(new MailboxAddress("", email));
-            message.Subject = "Verify Your Email";
-
-            var builder = new BodyBuilder();
-            // URL encode the token to prevent issues with special characters
-            var encodedToken = System.Web.HttpUtility.UrlEncode(verificationToken);
-            var verificationLink = $"{Environment.GetEnvironmentVariable("APPURL__CLIENTURL")}/verify-email?token={encodedToken}";
-            builder.HtmlBody = $@"
-                <h1>Verify Your Account</h1>
-                <p>Please click the link below to verify your email:</p>
-                <a href='{verificationLink}'>Verify Email</a>
-                <p><small>This link will expire in 15 minutes.</small></p>";
-
-            message.Body = builder.ToMessageBody();
-
-            using var client = new SmtpClient();
-            await client.ConnectAsync(
-                Environment.GetEnvironmentVariable("EMAILCONFIG__SMTPSERVER"),
-                int.Parse(Environment.GetEnvironmentVariable("EMAILCONFIG__SMTPPORT") ?? "587"),
-                SecureSocketOptions.StartTls);
-
-            await client.AuthenticateAsync(
-                Environment.GetEnvironmentVariable("EMAILCONFIG__USERNAME"),
-                Environment.GetEnvironmentVariable("EMAILCONFIG__PASSWORD"));
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
-        }
-
-        public async Task<ServiceResponse> GoogleLoginAsync(string idToken)
+        public async Task<ServiceResponse> GoogleLoginAsync(string accessToken)
         {
             try
             {
-                // 1. Validate ID token with Google (secure way)
-                var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, new GoogleJsonWebSignature.ValidationSettings());
+                // 1. Validate access token by calling Google's userinfo API
+                using var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
-                if (!payload.EmailVerified)
+                var response = await httpClient.GetAsync("https://www.googleapis.com/oauth2/v2/userinfo");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "Invalid Google access token."
+                    };
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                var userInfo = JsonSerializer.Deserialize<GoogleUserInfo>(json);
+
+                if (userInfo == null || string.IsNullOrEmpty(userInfo.Email))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve user information from Google."
+                    };
+                }
+
+                if (!userInfo.VerifiedEmail)
                 {
                     return new ServiceResponse
                     {
@@ -350,37 +236,37 @@ namespace BusinessObjectLayer.Services
                 var adminEmail = GetEnvOrThrow("EMAILCONFIG__USERNAME");
 
                 // 2. Check if user exists by ProviderId or Email
-                var user = await _authRepository.GetByProviderAsync("Google", payload.Subject);
-                
+                var user = await _authRepository.GetByProviderAsync("Google", userInfo.Id);
+
                 if (user == null)
                 {
                     // Try to find by email (in case user exists but no Google provider)
-                    user = await _authRepository.GetByEmailAsync(payload.Email);
+                    user = await _authRepository.GetByEmailAsync(userInfo.Email);
                 }
 
                 if (user == null)
                 {
-                    int roleId = payload.Email == adminEmail ? 1 : 4;
+                    int roleId = userInfo.Email == adminEmail ? 1 : 4;
 
                     // Create new user
                     user = new User
                     {
-                        Email = payload.Email,
-                        RoleId = roleId, 
+                        Email = userInfo.Email,
+                        RoleId = roleId,
                         IsActive = true
                     };
 
                     user = await _authRepository.AddAsync(user);
 
                     // Create profile with Google name & avatar
-                    await _profileService.CreateDefaultProfileAsync(user.UserId, payload.Name, payload.Picture);
+                    await _profileService.CreateDefaultProfileAsync(user.UserId, userInfo.Name, userInfo.Picture);
 
                     // Add Google login provider
                     var googleProvider = new LoginProvider
                     {
                         UserId = user.UserId,
                         AuthProvider = "Google",
-                        ProviderId = payload.Subject
+                        ProviderId = userInfo.Id
                     };
                     await _authRepository.AddLoginProviderAsync(googleProvider);
                 }
@@ -395,13 +281,13 @@ namespace BusinessObjectLayer.Services
                         {
                             UserId = user.UserId,
                             AuthProvider = "Google",
-                            ProviderId = payload.Subject
+                            ProviderId = userInfo.Id
                         };
                         await _authRepository.AddLoginProviderAsync(googleProvider);
                     }
 
-                    // Nếu đã tồn tại user nhưng là admin email thì ép role về 1
-                    if (payload.Email == adminEmail && user.RoleId != 1)
+                    // If user exists but is admin email, force role to 1
+                    if (userInfo.Email == adminEmail && user.RoleId != 1)
                     {
                         user.RoleId = 1;
                         await _authRepository.UpdateAsync(user);
@@ -412,22 +298,22 @@ namespace BusinessObjectLayer.Services
                 await _authRepository.RevokeAllRefreshTokensAsync(user.UserId);
 
                 // 4. Generate tokens
-                var tokens = await GenerateTokensAsync(user);
+                var tokens = await _tokenService.GenerateTokensAsync(user);
 
                 // 5. Return success response
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "Google login successful",
-                    Data = tokens 
+                    Data = tokens
                 };
             }
-            catch (InvalidJwtException)
+            catch (HttpRequestException)
             {
                 return new ServiceResponse
                 {
                     Status = SRStatus.Unauthorized,
-                    Message = "Invalid Google ID token."
+                    Message = "Failed to validate Google access token."
                 };
             }
             catch (Exception ex)
@@ -437,6 +323,142 @@ namespace BusinessObjectLayer.Services
                 {
                     Status = SRStatus.Error,
                     Message = "An error occurred during Google login."
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> GitHubLoginAsync(string code)
+        {
+            try
+            {
+                var clientId = GetEnvOrThrow("GITHUB__CLIENTID");
+                var clientSecret = GetEnvOrThrow("GITHUB__CLIENTSECRET");
+
+                using var httpClient = new HttpClient();
+
+                // 1️⃣ Exchange code for access token
+                var tokenRequest = new Dictionary<string, string>
+                {
+                    ["client_id"] = clientId,
+                    ["client_secret"] = clientSecret,
+                    ["code"] = code
+                };
+
+                // GitHub requires headers even for token request
+                httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+                httpClient.DefaultRequestHeaders.Add("User-Agent", "AICES"); // required
+
+                var tokenResponse = await httpClient.PostAsync(
+                    "https://github.com/login/oauth/access_token",
+                    new FormUrlEncodedContent(tokenRequest)
+                );
+
+                if (!tokenResponse.IsSuccessStatusCode)
+                {
+                    var errorBody = await tokenResponse.Content.ReadAsStringAsync();
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = $"GitHub token request failed ({tokenResponse.StatusCode}): {errorBody}"
+                    };
+                }
+
+                var tokenContent = await tokenResponse.Content.ReadAsStringAsync();
+                var tokenData = JsonSerializer.Deserialize<Dictionary<string, string>>(tokenContent);
+                var accessToken = tokenData["access_token"];
+
+                if (string.IsNullOrEmpty(accessToken))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "Failed to obtain GitHub access token."
+                    };
+                }
+
+                // 2️⃣ Fetch user info - use a fresh HttpClient to avoid connection pooling issues
+                using var userHttpClient = new HttpClient();
+                userHttpClient.DefaultRequestHeaders.Add("Authorization", $"token {accessToken}");
+                userHttpClient.DefaultRequestHeaders.Add("User-Agent", "AICES"); // GitHub requires this
+                userHttpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
+
+                Console.WriteLine($"[GitHub] Calling user API with token: {accessToken.Substring(0, Math.Min(10, accessToken.Length))}...");
+                var userResponse = await userHttpClient.GetAsync("https://api.github.com/user");
+                Console.WriteLine($"[GitHub] User API response: {userResponse.StatusCode}");
+
+                if (!userResponse.IsSuccessStatusCode)
+                {
+                    var errorBody = await userResponse.Content.ReadAsStringAsync();
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = $"GitHub user API failed ({userResponse.StatusCode}): {errorBody}"
+                    };
+                }
+
+                var userJson = await userResponse.Content.ReadAsStringAsync();
+                var githubUser = JsonSerializer.Deserialize<GitHubUser>(
+                    userJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                // 3️⃣ Get email if not returned
+                if (string.IsNullOrEmpty(githubUser.Email))
+                {
+                    var emailResponse = await userHttpClient.GetAsync("https://api.github.com/user/emails");
+                    var emailJson = await emailResponse.Content.ReadAsStringAsync();
+                    var emails = JsonSerializer.Deserialize<List<GitHubEmail>>(emailJson);
+                    githubUser.Email = emails?.FirstOrDefault(e => e.Primary && e.Verified)?.Email ?? "";
+                }
+
+                if (string.IsNullOrEmpty(githubUser.Email))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "GitHub account has no verified email."
+                    };
+                }
+
+                // 4️⃣ Find or create user (same as before)
+                var user = await _authRepository.GetByProviderAsync("GitHub", githubUser.Id.ToString())
+                           ?? await _authRepository.GetByEmailAsync(githubUser.Email);
+
+                if (user == null)
+                {
+                    user = new User
+                    {
+                        Email = githubUser.Email,
+                        RoleId = 4,
+                        IsActive = true
+                    };
+
+                    user = await _authRepository.AddAsync(user);
+                    await _profileService.CreateDefaultProfileAsync(user.UserId, githubUser.Name, githubUser.AvatarUrl);
+
+                    await _authRepository.AddLoginProviderAsync(new LoginProvider
+                    {
+                        UserId = user.UserId,
+                        AuthProvider = "GitHub",
+                        ProviderId = githubUser.Id.ToString()
+                    });
+                }
+
+                await _authRepository.RevokeAllRefreshTokensAsync(user.UserId);
+                var tokens = await _tokenService.GenerateTokensAsync(user);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "GitHub login successful",
+                    Data = tokens
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"GitHub login error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"GitHub login failed: {ex.Message}"
                 };
             }
         }
@@ -458,7 +480,6 @@ namespace BusinessObjectLayer.Services
 
             try
             {
-                //var user = await GetCurrentUserAsync(userClaims);
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
@@ -470,7 +491,7 @@ namespace BusinessObjectLayer.Services
                         FullName = user.Profile?.FullName,
                         RoleName = user.Role?.RoleName,
                         AvatarUrl = user.Profile?.AvatarUrl,
-                        IsActive = user.IsActive    
+                        IsActive = user.IsActive
                     }
                 };
             }
@@ -504,8 +525,8 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var resetToken = GenerateResetToken(user.Email);
-            await SendResetEmail(email, resetToken);
+            var resetToken = _tokenService.GenerateResetToken(user.Email);
+            await _emailService.SendResetEmailAsync(email, resetToken);
 
             return new ServiceResponse
             {
@@ -518,19 +539,7 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
-                var validationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = key,
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.Zero
-                };
-
-                var principal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
+                var principal = _tokenService.ValidateToken(token);
                 var email = principal.FindFirst(ClaimTypes.Email)?.Value;
 
                 if (string.IsNullOrEmpty(email))
@@ -562,49 +571,6 @@ namespace BusinessObjectLayer.Services
                 Console.WriteLine($"Reset password error: {ex.Message}");
                 return new ServiceResponse { Status = SRStatus.Error, Message = "Invalid or expired reset token." };
             }
-        }
-
-        private string GenerateResetToken(string email)
-        {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.Email, email)
-            };
-
-            var token = new JwtSecurityToken(
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(15), // Token hết hạn sau 15 phút
-                signingCredentials: creds);
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
-        }
-
-        private async Task SendResetEmail(string email, string resetToken)
-        {
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress("AICES", GetEnvOrThrow("EMAILCONFIG__FROM")));
-            message.To.Add(new MailboxAddress("", email));
-            message.Subject = "Reset Your Password";
-
-            var builder = new BodyBuilder();
-            var encodedToken = System.Web.HttpUtility.UrlEncode(resetToken);
-            var resetLink = $"{GetEnvOrThrow("APPURL__CLIENTURL")}/reset-password?token={encodedToken}";
-            builder.HtmlBody = $"<h1>Reset Your Password</h1><p>Please click the link below to reset your password:</p><a href='{resetLink}'>{resetLink}</a><p>This link will expire in 15 minutes.</p>";
-            message.Body = builder.ToMessageBody();
-
-            using var client = new SmtpClient();
-            await client.ConnectAsync(
-                GetEnvOrThrow("EMAILCONFIG__SMTPSERVER"), 
-                int.Parse(GetEnvOrThrow("EMAILCONFIG__SMTPPORT")), 
-                SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(
-                GetEnvOrThrow("EMAILCONFIG__USERNAME"), 
-                GetEnvOrThrow("EMAILCONFIG__PASSWORD"));
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
         }
 
         public async Task<ServiceResponse> RefreshTokenAsync(string refreshToken)
@@ -660,13 +626,13 @@ namespace BusinessObjectLayer.Services
                 await _authRepository.RevokeAllRefreshTokensAsync(storedToken.UserId);
 
                 // 6. Generate new tokens
-                var tokens = await GenerateTokensAsync(storedToken.User);
+                var tokens = await _tokenService.GenerateTokensAsync(storedToken.User);
 
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "Tokens refreshed successfully",
-                    Data = tokens 
+                    Data = tokens
                 };
             }
             catch (Exception ex)
@@ -715,3 +681,4 @@ namespace BusinessObjectLayer.Services
         }
     }
 }
+

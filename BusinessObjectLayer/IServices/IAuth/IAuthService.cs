@@ -8,14 +8,15 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BusinessObjectLayer.IServices
+namespace BusinessObjectLayer.IServices.Auth
 {
     public interface IAuthService
     {
         Task<ServiceResponse> RegisterAsync(string email, string password, string fullName); 
         Task<ServiceResponse> LoginAsync(string email, string password);
         Task<ServiceResponse> VerifyEmailAsync(string token);
-        Task<ServiceResponse> GoogleLoginAsync(string googleToken);
+        Task<ServiceResponse> GoogleLoginAsync(string accessToken);
+        Task<ServiceResponse> GitHubLoginAsync(string code);
         Task<ServiceResponse> RequestPasswordResetAsync(string email);
         Task<ServiceResponse> ResetPasswordAsync(string token, string newPassword);
         Task<ServiceResponse> GetCurrentUserInfoAsync(ClaimsPrincipal userClaims);

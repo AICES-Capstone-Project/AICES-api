@@ -30,6 +30,12 @@ namespace Data.Models.Request
     public class GoogleLoginRequest
     {
         [Required(ErrorMessage = "Google Access Token is required.")]
-        public string IdToken { get; set; }
+        public string AccessToken { get; set; }
+    }
+
+    public class GitHubLoginRequest
+    {
+        [Required(ErrorMessage = "GitHub authorization code is required.")]
+        public string Code { get; set; }
     }
 }

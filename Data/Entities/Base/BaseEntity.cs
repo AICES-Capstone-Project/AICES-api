@@ -9,7 +9,7 @@ namespace Data.Entities.Base
 {
     public abstract class BaseEntity
     {
-        public bool IsActive { get; set; } = false;
+        public bool IsActive { get; set; } = true;
         public DateTime? CreatedAt{ get; set; } = DateTime.Now;
     }
 }

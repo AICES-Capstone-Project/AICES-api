@@ -1,5 +1,6 @@
-using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices.Auth;
 using BusinessObjectLayer.Services;
+using BusinessObjectLayer.Services.Auth;
 using DataAccessLayer;
 using DataAccessLayer.IRepositories;
 using DataAccessLayer.Repositories;
@@ -10,6 +11,7 @@ using Scalar.AspNetCore;
 using System.Text;
 using DotNetEnv;
 using CloudinaryDotNet;
+using BusinessObjectLayer.IServices;
 
 // ------------------------
 // ?? LOAD ENVIRONMENT FILE
@@ -88,7 +90,13 @@ else
 // ------------------------
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
+
+// Auth Services
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+// Other Services
 builder.Services.AddScoped<IProfileService, ProfileService>();
 
 // ------------------------
