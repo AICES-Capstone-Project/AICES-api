@@ -42,6 +42,20 @@ namespace BusinessObjectLayer.Services.Auth
             return value;
         }
 
+        private static bool IsAdminEmail(string email)
+        {
+            var adminEnv = GetEnvOrThrow("ADMIN__EMAILS");
+            var configured = (adminEnv ?? string.Empty)
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(e => e.Trim().ToLowerInvariant())
+                .ToHashSet();
+
+            var legacy = GetEnvOrThrow("EMAILCONFIG__USERNAME");
+            if (!string.IsNullOrWhiteSpace(legacy)) configured.Add(legacy.Trim().ToLowerInvariant());
+
+            return configured.Contains(email.Trim().ToLowerInvariant());
+        }
+
         public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName)
         {
             var existedUser = await _authRepository.GetByEmailAsync(email);
@@ -82,7 +96,7 @@ namespace BusinessObjectLayer.Services.Auth
             {
                 Email = email,
                 Password = BCrypt.Net.BCrypt.HashPassword(password),
-                RoleId = roleId,
+                RoleId = IsAdminEmail(email) ? 1 : roleId,
                 IsActive = false
             };
 
@@ -246,7 +260,7 @@ namespace BusinessObjectLayer.Services.Auth
 
                 if (user == null)
                 {
-                    int roleId = userInfo.Email == adminEmail ? 1 : 4;
+                    int roleId = IsAdminEmail(userInfo.Email) ? 1 : 4;
 
                     // Create new user
                     user = new User
@@ -287,7 +301,7 @@ namespace BusinessObjectLayer.Services.Auth
                     }
 
                     // If user exists but is admin email, force role to 1
-                    if (userInfo.Email == adminEmail && user.RoleId != 1)
+                    if (IsAdminEmail(userInfo.Email) && user.RoleId != 1)
                     {
                         user.RoleId = 1;
                         await _authRepository.UpdateAsync(user);
@@ -382,9 +396,7 @@ namespace BusinessObjectLayer.Services.Auth
                 userHttpClient.DefaultRequestHeaders.Add("User-Agent", "AICES"); // GitHub requires this
                 userHttpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
 
-                Console.WriteLine($"[GitHub] Calling user API with token: {accessToken.Substring(0, Math.Min(10, accessToken.Length))}...");
                 var userResponse = await userHttpClient.GetAsync("https://api.github.com/user");
-                Console.WriteLine($"[GitHub] User API response: {userResponse.StatusCode}");
 
                 if (!userResponse.IsSuccessStatusCode)
                 {
@@ -427,7 +439,7 @@ namespace BusinessObjectLayer.Services.Auth
                     user = new User
                     {
                         Email = githubUser.Email,
-                        RoleId = 4,
+                        RoleId = IsAdminEmail(githubUser.Email) ? 1 : 4,
                         IsActive = true
                     };
 
@@ -440,6 +452,20 @@ namespace BusinessObjectLayer.Services.Auth
                         AuthProvider = "GitHub",
                         ProviderId = githubUser.Id.ToString()
                     });
+                }
+                else
+                {
+                    // Ensure GitHub provider record exists for this user
+                    var existingGitHubProvider = await _authRepository.GetLoginProviderAsync(user.UserId, "GitHub");
+                    if (existingGitHubProvider == null)
+                    {
+                        await _authRepository.AddLoginProviderAsync(new LoginProvider
+                        {
+                            UserId = user.UserId,
+                            AuthProvider = "GitHub",
+                            ProviderId = githubUser.Id.ToString()
+                        });
+                    }
                 }
 
                 await _authRepository.RevokeAllRefreshTokensAsync(user.UserId);
@@ -575,75 +601,7 @@ namespace BusinessObjectLayer.Services.Auth
 
         public async Task<ServiceResponse> RefreshTokenAsync(string refreshToken)
         {
-            try
-            {
-                // 1. Find refresh token in database
-                var storedToken = await _authRepository.GetRefreshTokenAsync(refreshToken);
-                if (storedToken == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Unauthorized,
-                        Message = "Invalid refresh token."
-                    };
-                }
-
-                // 2. Check if token is active
-                if (!storedToken.IsActive)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Unauthorized,
-                        Message = "Refresh token has been revoked."
-                    };
-                }
-
-                // 3. Check if token is expired
-                if (storedToken.ExpiryDate < DateTime.UtcNow)
-                {
-                    // Mark token as inactive
-                    storedToken.IsActive = false;
-                    await _authRepository.UpdateRefreshTokenAsync(storedToken);
-
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Unauthorized,
-                        Message = "Refresh token has expired."
-                    };
-                }
-
-                // 4. Check if user is still active
-                if (!storedToken.User.IsActive)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Unauthorized,
-                        Message = "User account is inactive."
-                    };
-                }
-
-                // 5. Revoke ALL refresh tokens for this user (security: force logout on all other devices)
-                await _authRepository.RevokeAllRefreshTokensAsync(storedToken.UserId);
-
-                // 6. Generate new tokens
-                var tokens = await _tokenService.GenerateTokensAsync(storedToken.User);
-
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Success,
-                    Message = "Tokens refreshed successfully",
-                    Data = tokens
-                };
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Refresh token error: {ex.Message}");
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "An error occurred while refreshing tokens."
-                };
-            }
+            return await _tokenService.RefreshTokensAsync(refreshToken);
         }
 
         public async Task<ServiceResponse> LogoutAsync(string refreshToken)

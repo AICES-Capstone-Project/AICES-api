@@ -6,6 +6,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Data.Enum;
 
 namespace BusinessObjectLayer.Services.Auth
 {
@@ -98,6 +99,71 @@ namespace BusinessObjectLayer.Services.Auth
                 AccessToken = accessTokenString,
                 RefreshToken = refreshTokenString
             };
+        }
+
+        public async Task<ServiceResponse> RefreshTokensAsync(string refreshToken)
+        {
+            try
+            {
+                var storedToken = await _authRepository.GetRefreshTokenAsync(refreshToken);
+                if (storedToken == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "Invalid refresh token."
+                    };
+                }
+
+                if (!storedToken.IsActive)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "Refresh token has been revoked."
+                    };
+                }
+
+                if (storedToken.ExpiryDate < DateTime.UtcNow)
+                {
+                    storedToken.IsActive = false;
+                    await _authRepository.UpdateRefreshTokenAsync(storedToken);
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "Refresh token has expired."
+                    };
+                }
+
+                if (!storedToken.User.IsActive)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User account is inactive."
+                    };
+                }
+
+                await _authRepository.RevokeAllRefreshTokensAsync(storedToken.UserId);
+                var tokens = await GenerateTokensAsync(storedToken.User);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Tokens refreshed successfully",
+                    Data = tokens
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Refresh token error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while refreshing tokens."
+                };
+            }
         }
 
         public string GenerateVerificationToken(string email)
