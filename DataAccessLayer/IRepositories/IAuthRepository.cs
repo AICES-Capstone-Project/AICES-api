@@ -1,4 +1,5 @@
 ﻿using Data.Entities;
+using Data.Enum;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,9 +15,9 @@ namespace DataAccessLayer.IRepositories
         Task<bool> EmailExistsAsync(string email);
         Task UpdateAsync(User user);
         Task<bool> RoleExistsAsync(int roleId);
-        Task<User> GetByProviderAsync(string provider, string providerId);
+        Task<User> GetByProviderAsync(AuthProviderEnum provider, string providerId);
         Task<LoginProvider> AddLoginProviderAsync(LoginProvider loginProvider);
-        Task<LoginProvider?> GetLoginProviderAsync(int userId, string provider);
+        Task<LoginProvider?> GetLoginProviderAsync(int userId, AuthProviderEnum provider);
         
         // Refresh Token methods
         Task<RefreshToken> AddRefreshTokenAsync(RefreshToken refreshToken);

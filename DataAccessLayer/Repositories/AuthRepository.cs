@@ -1,4 +1,5 @@
 ﻿using Data.Entities;
+using Data.Enum;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -49,7 +50,7 @@ namespace DataAccessLayer.Repositories
             return await _context.Roles.AnyAsync(r => r.RoleId == roleId);
         }
 
-        public async Task<User> GetByProviderAsync(string provider, string providerId)
+        public async Task<User> GetByProviderAsync(AuthProviderEnum provider, string providerId)
         {
             return await _context.Users
                 .Include(u => u.Role)
@@ -65,7 +66,7 @@ namespace DataAccessLayer.Repositories
             return loginProvider;
         }
 
-        public async Task<LoginProvider?> GetLoginProviderAsync(int userId, string provider)
+        public async Task<LoginProvider?> GetLoginProviderAsync(int userId, AuthProviderEnum provider)
         {
             return await _context.LoginProviders
                 .FirstOrDefaultAsync(lp => lp.UserId == userId && lp.AuthProvider == provider);

@@ -31,11 +31,14 @@ namespace BusinessObjectLayer.Services.Auth
 
         private async Task<string> GetUserProviderAsync(int userId)
         {
-            var googleProvider = await _authRepository.GetLoginProviderAsync(userId, "Google");
-            if (googleProvider != null) return "Google";
+            var googleProvider = await _authRepository.GetLoginProviderAsync(userId, AuthProviderEnum.Google);
+            if (googleProvider != null) return AuthProviderEnum.Google.ToString();
 
-            var localProvider = await _authRepository.GetLoginProviderAsync(userId, "Local");
-            if (localProvider != null) return "Local";
+            var githubProvider = await _authRepository.GetLoginProviderAsync(userId, AuthProviderEnum.GitHub);
+            if (githubProvider != null) return AuthProviderEnum.GitHub.ToString();
+
+            var localProvider = await _authRepository.GetLoginProviderAsync(userId, AuthProviderEnum.Local);
+            if (localProvider != null) return AuthProviderEnum.Local.ToString();
 
             return "Unknown";
         }

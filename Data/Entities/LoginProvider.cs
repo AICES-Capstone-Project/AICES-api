@@ -1,4 +1,5 @@
 ﻿using Data.Entities.Base;
+using Data.Enum;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -18,8 +19,8 @@ namespace Data.Entities
         [ForeignKey("User")]
         public int UserId { get; set; }
 
-        [Required, MaxLength(50)]
-        public string AuthProvider { get; set; } = string.Empty; // google, local, github...
+        [Required]
+        public AuthProviderEnum AuthProvider { get; set; } = AuthProviderEnum.Local;
 
         [MaxLength(255)]
         public string ProviderId { get; set; } = string.Empty; // id từ provider

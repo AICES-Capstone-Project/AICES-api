@@ -23,6 +23,7 @@ namespace DataAccessLayer.Repositories
             return await _context.Users
                 .Include(u => u.Role)
                 .Include(u => u.Profile)
+                .Include(u => u.LoginProviders)
                 .FirstOrDefaultAsync(u => u.UserId == id);
         }
 
@@ -31,6 +32,7 @@ namespace DataAccessLayer.Repositories
             var query = _context.Users
                 .Include(u => u.Role)
                 .Include(u => u.Profile)
+                .Include(u => u.LoginProviders)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))

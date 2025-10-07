@@ -4,11 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Data.Models.Response
+namespace Data.Models.Response.Pagination
 {
-    public class PaginatedUserResponse
+    public abstract class BasePaginatedResponse
     {
-        public List<UserAdminResponse> Users { get; set; } = new List<UserAdminResponse>();
         public int TotalPages { get; set; }
         public int CurrentPage { get; set; }
         public int PageSize { get; set; }

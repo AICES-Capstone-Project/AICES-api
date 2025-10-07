@@ -1,4 +1,5 @@
 ﻿using Data.Entities;
+using Data.Enum;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.IO;
@@ -86,6 +87,12 @@ namespace DataAccessLayer
                 new Role { RoleId = 3, RoleName = "Recruiter" },
                 new Role { RoleId = 4, RoleName = "Candidate" }
             );
+
+            // Configure enum for AuthProvider to store as string
+            modelBuilder.Entity<LoginProvider>()
+                .Property(lp => lp.AuthProvider)
+                .HasConversion<string>()
+                .HasMaxLength(50);
 
             base.OnModelCreating(modelBuilder);
         }

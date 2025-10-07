@@ -107,7 +107,7 @@ namespace BusinessObjectLayer.Services.Auth
             var localProvider = new LoginProvider
             {
                 UserId = addedUser.UserId,
-                AuthProvider = "Local",
+                AuthProvider = AuthProviderEnum.Local,
                 ProviderId = ""
             };
             await _authRepository.AddLoginProviderAsync(localProvider);
@@ -250,7 +250,7 @@ namespace BusinessObjectLayer.Services.Auth
                 var adminEmail = GetEnvOrThrow("EMAILCONFIG__USERNAME");
 
                 // 2. Check if user exists by ProviderId or Email
-                var user = await _authRepository.GetByProviderAsync("Google", userInfo.Id);
+                var user = await _authRepository.GetByProviderAsync(AuthProviderEnum.Google, userInfo.Id);
 
                 if (user == null)
                 {
@@ -279,7 +279,7 @@ namespace BusinessObjectLayer.Services.Auth
                     var googleProvider = new LoginProvider
                     {
                         UserId = user.UserId,
-                        AuthProvider = "Google",
+                        AuthProvider = AuthProviderEnum.Google,
                         ProviderId = userInfo.Id
                     };
                     await _authRepository.AddLoginProviderAsync(googleProvider);
@@ -287,14 +287,14 @@ namespace BusinessObjectLayer.Services.Auth
                 else
                 {
                     // Check if Google provider already exists for this user
-                    var existingGoogleProvider = await _authRepository.GetLoginProviderAsync(user.UserId, "Google");
+                    var existingGoogleProvider = await _authRepository.GetLoginProviderAsync(user.UserId, AuthProviderEnum.Google);
                     if (existingGoogleProvider == null)
                     {
                         // Add Google login provider if it doesn't exist
                         var googleProvider = new LoginProvider
                         {
                             UserId = user.UserId,
-                            AuthProvider = "Google",
+                            AuthProvider = AuthProviderEnum.Google,
                             ProviderId = userInfo.Id
                         };
                         await _authRepository.AddLoginProviderAsync(googleProvider);
@@ -431,7 +431,7 @@ namespace BusinessObjectLayer.Services.Auth
                 }
 
                 // 4️⃣ Find or create user (same as before)
-                var user = await _authRepository.GetByProviderAsync("GitHub", githubUser.Id.ToString())
+                var user = await _authRepository.GetByProviderAsync(AuthProviderEnum.GitHub, githubUser.Id.ToString())
                            ?? await _authRepository.GetByEmailAsync(githubUser.Email);
 
                 if (user == null)
@@ -449,20 +449,20 @@ namespace BusinessObjectLayer.Services.Auth
                     await _authRepository.AddLoginProviderAsync(new LoginProvider
                     {
                         UserId = user.UserId,
-                        AuthProvider = "GitHub",
+                        AuthProvider = AuthProviderEnum.GitHub,
                         ProviderId = githubUser.Id.ToString()
                     });
                 }
                 else
                 {
                     // Ensure GitHub provider record exists for this user
-                    var existingGitHubProvider = await _authRepository.GetLoginProviderAsync(user.UserId, "GitHub");
+                    var existingGitHubProvider = await _authRepository.GetLoginProviderAsync(user.UserId, AuthProviderEnum.GitHub);
                     if (existingGitHubProvider == null)
                     {
                         await _authRepository.AddLoginProviderAsync(new LoginProvider
                         {
                             UserId = user.UserId,
-                            AuthProvider = "GitHub",
+                            AuthProvider = AuthProviderEnum.GitHub,
                             ProviderId = githubUser.Id.ToString()
                         });
                     }
@@ -510,7 +510,7 @@ namespace BusinessObjectLayer.Services.Auth
                 {
                     Status = SRStatus.Success,
                     Message = "User information retrieved successfully",
-                    Data = new UserResponse
+                    Data = new ProfileResponse
                     {
                         UserId = user.UserId,
                         Email = user.Email,

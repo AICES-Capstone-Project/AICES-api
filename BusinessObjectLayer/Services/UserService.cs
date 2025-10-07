@@ -3,6 +3,7 @@ using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
+using Data.Models.Response.Pagination;
 using DataAccessLayer.IRepositories;
 using System;
 using System.Collections.Generic;
@@ -48,36 +49,23 @@ namespace BusinessObjectLayer.Services
             var localProvider = new LoginProvider
             {
                 UserId = addedUser.UserId,
-                AuthProvider = "Local",
-                ProviderId = "" // Không cần ProviderId cho Local
+                AuthProvider = AuthProviderEnum.Local,
+                ProviderId = "", // Không cần ProviderId cho Local
+                IsActive = true
             };
             await _userRepository.AddLoginProviderAsync(localProvider);
 
             // Tạo profile mặc định
             await _profileService.CreateDefaultProfileAsync(addedUser.UserId, request.FullName ?? request.Email);
 
-            string roleName = request.RoleId switch
-            {
-                1 => "Admin",
-                2 => "Manager",
-                3 => "Recruiter",
-                _ => "Candidate"
-            };
+            // Get the user with all related data to return proper response
+            var userWithRelations = await _userRepository.GetByIdAsync(addedUser.UserId);
 
             return new ServiceResponse
             {
                 Status = SRStatus.Success,
                 Message = "User created successfully.",
-                Data = new UserAdminResponse
-                {
-                    UserId = addedUser.UserId,
-                    Email = addedUser.Email,
-                    RoleName = roleName,
-                    FullName = request.FullName,
-                    IsActive = addedUser.IsActive,
-                    CreatedAt = (DateTime)addedUser.CreatedAt
-                }
-            };
+                };
         }
 
         public async Task<ServiceResponse> GetUserByIdAsync(int id)
@@ -96,14 +84,24 @@ namespace BusinessObjectLayer.Services
             {
                 Status = SRStatus.Success,
                 Message = "User retrieved successfully.",
-                Data = new UserAdminResponse
+                Data = new UserResponse
                 {
                     UserId = user.UserId,
                     Email = user.Email,
                     RoleName = user.Role?.RoleName ?? "Unknown",
                     FullName = user.Profile?.FullName ?? "",
+                    Address = user.Profile?.Address ?? "",
+                    DateOfBirth = user.Profile?.DateOfBirth,
+                    AvatarUrl = user.Profile?.AvatarUrl ?? "",
+                    PhoneNumber = user.Profile?.PhoneNumber ?? "",
                     IsActive = user.IsActive,
-                    CreatedAt = (DateTime)user.CreatedAt
+                    CreatedAt = user.CreatedAt ?? DateTime.UtcNow,
+                    LoginProviders = user.LoginProviders?.Select(lp => new LoginProviderInfo
+                    {
+                        AuthProvider = lp.AuthProvider,
+                        ProviderId = lp.ProviderId,
+                        IsActive = lp.IsActive
+                    }).ToList() ?? new List<LoginProviderInfo>()
                 }
             };
         }
@@ -113,14 +111,24 @@ namespace BusinessObjectLayer.Services
             var users = await _userRepository.GetUsersAsync(page, pageSize, search);
             var total = await _userRepository.GetTotalUsersAsync(search);
 
-            var userResponses = users.Select(u => new UserAdminResponse
+            var userResponses = users.Select(u => new UserResponse
             {
                 UserId = u.UserId,
                 Email = u.Email,
                 RoleName = u.Role?.RoleName ?? "Unknown",
                 FullName = u.Profile?.FullName ?? "",
+                Address = u.Profile?.Address ?? "",
+                DateOfBirth = u.Profile?.DateOfBirth,
+                AvatarUrl = u.Profile?.AvatarUrl ?? "",
+                PhoneNumber = u.Profile?.PhoneNumber ?? "",
                 IsActive = u.IsActive,
-                CreatedAt = (DateTime)u.CreatedAt
+                CreatedAt = u.CreatedAt ?? DateTime.UtcNow,
+                LoginProviders = u.LoginProviders?.Select(lp => new LoginProviderInfo
+                {
+                    AuthProvider = lp.AuthProvider,
+                    ProviderId = lp.ProviderId,
+                    IsActive = lp.IsActive
+                }).ToList() ?? new List<LoginProviderInfo>()
             }).ToList();
 
             return new ServiceResponse
@@ -168,27 +176,13 @@ namespace BusinessObjectLayer.Services
 
             await _userRepository.UpdateAsync(user);
 
-            string roleName = request.RoleId switch
-            {
-                1 => "Admin",
-                2 => "Manager",
-                3 => "Recruiter",
-                _ => "Candidate"
-            };
+            // Get the updated user with all related data to return proper response
+            var updatedUser = await _userRepository.GetByIdAsync(id);
 
             return new ServiceResponse
             {
                 Status = SRStatus.Success,
                 Message = "User updated successfully.",
-                Data = new UserAdminResponse
-                {
-                    UserId = user.UserId,
-                    Email = user.Email,
-                    RoleName = roleName,
-                    FullName = user.Profile?.FullName ?? "",
-                    IsActive = user.IsActive,
-                    CreatedAt = (DateTime)user.CreatedAt
-                }
             };
         }
 
