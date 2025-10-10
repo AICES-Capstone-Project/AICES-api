@@ -32,5 +32,8 @@ namespace Data.Entities
 
         public ICollection<LoginProvider>? LoginProviders { get; set; }
         public ICollection<RefreshToken>? RefreshTokens { get; set; }
+        public ICollection<CompanyMember>? CompanyMembers { get; set; }
+        public ICollection<Favorite>? Favorites { get; set; }
+        public ICollection<Job>? CreatedJobs { get; set; }
     }
 }
