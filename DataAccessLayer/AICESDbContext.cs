@@ -17,6 +17,12 @@ namespace DataAccessLayer
         public virtual DbSet<Profile> Profiles { get; set; }
         public virtual DbSet<LoginProvider> LoginProviders { get; set; }
         public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
+        public virtual DbSet<Company> Companies { get; set; }
+        public virtual DbSet<CompanyMember> CompanyMembers { get; set; }
+        public virtual DbSet<Job> Jobs { get; set; }
+        public virtual DbSet<Category> Categories { get; set; }
+        public virtual DbSet<JobPosition> JobPositions { get; set; }
+        public virtual DbSet<Favorite> Favorites { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -70,6 +76,69 @@ namespace DataAccessLayer
                 .HasMany(u => u.RefreshTokens)
                 .WithOne(rt => rt.User)
                 .HasForeignKey(rt => rt.UserId);
+
+            // Configure User - CompanyMember one-to-one relationship
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.CompanyMember)
+                .WithOne(cm => cm.User)
+                .HasForeignKey<CompanyMember>(cm => cm.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure User - Favorites relationship
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.Favorites)
+                .WithOne(f => f.User)
+                .HasForeignKey(f => f.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure User - Jobs relationship (CreatedBy)
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.Jobs)
+                .WithOne(j => j.CreatedByUser)
+                .HasForeignKey(j => j.CreatedBy)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure Company - CompanyMembers relationship
+            modelBuilder.Entity<Company>()
+                .HasMany(c => c.CompanyMembers)
+                .WithOne(cm => cm.Company)
+                .HasForeignKey(cm => cm.CompanyId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure Company - Jobs relationship
+            modelBuilder.Entity<Company>()
+                .HasMany(c => c.Jobs)
+                .WithOne(j => j.Company)
+                .HasForeignKey(j => j.CompanyId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure CompanyMember - Jobs relationship
+            modelBuilder.Entity<CompanyMember>()
+                .HasMany(cm => cm.Jobs)
+                .WithOne(j => j.CompanyMember)
+                .HasForeignKey(j => j.ComMemId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure Job - JobPositions relationship
+            modelBuilder.Entity<Job>()
+                .HasMany(j => j.JobPositions)
+                .WithOne(jp => jp.Job)
+                .HasForeignKey(jp => jp.JobId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure Category - JobPositions relationship
+            modelBuilder.Entity<Category>()
+                .HasMany(c => c.JobPositions)
+                .WithOne(jp => jp.Category)
+                .HasForeignKey(jp => jp.CategoryId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure JobPosition - Favorites relationship
+            modelBuilder.Entity<JobPosition>()
+                .HasMany(jp => jp.Favorites)
+                .WithOne(f => f.JobPosition)
+                .HasForeignKey(f => f.PositionId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             // Ngăn cascade delete cho tất cả foreign keys
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
