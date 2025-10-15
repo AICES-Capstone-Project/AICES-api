@@ -22,6 +22,6 @@ namespace Data.Entities
         public string? Slug { get; set; }
 
         // Navigation
-        public ICollection<JobPosition>? JobPositions { get; set; }
+        public ICollection<Job>? Jobs { get; set; }
     }
 }

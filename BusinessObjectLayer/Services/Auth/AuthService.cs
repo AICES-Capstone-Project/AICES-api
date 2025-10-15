@@ -81,7 +81,10 @@ namespace BusinessObjectLayer.Services.Auth
                 }
             }
 
-            int roleId = 4; //Candidate
+            // Default role for new registrations (SystemStaff)
+            // Note: Regular users should not self-register. This is for system setup only.
+            // For company users, they should be invited by CompanyAdmin
+            int roleId = 3; // SystemStaff
 
             if (!await _authRepository.RoleExistsAsync(roleId))
             {
@@ -96,7 +99,7 @@ namespace BusinessObjectLayer.Services.Auth
             {
                 Email = email,
                 Password = BCrypt.Net.BCrypt.HashPassword(password),
-                RoleId = IsAdminEmail(email) ? 1 : roleId,
+                RoleId = IsAdminEmail(email) ? 1 : roleId, // SystemAdmin or SystemStaff
                 IsActive = false
             };
 
@@ -260,7 +263,8 @@ namespace BusinessObjectLayer.Services.Auth
 
                 if (user == null)
                 {
-                    int roleId = IsAdminEmail(userInfo.Email) ? 1 : 4;
+                    // SystemAdmin or SystemStaff (default for OAuth logins)
+                    int roleId = IsAdminEmail(userInfo.Email) ? 1 : 3;
 
                     // Create new user
                     user = new User
@@ -439,7 +443,7 @@ namespace BusinessObjectLayer.Services.Auth
                     user = new User
                     {
                         Email = githubUser.Email,
-                        RoleId = IsAdminEmail(githubUser.Email) ? 1 : 4,
+                        RoleId = IsAdminEmail(githubUser.Email) ? 1 : 3, // SystemAdmin or SystemStaff
                         IsActive = true
                     };
 

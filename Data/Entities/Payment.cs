@@ -9,24 +9,26 @@ using System.Threading.Tasks;
 
 namespace Data.Entities
 {
-    [Table("CompanyMembers")]
-    public class CompanyMember : BaseEntity
+    [Table("Payment")]
+    public class Payment : BaseEntity
     {
         [Key]
-        public int ComMemId { get; set; }
-
-        [ForeignKey("User")]
-        public int UserId { get; set; }
+        public int PaymentId { get; set; }
 
         [ForeignKey("Company")]
         public int CompanyId { get; set; }
 
-        [MaxLength(255)]
-        public string? PositionTitle { get; set; }
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal Amount { get; set; }
+
+        [MaxLength(100)]
+        public string? PaymentMethod { get; set; } // CreditCard, PayPal, BankTransfer, etc.
+
+        public string? InvoiceUrl { get; set; }
 
         // Navigation
-        public User User { get; set; } = null!;
         public Company Company { get; set; } = null!;
-        public ICollection<Job>? Jobs { get; set; }
     }
 }
+
+

@@ -9,20 +9,27 @@ using System.Threading.Tasks;
 
 namespace Data.Entities
 {
-    [Table("Favorites")]
-    public class Favorite : BaseEntity
+    [Table("Notification")]
+    public class Notification : BaseEntity
     {
         [Key]
-        public int FavoriteId { get; set; }
+        public int NotifId { get; set; }
 
         [ForeignKey("User")]
         public int UserId { get; set; }
 
-        [ForeignKey("JobPosition")]
-        public int PositionId { get; set; }
+        [MaxLength(50)]
+        public string? Type { get; set; } // Info, Warning, Success, Error
+
+        public string? Message { get; set; }
+
+        public string? Detail { get; set; }
+
+        public bool IsRead { get; set; } = false;
 
         // Navigation
         public User User { get; set; } = null!;
-        public JobPosition JobPosition { get; set; } = null!;
     }
 }
+
+

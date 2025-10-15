@@ -12,17 +12,35 @@ namespace DataAccessLayer
         {
         }
 
+        // User & Auth Related
         public virtual DbSet<User> Users { get; set; }
         public virtual DbSet<Role> Roles { get; set; }
         public virtual DbSet<Profile> Profiles { get; set; }
         public virtual DbSet<LoginProvider> LoginProviders { get; set; }
         public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
+        
+        // Company Related
         public virtual DbSet<Company> Companies { get; set; }
-        public virtual DbSet<CompanyMember> CompanyMembers { get; set; }
+        public virtual DbSet<CompanyUser> CompanyUsers { get; set; }
+        public virtual DbSet<Subscription> Subscriptions { get; set; }
+        public virtual DbSet<CompanySubscription> CompanySubscriptions { get; set; }
+        public virtual DbSet<Payment> Payments { get; set; }
+        
+        // Job Related
         public virtual DbSet<Job> Jobs { get; set; }
         public virtual DbSet<Category> Categories { get; set; }
-        public virtual DbSet<JobPosition> JobPositions { get; set; }
-        public virtual DbSet<Favorite> Favorites { get; set; }
+        public virtual DbSet<Criteria> Criterias { get; set; }
+        
+        // Resume Screening
+        public virtual DbSet<ParsedResumes> ParsedResumes { get; set; }
+        public virtual DbSet<ParsedCandidates> ParsedCandidates { get; set; }
+        public virtual DbSet<AIScores> AIScores { get; set; }
+        public virtual DbSet<AIScoreDetail> AIScoreDetails { get; set; }
+        public virtual DbSet<RankingResults> RankingResults { get; set; }
+        
+        // Communication & Reporting
+        public virtual DbSet<Notification> Notifications { get; set; }
+        public virtual DbSet<Reports> Reports { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -55,6 +73,8 @@ namespace DataAccessLayer
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // ===== USER & AUTH RELATIONSHIPS =====
+            
             modelBuilder.Entity<User>()
                 .HasOne(u => u.Role)
                 .WithMany(r => r.Users)
@@ -77,70 +97,169 @@ namespace DataAccessLayer
                 .WithOne(rt => rt.User)
                 .HasForeignKey(rt => rt.UserId);
 
-            // Configure User - CompanyMember one-to-one relationship
+            // ===== COMPANY RELATIONSHIPS =====
+            
+            // User - CompanyUser (one-to-one)
             modelBuilder.Entity<User>()
-                .HasOne(u => u.CompanyMember)
-                .WithOne(cm => cm.User)
-                .HasForeignKey<CompanyMember>(cm => cm.UserId)
+                .HasOne(u => u.CompanyUser)
+                .WithOne(cu => cu.User)
+                .HasForeignKey<CompanyUser>(cu => cu.UserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Configure User - Favorites relationship
-            modelBuilder.Entity<User>()
-                .HasMany(u => u.Favorites)
-                .WithOne(f => f.User)
-                .HasForeignKey(f => f.UserId)
-                .OnDelete(DeleteBehavior.NoAction);
-
-            // Configure User - Jobs relationship (CreatedBy)
-            modelBuilder.Entity<User>()
-                .HasMany(u => u.Jobs)
-                .WithOne(j => j.CreatedByUser)
-                .HasForeignKey(j => j.CreatedBy)
-                .OnDelete(DeleteBehavior.NoAction);
-
-            // Configure Company - CompanyMembers relationship
             modelBuilder.Entity<Company>()
-                .HasMany(c => c.CompanyMembers)
-                .WithOne(cm => cm.Company)
-                .HasForeignKey(cm => cm.CompanyId)
+                .HasMany(c => c.CompanyUsers)
+                .WithOne(cu => cu.Company)
+                .HasForeignKey(cu => cu.CompanyId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Configure Company - Jobs relationship
+            // Company - CompanySubscription
+            modelBuilder.Entity<Company>()
+                .HasMany(c => c.CompanySubscriptions)
+                .WithOne(cs => cs.Company)
+                .HasForeignKey(cs => cs.CompanyId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Subscription - CompanySubscription
+            modelBuilder.Entity<Subscription>()
+                .HasMany(s => s.CompanySubscriptions)
+                .WithOne(cs => cs.Subscription)
+                .HasForeignKey(cs => cs.SubcriptionId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Company - Payment
+            modelBuilder.Entity<Company>()
+                .HasMany(c => c.Payments)
+                .WithOne(p => p.Company)
+                .HasForeignKey(p => p.CompanyId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // ===== JOB RELATIONSHIPS =====
+            
+            // Category - Jobs
+            modelBuilder.Entity<Category>()
+                .HasMany(c => c.Jobs)
+                .WithOne(j => j.Category)
+                .HasForeignKey(j => j.CategoryId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // CompanyUser - Jobs
+            modelBuilder.Entity<CompanyUser>()
+                .HasMany(cu => cu.Jobs)
+                .WithOne(j => j.CompanyUser)
+                .HasForeignKey(j => j.ComUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Company - Jobs
             modelBuilder.Entity<Company>()
                 .HasMany(c => c.Jobs)
                 .WithOne(j => j.Company)
                 .HasForeignKey(j => j.CompanyId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Configure CompanyMember - Jobs relationship
-            modelBuilder.Entity<CompanyMember>()
-                .HasMany(cm => cm.Jobs)
-                .WithOne(j => j.CompanyMember)
-                .HasForeignKey(j => j.ComMemId)
-                .OnDelete(DeleteBehavior.NoAction);
-
-            // Configure Job - JobPositions relationship
+            // Job - Criteria
             modelBuilder.Entity<Job>()
-                .HasMany(j => j.JobPositions)
-                .WithOne(jp => jp.Job)
-                .HasForeignKey(jp => jp.JobId)
+                .HasMany(j => j.Criterias)
+                .WithOne(c => c.Job)
+                .HasForeignKey(c => c.JobId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Configure Category - JobPositions relationship
-            modelBuilder.Entity<Category>()
-                .HasMany(c => c.JobPositions)
-                .WithOne(jp => jp.Category)
-                .HasForeignKey(jp => jp.CategoryId)
+            // ===== RESUME SCREENING RELATIONSHIPS =====
+            
+            // Company - ParsedResumes
+            modelBuilder.Entity<Company>()
+                .HasMany(c => c.ParsedResumes)
+                .WithOne(pr => pr.Company)
+                .HasForeignKey(pr => pr.CompanyId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Configure JobPosition - Favorites relationship
-            modelBuilder.Entity<JobPosition>()
-                .HasMany(jp => jp.Favorites)
-                .WithOne(f => f.JobPosition)
-                .HasForeignKey(f => f.PositionId)
+            // Job - ParsedResumes
+            modelBuilder.Entity<Job>()
+                .HasMany(j => j.ParsedResumes)
+                .WithOne(pr => pr.Job)
+                .HasForeignKey(pr => pr.JobId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Ngăn cascade delete cho tất cả foreign keys
+            // ParsedResumes - ParsedCandidates
+            modelBuilder.Entity<ParsedResumes>()
+                .HasMany(pr => pr.ParsedCandidates)
+                .WithOne(pc => pc.ParsedResumes)
+                .HasForeignKey(pc => pc.ResumeId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Job - ParsedCandidates
+            modelBuilder.Entity<Job>()
+                .HasMany(j => j.ParsedCandidates)
+                .WithOne(pc => pc.Job)
+                .HasForeignKey(pc => pc.JobId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // AIScores - ParsedCandidates (one-to-one)
+            modelBuilder.Entity<AIScores>()
+                .HasOne(s => s.ParsedCandidate)
+                .WithOne(pc => pc.AIScores)
+                .HasForeignKey<ParsedCandidates>(pc => pc.ScoreId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // AIScores - AIScoreDetail
+            modelBuilder.Entity<AIScores>()
+                .HasMany(s => s.AIScoreDetails)
+                .WithOne(sd => sd.AIScores)
+                .HasForeignKey(sd => sd.ScoreId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Criteria - AIScoreDetail
+            modelBuilder.Entity<Criteria>()
+                .HasMany(c => c.AIScoreDetails)
+                .WithOne(sd => sd.Criteria)
+                .HasForeignKey(sd => sd.CriteriaId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Job - RankingResults
+            modelBuilder.Entity<Job>()
+                .HasMany(j => j.RankingResults)
+                .WithOne(rr => rr.Job)
+                .HasForeignKey(rr => rr.JobId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // ParsedCandidates - RankingResults (one-to-one)
+            modelBuilder.Entity<ParsedCandidates>()
+                .HasOne(pc => pc.RankingResult)
+                .WithOne(rr => rr.ParsedCandidate)
+                .HasForeignKey<RankingResults>(rr => rr.CandidateId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // AIScores - RankingResults
+            modelBuilder.Entity<AIScores>()
+                .HasMany(s => s.RankingResults)
+                .WithOne(rr => rr.AIScores)
+                .HasForeignKey(rr => rr.ScoreId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // ===== COMMUNICATION & REPORTING RELATIONSHIPS =====
+            
+            // User - Notifications
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.Notifications)
+                .WithOne(n => n.User)
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // User - Reports
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.Reports)
+                .WithOne(r => r.User)
+                .HasForeignKey(r => r.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Job - Reports
+            modelBuilder.Entity<Job>()
+                .HasMany(j => j.Reports)
+                .WithOne(r => r.Job)
+                .HasForeignKey(r => r.JobId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // ===== GLOBAL CASCADE DELETE PREVENTION =====
+            
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 foreach (var foreignKey in entityType.GetForeignKeys())
@@ -149,12 +268,16 @@ namespace DataAccessLayer
                 }
             }
 
-            // Seed dữ liệu cho Roles
+            // ===== SEED DATA =====
+            
+            // Seed Roles
             modelBuilder.Entity<Role>().HasData(
-                new Role { RoleId = 1, RoleName = "Admin" },
-                new Role { RoleId = 2, RoleName = "Manager" },
-                new Role { RoleId = 3, RoleName = "Recruiter" },
-                new Role { RoleId = 4, RoleName = "Candidate" }
+                new Role { RoleId = 1, RoleName = "SystemAdmin" },
+                new Role { RoleId = 2, RoleName = "SystemManager" },
+                new Role { RoleId = 3, RoleName = "SystemStaff" },
+                new Role { RoleId = 4, RoleName = "CompanyAdmin" },
+                new Role { RoleId = 5, RoleName = "CompanyManager" },
+                new Role { RoleId = 6, RoleName = "CompanyRecruiter" }
             );
 
             // Configure enum for AuthProvider to store as string

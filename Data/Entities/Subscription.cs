@@ -9,29 +9,27 @@ using System.Threading.Tasks;
 
 namespace Data.Entities
 {
-    [Table("Companies")]
-    public class Company : BaseEntity
+    [Table("Subcriptions")]
+    public class Subscription : BaseEntity
     {
         [Key]
-        public int CompanyId { get; set; }
+        public int SubcriptionId { get; set; }
 
         [Required, MaxLength(255)]
         public string Name { get; set; } = string.Empty;
 
         public string? Description { get; set; }
 
-        public string? Address { get; set; }
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal Price { get; set; }
 
-        [MaxLength(255)]
-        public string? Website { get; set; }
+        public int DurationDays { get; set; }
 
-        public string? LogoUrl { get; set; }
+        public int Limit { get; set; } // Number of resume screenings or other limit
 
         // Navigation
-        public ICollection<CompanyUser>? CompanyUsers { get; set; }
-        public ICollection<Job>? Jobs { get; set; }
         public ICollection<CompanySubscription>? CompanySubscriptions { get; set; }
-        public ICollection<ParsedResumes>? ParsedResumes { get; set; }
-        public ICollection<Payment>? Payments { get; set; }
     }
 }
+
+
