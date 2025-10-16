@@ -12,6 +12,7 @@ namespace DataAccessLayer
         {
         }
 
+        public virtual DbSet<BannerConfig> BannerConfigs { get; set; }
         // User & Auth Related
         public virtual DbSet<User> Users { get; set; }
         public virtual DbSet<Role> Roles { get; set; }
@@ -74,7 +75,7 @@ namespace DataAccessLayer
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // ===== USER & AUTH RELATIONSHIPS =====
-            
+
             modelBuilder.Entity<User>()
                 .HasOne(u => u.Role)
                 .WithMany(r => r.Users)
@@ -272,12 +273,11 @@ namespace DataAccessLayer
             
             // Seed Roles
             modelBuilder.Entity<Role>().HasData(
-                new Role { RoleId = 1, RoleName = "SystemAdmin" },
-                new Role { RoleId = 2, RoleName = "SystemManager" },
-                new Role { RoleId = 3, RoleName = "SystemStaff" },
-                new Role { RoleId = 4, RoleName = "CompanyAdmin" },
-                new Role { RoleId = 5, RoleName = "CompanyManager" },
-                new Role { RoleId = 6, RoleName = "CompanyRecruiter" }
+                new Role { RoleId = 1, RoleName = "System_Admin" },
+                new Role { RoleId = 2, RoleName = "System_Manager" },
+                new Role { RoleId = 3, RoleName = "System_Staff" },
+                new Role { RoleId = 4, RoleName = "HR_Manager" },
+                new Role { RoleId = 5, RoleName = "HR_Recruiter" }
             );
 
             // Configure enum for AuthProvider to store as string
