@@ -33,5 +33,6 @@ namespace Data.Entities
         public ICollection<CompanySubscription>? CompanySubscriptions { get; set; }
         public ICollection<ParsedResumes>? ParsedResumes { get; set; }
         public ICollection<Payment>? Payments { get; set; }
+        public ICollection<CompanyDocument>? CompanyDocuments { get; set; }
     }
 }

@@ -21,12 +21,13 @@ namespace Data.Entities
         [ForeignKey("Company")]
         public int CompanyId { get; set; }
 
-        [MaxLength(255)]
-        public string? PositionTitle { get; set; }
+        [ForeignKey("Role")]
+        public int RoleId { get; set; }
 
         // Navigation
         public User User { get; set; } = null!;
         public Company Company { get; set; } = null!;
+        public Role Role { get; set; } = null!;
         public ICollection<Job>? Jobs { get; set; }
     }
 }

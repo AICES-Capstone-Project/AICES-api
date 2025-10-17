@@ -26,6 +26,7 @@ namespace DataAccessLayer
         public virtual DbSet<Subscription> Subscriptions { get; set; }
         public virtual DbSet<CompanySubscription> CompanySubscriptions { get; set; }
         public virtual DbSet<Payment> Payments { get; set; }
+    public virtual DbSet<CompanyDocument> CompanyDocuments { get; set; }
         
         // Job Related
         public virtual DbSet<Job> Jobs { get; set; }
@@ -113,6 +114,13 @@ namespace DataAccessLayer
                 .HasForeignKey(cu => cu.CompanyId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // Role - CompanyUser
+            modelBuilder.Entity<Role>()
+                .HasMany(r => r.CompanyUsers)
+                .WithOne(cu => cu.Role)
+                .HasForeignKey(cu => cu.RoleId)
+                .OnDelete(DeleteBehavior.NoAction);
+
             // Company - CompanySubscription
             modelBuilder.Entity<Company>()
                 .HasMany(c => c.CompanySubscriptions)
@@ -132,6 +140,13 @@ namespace DataAccessLayer
                 .HasMany(c => c.Payments)
                 .WithOne(p => p.Company)
                 .HasForeignKey(p => p.CompanyId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Company - CompanyDocuments
+            modelBuilder.Entity<Company>()
+                .HasMany(c => c.CompanyDocuments)
+                .WithOne(cd => cd.Company)
+                .HasForeignKey(cd => cd.CompanyId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             // ===== JOB RELATIONSHIPS =====
