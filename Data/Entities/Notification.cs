@@ -1,4 +1,5 @@
 using Data.Entities.Base;
+using Data.Enum;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -18,8 +19,7 @@ namespace Data.Entities
         [ForeignKey("User")]
         public int UserId { get; set; }
 
-        [MaxLength(50)]
-        public string? Type { get; set; } // Info, Warning, Success, Error
+        public NotificationTypeEnum Type { get; set; }
 
         public string? Message { get; set; }
 

@@ -31,6 +31,9 @@ namespace DataAccessLayer
         // Job Related
         public virtual DbSet<Job> Jobs { get; set; }
         public virtual DbSet<Category> Categories { get; set; }
+        public virtual DbSet<EmploymentType> EmploymentTypes { get; set; }
+        public virtual DbSet<JobCategory> JobCategories { get; set; }
+        public virtual DbSet<JobEmploymentType> JobEmploymentTypes { get; set; }
         public virtual DbSet<Criteria> Criterias { get; set; }
         
         // Resume Screening
@@ -151,11 +154,30 @@ namespace DataAccessLayer
 
             // ===== JOB RELATIONSHIPS =====
             
-            // Category - Jobs
-            modelBuilder.Entity<Category>()
-                .HasMany(c => c.Jobs)
-                .WithOne(j => j.Category)
-                .HasForeignKey(j => j.CategoryId)
+            // Job - Category (Many-to-Many through JobCategory)
+            modelBuilder.Entity<JobCategory>()
+                .HasOne(jc => jc.Job)
+                .WithMany(j => j.JobCategories)
+                .HasForeignKey(jc => jc.JobId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<JobCategory>()
+                .HasOne(jc => jc.Category)
+                .WithMany(c => c.JobCategories)
+                .HasForeignKey(jc => jc.CategoryId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Job - EmploymentType (Many-to-Many through JobEmploymentType)
+            modelBuilder.Entity<JobEmploymentType>()
+                .HasOne(jet => jet.Job)
+                .WithMany(j => j.JobEmploymentTypes)
+                .HasForeignKey(jet => jet.JobId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<JobEmploymentType>()
+                .HasOne(jet => jet.EmploymentType)
+                .WithMany(et => et.JobEmploymentTypes)
+                .HasForeignKey(jet => jet.EmployTypeId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             // CompanyUser - Jobs
@@ -298,6 +320,32 @@ namespace DataAccessLayer
             // Configure enum for AuthProvider to store as string
             modelBuilder.Entity<LoginProvider>()
                 .Property(lp => lp.AuthProvider)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            // Configure enum conversions for new enums
+            modelBuilder.Entity<CompanyUser>()
+                .Property(cu => cu.JoinStatus)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<Reports>()
+                .Property(r => r.Type)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<Reports>()
+                .Property(r => r.ExportFormat)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<Company>()
+                .Property(c => c.ApprovalStatus)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<Notification>()
+                .Property(n => n.Type)
                 .HasConversion<string>()
                 .HasMaxLength(50);
 

@@ -1,4 +1,5 @@
 using Data.Entities.Base;
+using Data.Enum;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -21,16 +22,14 @@ namespace Data.Entities
         [ForeignKey("User")]
         public int UserId { get; set; }
 
-        [MaxLength(50)]
-        public string? Type { get; set; } // PDF, Excel, CSV, etc.
+        public ReportTypeEnum Type { get; set; }
 
         [MaxLength(255)]
         public string? Title { get; set; }
 
         public string? Description { get; set; }
 
-        [MaxLength(50)]
-        public string? ExportFormat { get; set; }
+        public ExportFormatEnum ExportFormat { get; set; }
 
         public string? Data { get; set; } // JSON or serialized data
 

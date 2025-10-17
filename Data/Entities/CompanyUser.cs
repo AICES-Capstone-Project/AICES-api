@@ -1,4 +1,5 @@
 using Data.Entities.Base;
+using Data.Enum;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -23,6 +24,7 @@ namespace Data.Entities
 
         [ForeignKey("Role")]
         public int RoleId { get; set; }
+        public JoinStatusEnum JoinStatus { get; set; }
 
         // Navigation
         public User User { get; set; } = null!;

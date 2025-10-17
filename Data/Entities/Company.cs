@@ -1,4 +1,5 @@
 using Data.Entities.Base;
+using Data.Enum;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -26,6 +27,8 @@ namespace Data.Entities
         public string? Website { get; set; }
 
         public string? LogoUrl { get; set; }
+
+        public ApprovalStatusEnum ApprovalStatus { get; set; }
 
         // Navigation
         public ICollection<CompanyUser>? CompanyUsers { get; set; }

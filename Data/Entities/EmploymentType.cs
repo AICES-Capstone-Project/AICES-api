@@ -9,16 +9,16 @@ using System.Threading.Tasks;
 
 namespace Data.Entities
 {
-    [Table("Categories")]
-    public class Category : BaseEntity
+    [Table("EmploymentTypes")]
+    public class EmploymentType : BaseEntity
     {
         [Key]
-        public int CategoryId { get; set; }
+        public int EmployTypeId { get; set; }
 
         [Required, MaxLength(255)]
         public string Name { get; set; } = string.Empty;
 
         // Navigation
-        public ICollection<JobCategory>? JobCategories { get; set; }
+        public ICollection<JobEmploymentType>? JobEmploymentTypes { get; set; }
     }
 }
