@@ -39,6 +39,7 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -59,6 +60,7 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+builder.Services.AddHttpContextAccessor();
 
 // ------------------------
 // ?? DATABASE CONFIGURATION
@@ -98,6 +100,12 @@ builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>(); 
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IEmploymentTypeRepository, EmploymentTypeRepository>();
+builder.Services.AddScoped<IEmploymentTypeService, EmploymentTypeService>();
+builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
+builder.Services.AddScoped<ICompanyService, CompanyService>();
 
 // Auth Services
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -106,8 +114,6 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 
 
 
-
-// ------------------------
 // ?? JWT AUTHENTICATION CONFIGURATION
 // ------------------------
 var jwtKey = Environment.GetEnvironmentVariable("JWTCONFIG__KEY");

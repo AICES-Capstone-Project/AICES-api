@@ -9,7 +9,7 @@ namespace API.Controllers
 {
     [Route("api/user")]
     [ApiController]
-    [Authorize(Roles = "Admin")] // Chỉ admin
+    [Authorize(Roles = "System_Admin")] 
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;

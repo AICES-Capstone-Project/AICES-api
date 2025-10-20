@@ -12,6 +12,7 @@ namespace Data.Enum
         Error = 500,
         NotFound = 404,
         Duplicated = 400,
-        Unauthorized = 401
+        Unauthorized = 401,
+        Forbidden = 501
     }
 }
