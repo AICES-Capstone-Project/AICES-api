@@ -19,17 +19,20 @@ namespace BusinessObjectLayer.Services.Auth
         private readonly IProfileService _profileService;
         private readonly ITokenService _tokenService;
         private readonly IEmailService _emailService;
+        private readonly ICompanyUserRepository _companyUserRepository;
 
         public AuthService(
             IAuthRepository authRepository,
             IProfileService profileService,
             ITokenService tokenService,
-            IEmailService emailService)
+            IEmailService emailService,
+            ICompanyUserRepository companyUserRepository)
         {
             _authRepository = authRepository;
             _profileService = profileService;
             _tokenService = tokenService;
             _emailService = emailService;
+            _companyUserRepository = companyUserRepository;
         }
 
         private static string GetEnvOrThrow(string key)
@@ -81,9 +84,7 @@ namespace BusinessObjectLayer.Services.Auth
                 }
             }
 
-            // Default role for new registrations (SystemStaff)
-            // Note: Regular users should not self-register. This is for system setup only.
-            // For company users, they should be invited by CompanyAdmin
+           
             int roleId = 5; // HR_Recruiter
 
             if (!await _authRepository.RoleExistsAsync(roleId))
@@ -104,6 +105,7 @@ namespace BusinessObjectLayer.Services.Auth
             };
 
             var addedUser = await _authRepository.AddAsync(user);
+            
             await _profileService.CreateDefaultProfileAsync(addedUser.UserId, fullName);
 
             // Add Local login provider
@@ -114,6 +116,9 @@ namespace BusinessObjectLayer.Services.Auth
                 ProviderId = ""
             };
             await _authRepository.AddLoginProviderAsync(localProvider);
+
+            // Create default company and company user
+            await CreateDefaultCompanyUserAsync(addedUser.UserId, addedUser.RoleId);
 
             var newVerificationToken = _tokenService.GenerateVerificationToken(email);
             await _emailService.SendVerificationEmailAsync(email, newVerificationToken);
@@ -287,6 +292,9 @@ namespace BusinessObjectLayer.Services.Auth
                         ProviderId = userInfo.Id
                     };
                     await _authRepository.AddLoginProviderAsync(googleProvider);
+
+                    // Create default company and company user
+                    await CreateDefaultCompanyUserAsync(user.UserId, user.RoleId);
                 }
                 else
                 {
@@ -456,6 +464,9 @@ namespace BusinessObjectLayer.Services.Auth
                         AuthProvider = AuthProviderEnum.GitHub,
                         ProviderId = githubUser.Id.ToString()
                     });
+
+                    // Create default company and company user
+                    await CreateDefaultCompanyUserAsync(user.UserId, user.RoleId);
                 }
                 else
                 {
@@ -642,6 +653,28 @@ namespace BusinessObjectLayer.Services.Auth
                     Status = SRStatus.Error,
                     Message = "An error occurred while logging out."
                 };
+            }
+        }
+
+        private async Task CreateDefaultCompanyUserAsync(int userId, int userRoleId)
+        {
+            try
+            {
+                // Create CompanyUser with null CompanyId (user chưa join company nào)
+                var companyUser = new CompanyUser
+                {
+                    UserId = userId,
+                    RoleId = userRoleId,
+                    JoinStatus = JoinStatusEnum.NotApplied,
+                    IsActive = true
+                };
+                
+                await _companyUserRepository.AddCompanyUserAsync(companyUser);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating company user: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
     }
