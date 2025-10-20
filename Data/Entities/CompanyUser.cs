@@ -20,7 +20,7 @@ namespace Data.Entities
         public int UserId { get; set; }
 
         [ForeignKey("Company")]
-        public int CompanyId { get; set; }
+        public int? CompanyId { get; set; } 
 
         [ForeignKey("Role")]
         public int RoleId { get; set; }
@@ -28,7 +28,7 @@ namespace Data.Entities
 
         // Navigation
         public User User { get; set; } = null!;
-        public Company Company { get; set; } = null!;
+        public Company? Company { get; set; } 
         public Role Role { get; set; } = null!;
         public ICollection<Job>? Jobs { get; set; }
     }

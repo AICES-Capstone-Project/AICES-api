@@ -6,11 +6,9 @@ using System.Threading.Tasks;
 
 namespace Data.Enum
 {
-    public enum JoinStatusEnum
+    public enum JobStatusEnum
     {
-        NotApplied = 0,
-        Pending = 1,
-        Approved = 2,
-        Rejected = 3
+        Pending = 0,
+        Published = 1
     }
 }

@@ -13,6 +13,9 @@ using System.Text.Json;
 using DotNetEnv;
 using CloudinaryDotNet;
 using BusinessObjectLayer.IServices;
+using Microsoft.AspNetCore.Mvc;
+using Data.Models.Response;
+using Data.Enum;
 
 // ------------------------
 // ?? LOAD ENVIRONMENT FILE
@@ -39,6 +42,25 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
+
+// Customize automatic model validation (400) to return ServiceResponse
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var serviceResponse = new ServiceResponse
+        {
+            Status = SRStatus.Validation,
+            Message = "Validation failed."
+        };
+
+        return new ObjectResult(serviceResponse)
+        {
+            StatusCode = StatusCodes.Status400BadRequest
+        };
+    };
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -98,6 +120,9 @@ builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>(); 
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IJobRepository, JobRepository>();
+builder.Services.AddScoped<IJobService, JobService>();
+builder.Services.AddScoped<ICompanyUserRepository, CompanyUserRepository>();
 
 // Auth Services
 builder.Services.AddScoped<ITokenService, TokenService>();

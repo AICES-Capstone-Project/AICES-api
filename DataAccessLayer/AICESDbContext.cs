@@ -115,6 +115,7 @@ namespace DataAccessLayer
                 .HasMany(c => c.CompanyUsers)
                 .WithOne(cu => cu.Company)
                 .HasForeignKey(cu => cu.CompanyId)
+                .IsRequired(false)  // ✅ CompanyId is now optional
                 .OnDelete(DeleteBehavior.NoAction);
 
             // Role - CompanyUser
@@ -196,7 +197,7 @@ namespace DataAccessLayer
 
             // Job - Criteria
             modelBuilder.Entity<Job>()
-                .HasMany(j => j.Criterias)
+                .HasMany(j => j.Criteria)
                 .WithOne(c => c.Job)
                 .HasForeignKey(c => c.JobId)
                 .OnDelete(DeleteBehavior.NoAction);

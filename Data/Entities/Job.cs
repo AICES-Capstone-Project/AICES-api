@@ -1,5 +1,6 @@
 using Data.Entities.Base;
 using System;
+using Data.Enum;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -30,21 +31,14 @@ namespace Data.Entities
         public string? Slug { get; set; }
 
         public string? Requirements { get; set; }
-
-        [MaxLength(100)]
-        public string? Duration { get; set; }
-
-        [MaxLength(255)]
-        public string? SalaryRange { get; set; }
-
-        public int NumberPositions { get; set; } = 1;
+        public JobStatusEnum JobStatus { get; set; }
 
         // Navigation
         public CompanyUser CompanyUser { get; set; } = null!;
         public Company Company { get; set; } = null!;
         public ICollection<JobCategory>? JobCategories { get; set; }
         public ICollection<JobEmploymentType>? JobEmploymentTypes { get; set; }
-        public ICollection<Criteria>? Criterias { get; set; }
+        public ICollection<Criteria>? Criteria { get; set; }
         public ICollection<ParsedCandidates>? ParsedCandidates { get; set; }
         public ICollection<ParsedResumes>? ParsedResumes { get; set; }
         public ICollection<RankingResults>? RankingResults { get; set; }

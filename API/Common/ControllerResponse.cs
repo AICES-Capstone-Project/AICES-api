@@ -17,6 +17,7 @@ namespace API.Common
                     SRStatus.Error => StatusCodes.Status500InternalServerError,
                     SRStatus.Duplicated => StatusCodes.Status400BadRequest,
                     SRStatus.Unauthorized => StatusCodes.Status401Unauthorized,
+                    SRStatus.Validation => StatusCodes.Status400BadRequest,
                     _ => StatusCodes.Status500InternalServerError
                 }
             };
