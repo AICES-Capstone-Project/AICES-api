@@ -35,9 +35,6 @@ namespace Data.Entities
         public string? Duration { get; set; }
 
         [MaxLength(255)]
-        public string? JobLevels { get; set; }
-
-        [MaxLength(255)]
         public string? SalaryRange { get; set; }
 
         public int NumberPositions { get; set; } = 1;

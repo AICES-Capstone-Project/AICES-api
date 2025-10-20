@@ -106,16 +106,7 @@ namespace BusinessObjectLayer.Services
             return new ServiceResponse
             {
                 Status = SRStatus.Success,
-                Message = "Profile updated successfully.",
-                Data = new ProfileResponse
-                {
-                    UserId = profile.UserId,
-                    FullName = profile.FullName,
-                    Address = profile.Address,
-                    DateOfBirth = profile.DateOfBirth,
-                    PhoneNumber = profile.PhoneNumber,
-                    AvatarUrl = profile.AvatarUrl
-                }
+                Message = "Profile updated successfully."
             };
         }
 

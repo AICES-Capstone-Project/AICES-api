@@ -84,7 +84,7 @@ namespace BusinessObjectLayer.Services.Auth
             // Default role for new registrations (SystemStaff)
             // Note: Regular users should not self-register. This is for system setup only.
             // For company users, they should be invited by CompanyAdmin
-            int roleId = 3; // SystemStaff
+            int roleId = 5; // HR_Recruiter
 
             if (!await _authRepository.RoleExistsAsync(roleId))
             {
@@ -519,6 +519,9 @@ namespace BusinessObjectLayer.Services.Auth
                         UserId = user.UserId,
                         Email = user.Email,
                         FullName = user.Profile?.FullName,
+                        PhoneNumber = user.Profile?.PhoneNumber,
+                        Address = user.Profile?.Address,
+                        DateOfBirth = user.Profile?.DateOfBirth,
                         RoleName = user.Role?.RoleName,
                         AvatarUrl = user.Profile?.AvatarUrl,
                         IsActive = user.IsActive

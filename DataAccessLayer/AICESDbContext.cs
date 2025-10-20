@@ -306,17 +306,6 @@ namespace DataAccessLayer
                 }
             }
 
-            // ===== SEED DATA =====
-            
-            // Seed Roles
-            modelBuilder.Entity<Role>().HasData(
-                new Role { RoleId = 1, RoleName = "System_Admin" },
-                new Role { RoleId = 2, RoleName = "System_Manager" },
-                new Role { RoleId = 3, RoleName = "System_Staff" },
-                new Role { RoleId = 4, RoleName = "HR_Manager" },
-                new Role { RoleId = 5, RoleName = "HR_Recruiter" }
-            );
-
             // Configure enum for AuthProvider to store as string
             modelBuilder.Entity<LoginProvider>()
                 .Property(lp => lp.AuthProvider)
@@ -349,6 +338,17 @@ namespace DataAccessLayer
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
+            // ===== SEED DATA =====
+
+            // Seed Roles
+            modelBuilder.Entity<Role>().HasData(
+                new Role { RoleId = 1, RoleName = "System_Admin" },
+                new Role { RoleId = 2, RoleName = "System_Manager" },
+                new Role { RoleId = 3, RoleName = "System_Staff" },
+                new Role { RoleId = 4, RoleName = "HR_Manager" },
+                new Role { RoleId = 5, RoleName = "HR_Recruiter" }
+            );
+            
             base.OnModelCreating(modelBuilder);
         }
     }
