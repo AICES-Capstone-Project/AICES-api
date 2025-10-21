@@ -13,6 +13,7 @@ namespace Data.Enum
         NotFound ,
         Duplicated ,
         Unauthorized ,
+        Forbidden,
         Validation 
     }
 }

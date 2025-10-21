@@ -41,6 +41,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
     });
 
 
@@ -171,6 +172,56 @@ builder.Services.AddAuthentication(options =>
         },
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey ?? "DEFAULT_KEY")),
         ClockSkew = TimeSpan.Zero
+    };
+    
+    // Custom authentication events to handle 401 responses
+    options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+    {
+        OnChallenge = async context =>
+        {
+            // Skip the default challenge behavior
+            context.HandleResponse();
+            
+            // Create custom ServiceResponse
+            var serviceResponse = new ServiceResponse
+            {
+                Status = SRStatus.Unauthorized,
+                Message = "Authentication required. Please provide a valid token."
+            };
+            
+            // Set response headers and content
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json";
+            
+            var jsonResponse = JsonSerializer.Serialize(serviceResponse, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            });
+            
+            await context.Response.WriteAsync(jsonResponse);
+        },
+        
+        OnAuthenticationFailed = async context =>
+        {
+            // Handle authentication failures (invalid token, expired, etc.)
+            var serviceResponse = new ServiceResponse
+            {
+                Status = SRStatus.Unauthorized,
+                Message = "Invalid or expired token. Please login again."
+            };
+            
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json";
+            
+            var jsonResponse = JsonSerializer.Serialize(serviceResponse, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            });
+            
+            await context.Response.WriteAsync(jsonResponse);
+        }
     };
 });
 
