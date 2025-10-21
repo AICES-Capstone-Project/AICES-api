@@ -27,8 +27,7 @@ namespace Data.Models.Request
         public string? Password { get; set; }
 
         [Required(ErrorMessage = "Role ID is required.")]
-        [Range(1, 4, ErrorMessage = "Role ID must be between 1 and 4.")]
-        [DefaultValue(4)]
+        [DefaultValue(5)]
         public int RoleId { get; set; }
 
         [Required(ErrorMessage = "Full name is required.")]

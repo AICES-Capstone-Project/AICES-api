@@ -19,20 +19,20 @@ namespace BusinessObjectLayer.Services.Auth
         private readonly IProfileService _profileService;
         private readonly ITokenService _tokenService;
         private readonly IEmailService _emailService;
-        private readonly ICompanyUserRepository _companyUserRepository;
+        private readonly ICompanyUserService _companyUserService;
 
         public AuthService(
             IAuthRepository authRepository,
             IProfileService profileService,
             ITokenService tokenService,
             IEmailService emailService,
-            ICompanyUserRepository companyUserRepository)
+            ICompanyUserService companyUserService)
         {
             _authRepository = authRepository;
             _profileService = profileService;
             _tokenService = tokenService;
             _emailService = emailService;
-            _companyUserRepository = companyUserRepository;
+            _companyUserService = companyUserService;
         }
 
         private static string GetEnvOrThrow(string key)
@@ -118,7 +118,8 @@ namespace BusinessObjectLayer.Services.Auth
             await _authRepository.AddLoginProviderAsync(localProvider);
 
             // Create default company and company user
-            await CreateDefaultCompanyUserAsync(addedUser.UserId, addedUser.RoleId);
+            if (user.RoleId == 4 || user.RoleId == 5)
+                await _companyUserService.CreateDefaultCompanyUserAsync(addedUser.UserId, addedUser.RoleId);
 
             var newVerificationToken = _tokenService.GenerateVerificationToken(email);
             await _emailService.SendVerificationEmailAsync(email, newVerificationToken);
@@ -268,8 +269,8 @@ namespace BusinessObjectLayer.Services.Auth
 
                 if (user == null)
                 {
-                    // SystemAdmin or SystemStaff (default for OAuth logins)
-                    int roleId = IsAdminEmail(userInfo.Email) ? 1 : 3;
+                    // SystemAdmin or HR_Recruiter (default for OAuth logins)
+                    int roleId = IsAdminEmail(userInfo.Email) ? 1 : 5;
 
                     // Create new user
                     user = new User
@@ -294,7 +295,8 @@ namespace BusinessObjectLayer.Services.Auth
                     await _authRepository.AddLoginProviderAsync(googleProvider);
 
                     // Create default company and company user
-                    await CreateDefaultCompanyUserAsync(user.UserId, user.RoleId);
+                    if (user.RoleId == 4 || user.RoleId == 5)
+                        await _companyUserService.CreateDefaultCompanyUserAsync(user.UserId, user.RoleId);
                 }
                 else
                 {
@@ -451,7 +453,7 @@ namespace BusinessObjectLayer.Services.Auth
                     user = new User
                     {
                         Email = githubUser.Email,
-                        RoleId = IsAdminEmail(githubUser.Email) ? 1 : 3, // SystemAdmin or SystemStaff
+                        RoleId = IsAdminEmail(githubUser.Email) ? 1 : 5, // SystemAdmin or HR_Recruiter
                         IsActive = true
                     };
 
@@ -466,7 +468,8 @@ namespace BusinessObjectLayer.Services.Auth
                     });
 
                     // Create default company and company user
-                    await CreateDefaultCompanyUserAsync(user.UserId, user.RoleId);
+                    if(user.RoleId == 4 || user.RoleId == 5)
+                        await _companyUserService.CreateDefaultCompanyUserAsync(user.UserId, user.RoleId);
                 }
                 else
                 {
@@ -653,28 +656,6 @@ namespace BusinessObjectLayer.Services.Auth
                     Status = SRStatus.Error,
                     Message = "An error occurred while logging out."
                 };
-            }
-        }
-
-        private async Task CreateDefaultCompanyUserAsync(int userId, int userRoleId)
-        {
-            try
-            {
-                // Create CompanyUser with null CompanyId (user chưa join company nào)
-                var companyUser = new CompanyUser
-                {
-                    UserId = userId,
-                    RoleId = userRoleId,
-                    JoinStatus = JoinStatusEnum.NotApplied,
-                    IsActive = true
-                };
-                
-                await _companyUserRepository.AddCompanyUserAsync(companyUser);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error creating company user: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
     }

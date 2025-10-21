@@ -64,14 +64,14 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Check if user has joined a company
-                if (companyUser.CompanyId == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Error,
-                        Message = "You must join a company before creating a job."
-                    };
-                }
+                //if (companyUser.CompanyId == null)
+                //{
+                //    return new ServiceResponse
+                //    {
+                //        Status = SRStatus.NotFound,
+                //        Message = "You must join a company before creating a job."
+                //    };
+                //}
 
                 // Validate criteria weights sum to 1.0 if criteria are provided
                 // if (request.Criteria != null && request.Criteria.Any())

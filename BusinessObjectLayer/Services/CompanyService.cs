@@ -159,7 +159,7 @@ namespace BusinessObjectLayer.Services
             {
                 return new ServiceResponse
                 {
-                    Status = SRStatus.Error,
+                    Status = SRStatus.Duplicated,
                     Message = "Company name already exists."
                 };
             }

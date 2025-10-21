@@ -17,11 +17,13 @@ namespace BusinessObjectLayer.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly IProfileService _profileService;
+        private readonly ICompanyUserService _companyUserService;
 
-        public UserService(IUserRepository userRepository, IProfileService profileService)
+        public UserService(IUserRepository userRepository, IProfileService profileService, ICompanyUserService companyUserService)
         {
             _userRepository = userRepository;
             _profileService = profileService;
+            _companyUserService = companyUserService;
         }
 
         public async Task<ServiceResponse> CreateUserAsync(UserRequest request)
@@ -30,7 +32,7 @@ namespace BusinessObjectLayer.Services
             {
                 return new ServiceResponse
                 {
-                    Status = SRStatus.Error,
+                    Status = SRStatus.Duplicated,
                     Message = "Email already exists."
                 };
             }
@@ -58,14 +60,22 @@ namespace BusinessObjectLayer.Services
             // Tạo profile mặc định
             await _profileService.CreateDefaultProfileAsync(addedUser.UserId, request.FullName ?? request.Email);
 
-            // Get the user with all related data to return proper response
-            var userWithRelations = await _userRepository.GetByIdAsync(addedUser.UserId);
+            // Create default company user for roleId 4 (HR_Manager) and 5 (HR_Recruiter)
+            if (request.RoleId == 4 || request.RoleId == 5)
+            {
+                var companyUserResult = await _companyUserService.CreateDefaultCompanyUserAsync(addedUser.UserId, request.RoleId);
+                if (companyUserResult.Status != SRStatus.Success)
+                {
+                    // Log the error but don't fail the user creation
+                    Console.WriteLine($"Warning: Failed to create default company user: {companyUserResult.Message}");
+                }
+            }
 
             return new ServiceResponse
             {
                 Status = SRStatus.Success,
                 Message = "User created successfully.",
-                };
+            };
         }
 
         public async Task<ServiceResponse> GetUserByIdAsync(int id)

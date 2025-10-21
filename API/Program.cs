@@ -132,6 +132,7 @@ builder.Services.AddScoped<ICompanyService, CompanyService>();
 builder.Services.AddScoped<IJobRepository, JobRepository>();
 builder.Services.AddScoped<IJobService, JobService>();
 builder.Services.AddScoped<ICompanyUserRepository, CompanyUserRepository>();
+builder.Services.AddScoped<ICompanyUserService, CompanyUserService>();
 
 // Auth Services
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -212,6 +213,27 @@ builder.Services.AddAuthentication(options =>
             };
             
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json";
+            
+            var jsonResponse = JsonSerializer.Serialize(serviceResponse, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            });
+            
+            await context.Response.WriteAsync(jsonResponse);
+        },
+        
+        OnForbidden = async context =>
+        {
+            // Handle authorization failures (valid token but insufficient permissions)
+            var serviceResponse = new ServiceResponse
+            {
+                Status = SRStatus.Forbidden,
+                Message = "Access denied. You don't have permission to access this resource."
+            };
+            
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
             context.Response.ContentType = "application/json";
             
             var jsonResponse = JsonSerializer.Serialize(serviceResponse, new JsonSerializerOptions
