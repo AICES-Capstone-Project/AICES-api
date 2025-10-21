@@ -29,6 +29,12 @@ namespace Data.Entities
         public string? LogoUrl { get; set; }
 
         public ApprovalStatusEnum ApprovalStatus { get; set; }
+        [ForeignKey("CompanyUser")]
+        public int CreatedBy { get; set; }
+        [ForeignKey("User")]
+        public int? ApprovedBy { get; set; }
+        [MaxLength(255)]
+        public string? RejectReason { get; set; }
 
         // Navigation
         public ICollection<CompanyUser>? CompanyUsers { get; set; }

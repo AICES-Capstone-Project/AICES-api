@@ -58,26 +58,6 @@ namespace DataAccessLayer.Repositories
             return await _context.Companies.AnyAsync(c => c.Name == name);
         }
 
-        public async Task AddCompanyUserAsync(int companyId, int userId)
-        {
-            var role = await _context.Roles.FirstOrDefaultAsync(r => r.RoleName == "HR_Recruiter");
-            if (role == null)
-                throw new Exception("Role 'HR_Recruiter' not found.");
-
-            var companyUser = new CompanyUser
-            {
-                CompanyId = companyId,
-                UserId = userId,
-                RoleId = role.RoleId,
-                JoinStatus = JoinStatusEnum.Pending,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.CompanyUsers.Add(companyUser);
-            await _context.SaveChangesAsync();
-        }
-
         public async Task<bool> UpdateUserRoleByCompanyAsync(int companyId, string newRoleName)
         {
             // Lấy user đầu tiên thuộc công ty

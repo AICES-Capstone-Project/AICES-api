@@ -20,12 +20,21 @@ namespace BusinessObjectLayer.Services
     public class CompanyService : ICompanyService
     {
         private readonly ICompanyRepository _companyRepository;
+        private readonly ICompanyUserRepository _companyUserRepository;
+        private readonly ICompanyDocumentService _companyDocumentService;
         private readonly Cloudinary _cloudinary;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public CompanyService(ICompanyRepository companyRepository, Cloudinary cloudinary, IHttpContextAccessor httpContextAccessor)
+        public CompanyService(
+            ICompanyRepository companyRepository,
+            ICompanyUserRepository companyUserRepository,
+            ICompanyDocumentService companyDocumentService,
+            Cloudinary cloudinary,
+            IHttpContextAccessor httpContextAccessor)
         {
             _companyRepository = companyRepository;
+            _companyUserRepository = companyUserRepository;
+            _companyDocumentService = companyDocumentService;
             _cloudinary = cloudinary;
             _httpContextAccessor = httpContextAccessor;
         }
@@ -138,75 +147,114 @@ namespace BusinessObjectLayer.Services
         // Create
         public async Task<ServiceResponse> CreateAsync(CompanyRequest request)
         {
-            // ✅ Lấy userId từ JWT token
-            var userIdClaim =
-     _httpContextAccessor.HttpContext?.User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value ??
-     _httpContextAccessor.HttpContext?.User.FindFirst("nameidentifier")?.Value;
-
-            if (string.IsNullOrEmpty(userIdClaim))
+            try
             {
+                // ✅ Lấy userId từ claims
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+
+                // ✅ Kiểm tra trùng tên công ty
+                if (await _companyRepository.ExistsByNameAsync(request.Name))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Duplicated,
+                        Message = "Company name already exists."
+                    };
+                }
+
+                // ✅ Upload logo (nếu có)
+                string? logoUrl = null;
+                if (request.LogoFile != null)
+                {
+                    var upload = await UploadFileAsync(request.LogoFile, "companies/logos");
+                    if (!upload.Success)
+                        return new ServiceResponse { Status = SRStatus.Error, Message = upload.ErrorMessage };
+                    logoUrl = upload.Url;
+                }
+
+                // ✅ Tạo công ty mới
+                var company = new Company
+                {
+                    Name = request.Name,
+                    Description = request.Description,
+                    Address = request.Address,
+                    Website = request.Website,
+                    LogoUrl = logoUrl,
+                    ApprovalStatus = ApprovalStatusEnum.Pending,
+                    CreatedBy = userId,
+                    ApprovedBy = null,
+                    RejectReason = null,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                // Save company first to get CompanyId
+                var createdCompany = await _companyRepository.AddAsync(company);
+
+                // ✅ Upload documents (nếu có) using CompanyDocumentService
+                if (request.DocumentFiles != null && request.DocumentFiles.Any())
+                {
+                    await _companyDocumentService.UploadAndSaveDocumentsAsync(
+                        createdCompany.CompanyId,
+                        request.DocumentFiles,
+                        request.DocumentTypes);
+                }
+
+                // ✅ Update CompanyUser with the new CompanyId
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                if (companyUser == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company user not found."
+                    };
+                }
+                
+                else if (companyUser.CompanyId != null || companyUser.JoinStatus == JoinStatusEnum.Approved)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Duplicated,
+                        Message = "Company user already in a company."
+                    };
+                }
+                
+                else
+                {
+                   companyUser.CompanyId = createdCompany.CompanyId;
+                    companyUser.JoinStatus = JoinStatusEnum.Approved;
+                    await _companyUserRepository.UpdateAsync(companyUser);
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Company created successfully. Waiting for admin approval.",
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating company: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 return new ServiceResponse
                 {
-                    Status = SRStatus.Unauthorized,
-                    Message = "User not authenticated."
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while creating the company."
                 };
             }
-
-            int userId = int.Parse(userIdClaim);
-
-            // ✅ Kiểm tra trùng tên công ty
-            if (await _companyRepository.ExistsByNameAsync(request.Name))
-            {
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Duplicated,
-                    Message = "Company name already exists."
-                };
-            }
-
-            // ✅ Upload logo (nếu có)
-            string? logoUrl = null;
-            if (request.LogoFile != null)
-            {
-                var upload = await UploadLogoAsync(request.LogoFile);
-                if (!upload.Success)
-                    return new ServiceResponse { Status = SRStatus.Error, Message = upload.ErrorMessage };
-                logoUrl = upload.Url;
-            }
-
-            // ✅ Tạo công ty mới
-            var company = new Company
-            {
-                Name = request.Name,
-                Description = request.Description,
-                Address = request.Address,
-                Website = request.Website,
-                LogoUrl = logoUrl,
-                ApprovalStatus = ApprovalStatusEnum.Pending, // Công ty vẫn pending
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _companyRepository.AddAsync(company);
-
-            // ✅ Thêm người tạo vào CompanyUsers với JoinStatus = Approved
-            var companyUser = new CompanyUser
-            {
-                UserId = userId,
-                CompanyId = company.CompanyId,
-                RoleId = 4, // hoặc để mặc định nếu bạn không cần dùng RoleId
-                JoinStatus = JoinStatusEnum.Approved, // ✅ Mặc định Approved
-                CreatedAt = DateTime.UtcNow,
-                IsActive = true
-            };
-
-            await _companyRepository.AddCompanyUserAsync(companyUser);
-
-            return new ServiceResponse
-            {
-                Status = SRStatus.Success,
-                Message = "Company created successfully and creator added with Approved join status."
-            };
         }
 
 
@@ -236,7 +284,7 @@ namespace BusinessObjectLayer.Services
 
             if (request.LogoFile != null)
             {
-                var upload = await UploadLogoAsync(request.LogoFile);
+                var upload = await UploadFileAsync(request.LogoFile, "companies/logos");
                 if (!upload.Success)
                     return new ServiceResponse { Status = SRStatus.Error, Message = upload.ErrorMessage };
                 company.LogoUrl = upload.Url;
@@ -274,8 +322,8 @@ namespace BusinessObjectLayer.Services
             };
         }
 
-        // Upload helper
-        private async Task<(bool Success, string? Url, string? ErrorMessage)> UploadLogoAsync(IFormFile file)
+        // Upload helper for logo images only
+        private async Task<(bool Success, string? Url, string? ErrorMessage)> UploadFileAsync(IFormFile file, string folder)
         {
             try
             {
@@ -283,7 +331,7 @@ namespace BusinessObjectLayer.Services
                 var uploadParams = new ImageUploadParams()
                 {
                     File = new FileDescription(file.FileName, stream),
-                    Folder = "companies",
+                    Folder = folder,
                     Transformation = new Transformation().Width(400).Height(400).Crop("fill")
                 };
                 var result = await _cloudinary.UploadAsync(uploadParams);

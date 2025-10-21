@@ -15,8 +15,6 @@ namespace DataAccessLayer.IRepositories
         Task<Company> AddAsync(Company company);
         Task UpdateAsync(Company company);
         Task<bool> ExistsByNameAsync(string name);
-        Task AddCompanyUserAsync(int companyId, int userId);
-        Task AddCompanyUserAsync(CompanyUser companyUser);
         Task<bool> UpdateUserRoleByCompanyAsync(int companyId, string newRoleName);
 
     }

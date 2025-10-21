@@ -20,6 +20,18 @@ namespace DataAccessLayer.Repositories
             await _context.SaveChangesAsync();
             return companyUser;
         }
+
+        public async Task<CompanyUser?> GetByUserIdAsync(int userId)
+        {
+            return await _context.CompanyUsers
+                .FirstOrDefaultAsync(cu => cu.UserId == userId && cu.IsActive);
+        }
+
+        public async Task UpdateAsync(CompanyUser companyUser)
+        {
+            _context.CompanyUsers.Update(companyUser);
+            await _context.SaveChangesAsync();
+        }
     }
 } 
 
