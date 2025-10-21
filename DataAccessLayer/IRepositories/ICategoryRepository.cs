@@ -14,5 +14,6 @@ namespace DataAccessLayer.IRepositories
         Task<Category> AddAsync(Category category);
         Task UpdateAsync(Category category);
         Task<bool> ExistsByNameAsync(string name);
+        Task<bool> ExistsAsync(int categoryId);
     }
 }

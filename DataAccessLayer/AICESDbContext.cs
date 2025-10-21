@@ -339,6 +339,11 @@ namespace DataAccessLayer
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
+            modelBuilder.Entity<Job>()
+                .Property(j => j.JobStatus)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
             // ===== SEED DATA =====
 
             // Seed Roles

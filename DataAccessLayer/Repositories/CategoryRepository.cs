@@ -48,5 +48,10 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Categories.AnyAsync(c => c.Name == name);
         }
+
+        public async Task<bool> ExistsAsync(int categoryId)
+        {
+            return await _context.Categories.AnyAsync(c => c.CategoryId == categoryId && c.IsActive);
+        }
     }
 }

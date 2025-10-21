@@ -33,7 +33,7 @@ namespace DataAccessLayer.Repositories
         public async Task<Company?> GetByIdAsync(int id)
         {
             return await _context.Companies
-                .Include(c => c.CompanyUsers)
+                .Include(c => c.CompanyUsers!)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Role)
                 .FirstOrDefaultAsync(c => c.CompanyId == id);
@@ -56,6 +56,11 @@ namespace DataAccessLayer.Repositories
         public async Task<bool> ExistsByNameAsync(string name)
         {
             return await _context.Companies.AnyAsync(c => c.Name == name);
+        }
+
+        public async Task<bool> ExistsAsync(int companyId)
+        {
+            return await _context.Companies.AnyAsync(c => c.CompanyId == companyId);
         }
 
         public async Task<bool> UpdateUserRoleByCompanyAsync(int companyId, string newRoleName)

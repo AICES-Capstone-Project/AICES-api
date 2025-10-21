@@ -26,6 +26,83 @@ namespace BusinessObjectLayer.Services
             _companyUserService = companyUserService;
         }
 
+        public async Task<ServiceResponse> GetUsersAsync(int page = 1, int pageSize = 10, string? search = null)
+        {
+            var users = await _userRepository.GetUsersAsync(page, pageSize, search);
+            var total = await _userRepository.GetTotalUsersAsync(search);
+
+            var userResponses = users.Select(u => new UserResponse
+            {
+                UserId = u.UserId,
+                Email = u.Email,
+                RoleName = u.Role?.RoleName ?? "Unknown",
+                FullName = u.Profile?.FullName ?? "",
+                Address = u.Profile?.Address ?? "",
+                DateOfBirth = u.Profile?.DateOfBirth,
+                AvatarUrl = u.Profile?.AvatarUrl ?? "",
+                PhoneNumber = u.Profile?.PhoneNumber ?? "",
+                IsActive = u.IsActive,
+                CreatedAt = u.CreatedAt ?? DateTime.UtcNow,
+                LoginProviders = u.LoginProviders?.Select(lp => new LoginProviderInfo
+                {
+                    AuthProvider = lp.AuthProvider,
+                    ProviderId = lp.ProviderId,
+                    IsActive = lp.IsActive
+                }).ToList() ?? new List<LoginProviderInfo>()
+            }).ToList();
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "Users retrieved successfully.",
+                Data = new PaginatedUserResponse
+                {
+                    Users = userResponses,
+                    TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                    CurrentPage = page,
+                    PageSize = pageSize
+                }
+            };
+        }
+
+        public async Task<ServiceResponse> GetUserByIdAsync(int id)
+        {
+            var user = await _userRepository.GetByIdAsync(id);
+            if (user == null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "User not found."
+                };
+            }
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "User retrieved successfully.",
+                Data = new UserResponse
+                {
+                    UserId = user.UserId,
+                    Email = user.Email,
+                    RoleName = user.Role?.RoleName ?? "Unknown",
+                    FullName = user.Profile?.FullName ?? "",
+                    Address = user.Profile?.Address ?? "",
+                    DateOfBirth = user.Profile?.DateOfBirth,
+                    AvatarUrl = user.Profile?.AvatarUrl ?? "",
+                    PhoneNumber = user.Profile?.PhoneNumber ?? "",
+                    IsActive = user.IsActive,
+                    CreatedAt = user.CreatedAt ?? DateTime.UtcNow,
+                    LoginProviders = user.LoginProviders?.Select(lp => new LoginProviderInfo
+                    {
+                        AuthProvider = lp.AuthProvider,
+                        ProviderId = lp.ProviderId,
+                        IsActive = lp.IsActive
+                    }).ToList() ?? new List<LoginProviderInfo>()
+                }
+            };
+        }
+
         public async Task<ServiceResponse> CreateUserAsync(UserRequest request)
         {
             if (await _userRepository.EmailExistsAsync(request.Email))
@@ -77,84 +154,6 @@ namespace BusinessObjectLayer.Services
                 Message = "User created successfully.",
             };
         }
-
-        public async Task<ServiceResponse> GetUserByIdAsync(int id)
-        {
-            var user = await _userRepository.GetByIdAsync(id);
-            if (user == null)
-            {
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "User not found."
-                };
-            }
-
-            return new ServiceResponse
-            {
-                Status = SRStatus.Success,
-                Message = "User retrieved successfully.",
-                Data = new UserResponse
-                {
-                    UserId = user.UserId,
-                    Email = user.Email,
-                    RoleName = user.Role?.RoleName ?? "Unknown",
-                    FullName = user.Profile?.FullName ?? "",
-                    Address = user.Profile?.Address ?? "",
-                    DateOfBirth = user.Profile?.DateOfBirth,
-                    AvatarUrl = user.Profile?.AvatarUrl ?? "",
-                    PhoneNumber = user.Profile?.PhoneNumber ?? "",
-                    IsActive = user.IsActive,
-                    CreatedAt = user.CreatedAt ?? DateTime.UtcNow,
-                    LoginProviders = user.LoginProviders?.Select(lp => new LoginProviderInfo
-                    {
-                        AuthProvider = lp.AuthProvider,
-                        ProviderId = lp.ProviderId,
-                        IsActive = lp.IsActive
-                    }).ToList() ?? new List<LoginProviderInfo>()
-                }
-            };
-        }
-
-        public async Task<ServiceResponse> GetUsersAsync(int page = 1, int pageSize = 10, string? search = null)
-        {
-            var users = await _userRepository.GetUsersAsync(page, pageSize, search);
-            var total = await _userRepository.GetTotalUsersAsync(search);
-
-            var userResponses = users.Select(u => new UserResponse
-            {
-                UserId = u.UserId,
-                Email = u.Email,
-                RoleName = u.Role?.RoleName ?? "Unknown",
-                FullName = u.Profile?.FullName ?? "",
-                Address = u.Profile?.Address ?? "",
-                DateOfBirth = u.Profile?.DateOfBirth,
-                AvatarUrl = u.Profile?.AvatarUrl ?? "",
-                PhoneNumber = u.Profile?.PhoneNumber ?? "",
-                IsActive = u.IsActive,
-                CreatedAt = u.CreatedAt ?? DateTime.UtcNow,
-                LoginProviders = u.LoginProviders?.Select(lp => new LoginProviderInfo
-                {
-                    AuthProvider = lp.AuthProvider,
-                    ProviderId = lp.ProviderId,
-                    IsActive = lp.IsActive
-                }).ToList() ?? new List<LoginProviderInfo>()
-            }).ToList();
-
-            return new ServiceResponse
-            {
-                Status = SRStatus.Success,
-                Message = "Users retrieved successfully.",
-                Data = new PaginatedUserResponse
-                {
-                    Users = userResponses,
-                    TotalPages = (int)Math.Ceiling(total / (double)pageSize),
-                    CurrentPage = page,
-                    PageSize = pageSize
-                }
-            };
-        }
-
         public async Task<ServiceResponse> UpdateUserAsync(int id, UserRequest request)
         {
             var user = await _userRepository.GetByIdAsync(id);

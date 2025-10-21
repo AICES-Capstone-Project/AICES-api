@@ -118,25 +118,32 @@ else
 // ------------------------
 // ?? REGISTER REPOSITORIES & SERVICES
 // ------------------------
+
+// Repositories
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
-builder.Services.AddScoped<IProfileService, ProfileService>();
-builder.Services.AddScoped<IUserRepository, UserRepository>(); 
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
-builder.Services.AddScoped<ICategoryService, CategoryService>();
-builder.Services.AddScoped<IEmploymentTypeRepository, EmploymentTypeRepository>();
-builder.Services.AddScoped<IEmploymentTypeService, EmploymentTypeService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
-builder.Services.AddScoped<ICompanyService, CompanyService>();
-builder.Services.AddScoped<IJobRepository, JobRepository>();
-builder.Services.AddScoped<IJobService, JobService>();
 builder.Services.AddScoped<ICompanyUserRepository, CompanyUserRepository>();
-builder.Services.AddScoped<ICompanyUserService, CompanyUserService>();
 builder.Services.AddScoped<ICompanyDocumentRepository, CompanyDocumentRepository>();
-builder.Services.AddScoped<ICompanyDocumentService, CompanyDocumentService>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<IEmploymentTypeRepository, EmploymentTypeRepository>();
+builder.Services.AddScoped<IJobRepository, JobRepository>();
+builder.Services.AddScoped<IJobCategoryRepository, JobCategoryRepository>();
+builder.Services.AddScoped<IJobEmploymentTypeRepository, JobEmploymentTypeRepository>();
+builder.Services.AddScoped<ICriteriaRepository, CriteriaRepository>();
 
-// Auth Services
+// Services
+builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ICompanyService, CompanyService>();
+builder.Services.AddScoped<ICompanyUserService, CompanyUserService>();
+builder.Services.AddScoped<ICompanyDocumentService, CompanyDocumentService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IEmploymentTypeService, EmploymentTypeService>();
+builder.Services.AddScoped<IJobService, JobService>();
+
+//  Auth Services
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();

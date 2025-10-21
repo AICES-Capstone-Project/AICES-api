@@ -33,6 +33,11 @@ namespace DataAccessLayer.Repositories
             return await _context.EmploymentTypes.AnyAsync(e => e.Name == name);
         }
 
+        public async Task<bool> ExistsAsync(int employmentTypeId)
+        {
+            return await _context.EmploymentTypes.AnyAsync(et => et.EmployTypeId == employmentTypeId && et.IsActive);
+        }
+
         public async Task<EmploymentType> AddAsync(EmploymentType employmentType)
         {
             _context.EmploymentTypes.Add(employmentType);

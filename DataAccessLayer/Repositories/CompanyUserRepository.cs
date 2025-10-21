@@ -27,6 +27,18 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(cu => cu.UserId == userId && cu.IsActive);
         }
 
+        public async Task<CompanyUser?> GetCompanyUserByUserIdAsync(int userId)
+        {
+            return await _context.CompanyUsers
+                .Include(cu => cu.Company)
+                .FirstOrDefaultAsync(cu => cu.UserId == userId && cu.IsActive);
+        }
+
+        public async Task<bool> ExistsAsync(int comUserId)
+        {
+            return await _context.CompanyUsers.AnyAsync(cu => cu.ComUserId == comUserId);
+        }
+
         public async Task UpdateAsync(CompanyUser companyUser)
         {
             _context.CompanyUsers.Update(companyUser);

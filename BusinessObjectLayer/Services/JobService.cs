@@ -17,11 +17,60 @@ namespace BusinessObjectLayer.Services
     {
         private readonly IJobRepository _jobRepository;
         private readonly IAuthRepository _authRepository;
+        private readonly ICompanyUserRepository _companyUserRepository;
+        private readonly ICategoryRepository _categoryRepository;
+        private readonly IEmploymentTypeRepository _employmentTypeRepository;
+        private readonly IJobCategoryRepository _jobCategoryRepository;
+        private readonly IJobEmploymentTypeRepository _jobEmploymentTypeRepository;
 
-        public JobService(IJobRepository jobRepository, IAuthRepository authRepository)
+        public JobService(
+            IJobRepository jobRepository, 
+            IAuthRepository authRepository,
+            ICompanyUserRepository companyUserRepository,
+            ICategoryRepository categoryRepository,
+            IEmploymentTypeRepository employmentTypeRepository,
+            IJobCategoryRepository jobCategoryRepository,
+            IJobEmploymentTypeRepository jobEmploymentTypeRepository)
         {
             _jobRepository = jobRepository;
             _authRepository = authRepository;
+            _companyUserRepository = companyUserRepository;
+            _categoryRepository = categoryRepository;
+            _employmentTypeRepository = employmentTypeRepository;
+            _jobCategoryRepository = jobCategoryRepository;
+            _jobEmploymentTypeRepository = jobEmploymentTypeRepository;
+        }
+
+        public async Task<ServiceResponse> GetJobByIdAsync(int jobId)
+        {
+            try
+            {
+                var job = await _jobRepository.GetJobByIdAsync(jobId);
+
+                if (job == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Job not found."
+                    };
+                }
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Job retrieved successfully.",
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get job error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving the job."
+                };
+            }
         }
 
         public async Task<ServiceResponse> CreateJobAsync(JobRequest request, ClaimsPrincipal userClaims)
@@ -53,7 +102,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get CompanyUser for this user
-                var companyUser = await _jobRepository.GetCompanyUserByUserIdAsync(user.UserId);
+                var companyUser = await _companyUserRepository.GetCompanyUserByUserIdAsync(user.UserId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -63,15 +112,15 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Check if user has joined a company
-                //if (companyUser.CompanyId == null)
-                //{
-                //    return new ServiceResponse
-                //    {
-                //        Status = SRStatus.NotFound,
-                //        Message = "You must join a company before creating a job."
-                //    };
-                //}
+                //Check if user has joined a company
+                if (companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "You must join a company before creating a job."
+                    };
+                }
 
                 // Validate criteria weights sum to 1.0 if criteria are provided
                 // if (request.Criteria != null && request.Criteria.Any())
@@ -103,29 +152,53 @@ namespace BusinessObjectLayer.Services
                 // Save job
                 var createdJob = await _jobRepository.CreateJobAsync(job);
 
-                // Add job categories if provided
-                if (request.CategoryIds != null && request.CategoryIds.Any())
+                // Validate and add job categories
+                if (request.CategoryIds == null || !request.CategoryIds.Any())
                 {
-                    var jobCategories = request.CategoryIds.Select(categoryId => new JobCategory
-                    {
-                        JobId = createdJob.JobId,
-                        CategoryId = categoryId
-                    }).ToList();
-
-                    await _jobRepository.AddJobCategoriesAsync(jobCategories);
+                    throw new InvalidOperationException("At least one category is required.");
                 }
 
-                // Add job employment types if provided
-                if (request.EmploymentTypeIds != null && request.EmploymentTypeIds.Any())
+                // Validate that all category IDs exist
+                foreach (var categoryId in request.CategoryIds)
                 {
-                    var jobEmploymentTypes = request.EmploymentTypeIds.Select(employTypeId => new JobEmploymentType
+                    var categoryExists = await _categoryRepository.ExistsAsync(categoryId);
+                    if (!categoryExists)
                     {
-                        JobId = createdJob.JobId,
-                        EmployTypeId = employTypeId
-                    }).ToList();
-
-                    await _jobRepository.AddJobEmploymentTypesAsync(jobEmploymentTypes);
+                        throw new InvalidOperationException($"Category with ID {categoryId} does not exist.");
+                    }
                 }
+
+                var jobCategories = request.CategoryIds.Select(categoryId => new JobCategory
+                {
+                    JobId = createdJob.JobId,
+                    CategoryId = categoryId
+                }).ToList();
+
+                await _jobCategoryRepository.AddJobCategoriesAsync(jobCategories);
+
+                // Validate and add job employment types
+                if (request.EmploymentTypeIds == null || !request.EmploymentTypeIds.Any())
+                {
+                    throw new InvalidOperationException("At least one employment type is required.");
+                }
+
+                // Validate that all employment type IDs exist
+                foreach (var employTypeId in request.EmploymentTypeIds)
+                {
+                    var employmentTypeExists = await _employmentTypeRepository.ExistsAsync(employTypeId);
+                    if (!employmentTypeExists)
+                    {
+                        throw new InvalidOperationException($"Employment type with ID {employTypeId} does not exist.");
+                    }
+                }
+
+                var jobEmploymentTypes = request.EmploymentTypeIds.Select(employTypeId => new JobEmploymentType
+                {
+                    JobId = createdJob.JobId,
+                    EmployTypeId = employTypeId
+                }).ToList();
+
+                await _jobEmploymentTypeRepository.AddJobEmploymentTypesAsync(jobEmploymentTypes);
 
                 // Add criteria if provided
                 // if (request.Criteria != null && request.Criteria.Any())
@@ -153,14 +226,10 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Map to response
-                var jobResponse = MapToJobResponse(jobWithRelations);
-
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "Job created successfully.",
-                    Data = jobResponse
                 };
             }
             catch (Exception ex)
@@ -174,57 +243,7 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
-
-        public async Task<ServiceResponse> GetJobByIdAsync(int jobId)
-        {
-            try
-            {
-                var job = await _jobRepository.GetJobByIdAsync(jobId);
-                
-                if (job == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Job not found."
-                    };
-                }
-
-                var jobResponse = MapToJobResponse(job);
-
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Success,
-                    Message = "Job retrieved successfully.",
-                    Data = jobResponse
-                };
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Get job error: {ex.Message}");
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "An error occurred while retrieving the job."
-                };
-            }
-        }
-
-        private JobResponse MapToJobResponse(Job job)
-        {
-            return new JobResponse
-            {
-                JobId = job.JobId,
-                ComUserId = job.ComUserId,
-                CompanyId = job.CompanyId,
-                CompanyName = job.Company?.Name,
-                Title = job.Title,
-                Description = job.Description,
-                Slug = job.Slug,
-                Requirements = job.Requirements,
-            };
-        }
-
+        
         private string GenerateSlug(string title)
         {
             if (string.IsNullOrEmpty(title))
