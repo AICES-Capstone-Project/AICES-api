@@ -330,7 +330,17 @@ namespace DataAccessLayer
                 .HasMaxLength(50);
 
             modelBuilder.Entity<Company>()
-                .Property(c => c.ApprovalStatus)
+                .Property(c => c.CompanyStatus)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<CompanySubscription>()
+                .Property(cs => cs.SubscriptionStatus)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<Payment>()
+                .Property(p => p.PaymentStatus)
                 .HasConversion<string>()
                 .HasMaxLength(50);
 

@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 
 namespace Data.Enum
 {
-    
     public enum AuthProviderEnum
     {
         Google,

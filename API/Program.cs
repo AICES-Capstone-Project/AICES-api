@@ -185,75 +185,75 @@ builder.Services.AddAuthentication(options =>
     };
     
     // Custom authentication events to handle 401 responses
-    options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
-    {
-        OnChallenge = async context =>
-        {
-            // Skip the default challenge behavior
-            context.HandleResponse();
+    //options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+    //{
+    //    OnChallenge = async context =>
+    //    {
+    //        // Skip the default challenge behavior
+    //        context.HandleResponse();
             
-            // Create custom ServiceResponse
-            var serviceResponse = new ServiceResponse
-            {
-                Status = SRStatus.Unauthorized,
-                Message = "Authentication required. Please provide a valid token."
-            };
+    //        // Create custom ServiceResponse
+    //        var serviceResponse = new ServiceResponse
+    //        {
+    //            Status = SRStatus.Unauthorized,
+    //            Message = "Authentication required. Please provide a valid token."
+    //        };
             
-            // Set response headers and content
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            context.Response.ContentType = "application/json";
+    //        // Set response headers and content
+    //        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+    //        context.Response.ContentType = "application/json";
             
-            var jsonResponse = JsonSerializer.Serialize(serviceResponse, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-            });
+    //        var jsonResponse = JsonSerializer.Serialize(serviceResponse, new JsonSerializerOptions
+    //        {
+    //            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    //            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+    //        });
             
-          await context.Response.WriteAsync(jsonResponse);
-        },
+    //      await context.Response.WriteAsync(jsonResponse);
+    //    },
         
-        OnAuthenticationFailed = async context =>
-        {
-            // Handle authentication failures (invalid token, expired, etc.)
-            var serviceResponse = new ServiceResponse
-            {
-                Status = SRStatus.Unauthorized,
-                Message = "Invalid or expired token. Please login again."
-            };
+    //    OnAuthenticationFailed = async context =>
+    //    {
+    //        // Handle authentication failures (invalid token, expired, etc.)
+    //        var serviceResponse = new ServiceResponse
+    //        {
+    //            Status = SRStatus.Unauthorized,
+    //            Message = "Invalid or expired token. Please login again."
+    //        };
             
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            context.Response.ContentType = "application/json";
+    //        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+    //        context.Response.ContentType = "application/json";
             
-            var jsonResponse = JsonSerializer.Serialize(serviceResponse, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-            });
+    //        var jsonResponse = JsonSerializer.Serialize(serviceResponse, new JsonSerializerOptions
+    //        {
+    //            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    //            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+    //        });
 
-            await context.Response.WriteAsync(jsonResponse);
-        },
+    //        await context.Response.WriteAsync(jsonResponse);
+    //    },
 
-        OnForbidden = async context =>
-        {
-            // Handle authorization failures (valid token but insufficient permissions)
-            var serviceResponse = new ServiceResponse
-            {
-                Status = SRStatus.Forbidden,
-                Message = "Access denied. You don't have permission to access this resource."
-            };
+    //    OnForbidden = async context =>
+    //    {
+    //        // Handle authorization failures (valid token but insufficient permissions)
+    //        var serviceResponse = new ServiceResponse
+    //        {
+    //            Status = SRStatus.Forbidden,
+    //            Message = "Access denied. You don't have permission to access this resource."
+    //        };
 
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            context.Response.ContentType = "application/json";
+    //        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+    //        context.Response.ContentType = "application/json";
 
-            var jsonResponse = JsonSerializer.Serialize(serviceResponse, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-            });
+    //        var jsonResponse = JsonSerializer.Serialize(serviceResponse, new JsonSerializerOptions
+    //        {
+    //            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    //            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+    //        });
 
-            await context.Response.WriteAsync(jsonResponse);
-        }
-    };
+    //        await context.Response.WriteAsync(jsonResponse);
+    //    }
+    //};
 });
 
 // ------------------------

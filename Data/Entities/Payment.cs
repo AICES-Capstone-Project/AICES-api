@@ -1,4 +1,5 @@
 using Data.Entities.Base;
+using Data.Enum;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -24,7 +25,7 @@ namespace Data.Entities
         [MaxLength(100)]
         public string? PaymentMethod { get; set; } // CreditCard, PayPal, BankTransfer, etc.
 
-        public string? InvoiceUrl { get; set; }
+        public PaymentStatusEnum PaymentStatus { get; set; }
 
         // Navigation
         public Company Company { get; set; } = null!;

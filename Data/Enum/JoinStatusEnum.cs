@@ -8,9 +8,10 @@ namespace Data.Enum
 {
     public enum JoinStatusEnum
     {
-        NotApplied = 0,
-        Pending = 1,
-        Approved = 2,
-        Rejected = 3
+        NotApplied ,
+        Pending ,
+        Approved ,
+        Rejected ,
+        Invited 
     }
 }

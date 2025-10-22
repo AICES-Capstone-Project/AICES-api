@@ -14,7 +14,7 @@ namespace Data.Models.Response
         public string? Address { get; set; }
         public string? Website { get; set; }
         public string? LogoUrl { get; set; }
-        public string? ApprovalStatus { get; set; }
+        public string? CompanyStatus { get; set; }
         public bool IsActive { get; set; }
         public DateTime? CreatedAt { get; set; }
     }

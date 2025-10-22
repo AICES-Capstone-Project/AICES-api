@@ -6,10 +6,12 @@ using System.Threading.Tasks;
 
 namespace Data.Enum
 {
-    public enum ApprovalStatusEnum
-  {
-        Pending = 1,
-        Approved = 2,
-        Rejected = 3
+    public enum CompanyStatusEnum
+    {
+        Pending ,
+        Approved ,
+        Rejected ,
+        Canceled ,
+        Suspended 
     }
 }

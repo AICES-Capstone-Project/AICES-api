@@ -28,7 +28,7 @@ namespace Data.Entities
 
         public string? LogoUrl { get; set; }
 
-        public ApprovalStatusEnum ApprovalStatus { get; set; }
+        public CompanyStatusEnum CompanyStatus { get; set; }
         [ForeignKey("CompanyUser")]
         public int CreatedBy { get; set; }
         [ForeignKey("User")]

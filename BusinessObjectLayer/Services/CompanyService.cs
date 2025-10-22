@@ -56,7 +56,7 @@ namespace BusinessObjectLayer.Services
             var filteredCompanies = companies
                 .Where(c =>
                     isSystemManager ||
-                    (c.IsActive && c.ApprovalStatus == ApprovalStatusEnum.Approved)
+                    (c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
                 )
                 .OrderByDescending(c => c.CreatedAt)
                 .Select(c => new CompanyResponse
@@ -67,7 +67,7 @@ namespace BusinessObjectLayer.Services
                     Address = c.Address,
                     Website = c.Website,
                     LogoUrl = c.LogoUrl,
-                    ApprovalStatus = c.ApprovalStatus.ToString(),
+                    CompanyStatus = c.CompanyStatus.ToString(),
                     IsActive = c.IsActive,
                     CreatedAt = c.CreatedAt
                 })
@@ -112,7 +112,7 @@ namespace BusinessObjectLayer.Services
             // Chỉ cho phép xem nếu:
             // - là System_Manager/Admin, hoặc
             // - company đã được Approved
-            if (!isSystemManager && company.ApprovalStatus != ApprovalStatusEnum.Approved)
+            if (!isSystemManager && company.CompanyStatus != CompanyStatusEnum.Approved)
             {
                 return new ServiceResponse
                 {
@@ -129,7 +129,7 @@ namespace BusinessObjectLayer.Services
                 Address = company.Address,
                 Website = company.Website,
                 LogoUrl = company.LogoUrl,
-                ApprovalStatus = company.ApprovalStatus.ToString(),
+                CompanyStatus = company.CompanyStatus.ToString(),
                 IsActive = company.IsActive,
                 CreatedAt = company.CreatedAt
             };
@@ -192,7 +192,7 @@ namespace BusinessObjectLayer.Services
                     Address = request.Address,
                     Website = request.Website,
                     LogoUrl = logoUrl,
-                    ApprovalStatus = ApprovalStatusEnum.Pending,
+                    CompanyStatus = CompanyStatusEnum.Pending,
                     CreatedBy = userId,
                     ApprovedBy = null,
                     RejectReason = null,
@@ -359,7 +359,7 @@ namespace BusinessObjectLayer.Services
             }
 
             // Cập nhật trạng thái duyệt
-            company.ApprovalStatus = isApproved ? ApprovalStatusEnum.Approved : ApprovalStatusEnum.Rejected;
+            company.CompanyStatus = isApproved ? CompanyStatusEnum.Approved : CompanyStatusEnum.Rejected;
             await _companyRepository.UpdateAsync(company);
 
             if (isApproved)
