@@ -557,9 +557,6 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-
-
-
         // Update self company (for HR users to update their own company)
         public async Task<ServiceResponse> UpdateSelfCompanyAsync(CompanyRequest request)
         {

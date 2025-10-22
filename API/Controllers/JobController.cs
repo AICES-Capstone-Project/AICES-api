@@ -26,6 +26,19 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
+        [HttpGet("self")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> GetSelfCompanyJobs([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
+        {
+            var serviceResponse = await _jobService.GetSelfCompanyJobsAsync(page, pageSize, search);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpGet("self/{id}")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> GetSelfCompanyJobById(int id) =>
+            ControllerResponse.Response(await _jobService.GetSelfCompanyJobByIdAsync(id));
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetJobById(int id)
         {
@@ -33,7 +46,7 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        [HttpPost]
+        [HttpPost("self")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> CreateJob([FromBody] JobRequest request)
         {

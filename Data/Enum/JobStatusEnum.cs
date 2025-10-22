@@ -10,6 +10,7 @@ namespace Data.Enum
     {
         Pending ,     
         Published ,   
+        Rejected ,
         Archived 
     }
 }

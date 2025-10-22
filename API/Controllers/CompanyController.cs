@@ -32,7 +32,7 @@ namespace API.Controllers
             ControllerResponse.Response(await _companyService.UpdateCompanyProfileAsync(id, request));
 
         [HttpPost("self")]
-        [Authorize(Roles = "HR_Recruiter")]
+        [Authorize(Roles = "HR_Recruiter, HR_Manager")]
         [RequestSizeLimit(10_000_000)]
         public async Task<IActionResult> SelfCreate([FromForm] CompanyRequest request) =>
             ControllerResponse.Response(await _companyService.SelfCreateAsync(request));

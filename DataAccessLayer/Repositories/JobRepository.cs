@@ -1,4 +1,5 @@
 using Data.Entities;
+using Data.Enum;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -75,6 +76,62 @@ namespace DataAccessLayer.Repositories
             }
 
             return await query.CountAsync();
+        }
+
+        public async Task<List<Job>> GetJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null)
+        {
+            var query = _context.Jobs
+                .Include(j => j.Company)
+                .Include(j => j.CompanyUser)
+                .Include(j => j.JobCategories!)
+                    .ThenInclude(jc => jc.Category)
+                .Include(j => j.JobEmploymentTypes!)
+                    .ThenInclude(jet => jet.EmploymentType)
+                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(j => j.Title.Contains(search) || 
+                                       (j.Description != null && j.Description.Contains(search)) ||
+                                       (j.Requirements != null && j.Requirements.Contains(search)));
+            }
+
+            return await query
+                .OrderByDescending(j => j.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        public async Task<int> GetTotalJobsByCompanyIdAsync(int companyId, string? search = null)
+        {
+            var query = _context.Jobs
+                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(j => j.Title.Contains(search) || 
+                                       (j.Description != null && j.Description.Contains(search)) ||
+                                       (j.Requirements != null && j.Requirements.Contains(search)));
+            }
+
+            return await query.CountAsync();
+        }
+
+        public async Task<Job?> GetJobByIdAndCompanyIdAsync(int jobId, int companyId)
+        {
+            return await _context.Jobs
+                .Include(j => j.Company)
+                .Include(j => j.CompanyUser)
+                .Include(j => j.JobCategories!)
+                    .ThenInclude(jc => jc.Category)
+                .Include(j => j.JobEmploymentTypes!)
+                    .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.Criteria)
+                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
+                .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
     }
 }

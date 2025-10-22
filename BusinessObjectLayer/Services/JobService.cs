@@ -5,6 +5,7 @@ using Data.Models.Request;
 using Data.Models.Response;
 using Data.Models.Response.Pagination;
 using DataAccessLayer.IRepositories;
+using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,6 +24,7 @@ namespace BusinessObjectLayer.Services
         private readonly IEmploymentTypeRepository _employmentTypeRepository;
         private readonly IJobCategoryRepository _jobCategoryRepository;
         private readonly IJobEmploymentTypeRepository _jobEmploymentTypeRepository;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public JobService(
             IJobRepository jobRepository, 
@@ -31,7 +33,8 @@ namespace BusinessObjectLayer.Services
             ICategoryRepository categoryRepository,
             IEmploymentTypeRepository employmentTypeRepository,
             IJobCategoryRepository jobCategoryRepository,
-            IJobEmploymentTypeRepository jobEmploymentTypeRepository)
+            IJobEmploymentTypeRepository jobEmploymentTypeRepository,
+            IHttpContextAccessor httpContextAccessor)
         {
             _jobRepository = jobRepository;
             _authRepository = authRepository;
@@ -40,6 +43,7 @@ namespace BusinessObjectLayer.Services
             _employmentTypeRepository = employmentTypeRepository;
             _jobCategoryRepository = jobCategoryRepository;
             _jobEmploymentTypeRepository = jobEmploymentTypeRepository;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<ServiceResponse> GetJobByIdAsync(int jobId)
@@ -91,6 +95,7 @@ namespace BusinessObjectLayer.Services
                     Description = j.Description,
                     Slug = j.Slug,
                     Requirements = j.Requirements,
+                    JobStatus = j.JobStatus,
                     IsActive = j.IsActive,
                     CreatedAt = j.CreatedAt ?? DateTime.MinValue,
                     Categories = j.JobCategories?.Select(jc => jc.Category?.Name ?? "").ToList() ?? new List<string>(),
@@ -170,19 +175,10 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Validate criteria weights sum to 1.0 if criteria are provided
-                // if (request.Criteria != null && request.Criteria.Any())
-                // {
-                //     var totalWeight = request.Criteria.Sum(c => c.Weight);
-                //     if (Math.Abs(totalWeight - 1.0m) > 0.001m) // Allow small floating point errors
-                //     {
-                //         return new ServiceResponse
-                //         {
-                //             Status = SRStatus.Error,
-                //             Message = $"Criteria weights must sum to 1.0. Current sum: {totalWeight}"
-                //         };
-                //     }
-                // }
+                // Determine JobStatus based on user role
+                var jobStatus = user.Role?.RoleName == "HR_Manager" 
+                    ? JobStatusEnum.Published 
+                    : JobStatusEnum.Pending;
 
                 // Create job entity
                 var job = new Job
@@ -193,7 +189,7 @@ namespace BusinessObjectLayer.Services
                     Description = request.Description,
                     Slug = GenerateSlug(request.Title ?? string.Empty),
                     Requirements = request.Requirements,
-                    JobStatus = JobStatusEnum.Pending,
+                    JobStatus = jobStatus,
                     IsActive = true
                 };
 
@@ -291,7 +287,167 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
-        
+
+        // Get all jobs for the authenticated user's company
+        public async Task<ServiceResponse> GetSelfCompanyJobsAsync(int page = 1, int pageSize = 10, string? search = null)
+        {
+            try
+            {
+                // Get current user ID from claims
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+
+                // Get company user to find associated company
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                if (companyUser == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company user not found."
+                    };
+                }
+
+                if (companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "You are not associated with any company."
+                    };
+                }
+
+                var jobs = await _jobRepository.GetJobsByCompanyIdAsync(companyUser.CompanyId.Value, page, pageSize, search);
+                var total = await _jobRepository.GetTotalJobsByCompanyIdAsync(companyUser.CompanyId.Value, search);
+
+                var jobResponses = jobs.Select(j => new SelfJobResponse
+                {
+                    JobId = j.JobId,
+                    Title = j.Title,
+                    Description = j.Description,
+                    Slug = j.Slug,
+                    Requirements = j.Requirements,
+                    Categories = j.JobCategories?.Select(jc => jc.Category?.Name ?? "").ToList() ?? new List<string>(),
+                    EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>()
+                }).ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Jobs retrieved successfully.",
+                    Data = new PaginatedSelfJobResponse
+                    {
+                        Jobs = jobResponses,
+                        TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                        CurrentPage = page,
+                        PageSize = pageSize
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get self company jobs error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving jobs."
+                };
+            }
+        }
+
+        // Get specific job by ID for the authenticated user's company
+        public async Task<ServiceResponse> GetSelfCompanyJobByIdAsync(int jobId)
+        {
+            try
+            {
+                // Get current user ID from claims
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+
+                // Get company user to find associated company
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                if (companyUser == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company user not found."
+                    };
+                }
+
+                if (companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "You are not associated with any company."
+                    };
+                }
+
+                var job = await _jobRepository.GetJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+
+                if (job == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Job not found or does not belong to your company."
+                    };
+                }
+
+                var jobResponse = new SelfJobResponse
+                {
+                    JobId = job.JobId,
+                    Title = job.Title,
+                    Description = job.Description,
+                    Slug = job.Slug,
+                    Requirements = job.Requirements,
+                    Categories = job.JobCategories?.Select(jc => jc.Category?.Name ?? "").ToList() ?? new List<string>(),
+                    EmploymentTypes = job.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>()
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Job retrieved successfully.",
+                    Data = jobResponse
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get self company job error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving the job."
+                };
+            }
+        }
+
         private string GenerateSlug(string title)
         {
             if (string.IsNullOrEmpty(title))
