@@ -108,6 +108,10 @@ if (!string.IsNullOrEmpty(cloudName) && !string.IsNullOrEmpty(apiKey) && !string
     var account = new Account(cloudName, apiKey, apiSecret);
     var cloudinary = new Cloudinary(account) { Api = { Secure = true } };
     builder.Services.AddSingleton(cloudinary);
+    
+    // Register CloudinaryHelper as scoped service
+    builder.Services.AddScoped<BusinessObjectLayer.Common.CloudinaryHelper>();
+    
     Console.WriteLine($"? Cloudinary configured successfully: {cloudName}");
 }
 else

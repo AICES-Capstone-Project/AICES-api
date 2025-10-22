@@ -21,13 +21,12 @@ namespace BusinessObjectLayer.Services
     public class ProfileService : IProfileService
     {
         private readonly IProfileRepository _profileRepository;
-       
-        private readonly Cloudinary _cloudinary;
+        private readonly Common.CloudinaryHelper _cloudinaryHelper;
 
-        public ProfileService(IProfileRepository profileRepository, Cloudinary cloudinary)
+        public ProfileService(IProfileRepository profileRepository, Common.CloudinaryHelper cloudinaryHelper)
         {
             _profileRepository = profileRepository;
-             _cloudinary = cloudinary;
+            _cloudinaryHelper = cloudinaryHelper;
         }
 
         public async Task<Profile> CreateDefaultProfileAsync(int userId, string fullName)
@@ -112,44 +111,7 @@ namespace BusinessObjectLayer.Services
 
         private async Task<(bool Success, string? Url, string? ErrorMessage)> UploadAvatarAsync(int userId, Microsoft.AspNetCore.Http.IFormFile file)
         {
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            
-            if (!allowedExtensions.Contains(extension))
-            {
-                return (false, null, "Invalid file type. Only JPG, PNG, GIF, WEBP allowed.");
-            }
-
-            const int maxFileSize = 5 * 1024 * 1024; // 5MB
-            if (file.Length > maxFileSize)
-            {
-                return (false, null, "File size exceeds 5MB limit.");
-            }
-
-            try
-            {
-                using var stream = file.OpenReadStream();
-                var uploadParams = new ImageUploadParams()
-                {
-                    File = new FileDescription(file.FileName, stream),
-                    PublicId = $"avatars/{userId}_{DateTime.UtcNow.Ticks}",
-                    Folder = "avatars",
-                    Transformation = new Transformation().Width(500).Height(500).Crop("fill")
-                };
-
-                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
-                
-                if (uploadResult.Error != null)
-                {
-                    return (false, null, $"Upload failed: {uploadResult.Error.Message}");
-                }
-
-                return (true, uploadResult.SecureUrl.ToString(), null);
-            }
-            catch (Exception ex)
-            {
-                return (false, null, $"Upload error: {ex.Message}");
-            }
+            return await _cloudinaryHelper.UploadAvatarAsync(userId, file);
         }
     }
 }

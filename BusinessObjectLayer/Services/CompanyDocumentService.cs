@@ -16,14 +16,14 @@ namespace BusinessObjectLayer.Services
     public class CompanyDocumentService : ICompanyDocumentService
     {
         private readonly ICompanyDocumentRepository _companyDocumentRepository;
-        private readonly Cloudinary _cloudinary;
+        private readonly Common.CloudinaryHelper _cloudinaryHelper;
 
         public CompanyDocumentService(
             ICompanyDocumentRepository companyDocumentRepository,
-            Cloudinary cloudinary)
+            Common.CloudinaryHelper cloudinaryHelper)
         {
             _companyDocumentRepository = companyDocumentRepository;
-            _cloudinary = cloudinary;
+            _cloudinaryHelper = cloudinaryHelper;
         }
 
         public async Task<List<CompanyDocument>> UploadAndSaveDocumentsAsync(
@@ -87,49 +87,10 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        // Private helper method for uploading files
+                // Private helper method for uploading files
         private async Task<(bool Success, string? Url, string? ErrorMessage)> UploadFileAsync(IFormFile file, string folder)
         {
-            try
-            {
-                using var stream = file.OpenReadStream();
-
-                // Determine if it's an image or document
-                var extension = Path.GetExtension(file.FileName).ToLower();
-                var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
-                bool isImage = imageExtensions.Contains(extension);
-
-                if (isImage)
-                {
-                    // Upload as image
-                    var uploadParams = new ImageUploadParams()
-                    {
-                        File = new FileDescription(file.FileName, stream),
-                        Folder = folder
-                    };
-                    var result = await _cloudinary.UploadAsync(uploadParams);
-                    if (result.Error != null)
-                        return (false, null, result.Error.Message);
-                    return (true, result.SecureUrl.ToString(), null);
-                }
-                else
-                {
-                    // Upload as raw file (PDF, DOC, etc.)
-                    var uploadParams = new RawUploadParams()
-                    {
-                        File = new FileDescription(file.FileName, stream),
-                        Folder = folder
-                    };
-                    var result = await _cloudinary.UploadAsync(uploadParams);
-                    if (result.Error != null)
-                        return (false, null, result.Error.Message);
-                    return (true, result.SecureUrl.ToString(), null);
-                }
-            }
-            catch (Exception ex)
-            {
-                return (false, null, ex.Message);
-            }
+            return await _cloudinaryHelper.UploadCompanyDocumentAsync(file);
         }
     }
 }

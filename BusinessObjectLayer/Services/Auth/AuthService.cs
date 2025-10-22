@@ -509,8 +509,7 @@ namespace BusinessObjectLayer.Services.Auth
 
         public async Task<ServiceResponse> GetCurrentUserInfoAsync(ClaimsPrincipal userClaims)
         {
-            var emailClaim = userClaims.FindFirst(ClaimTypes.Email)?.Value
-                 ?? userClaims.FindFirst("email")?.Value;
+          var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
             if (string.IsNullOrEmpty(emailClaim))
             {
                 throw new UnauthorizedAccessException("Email claim not found in token.");
@@ -587,7 +586,7 @@ namespace BusinessObjectLayer.Services.Auth
             try
             {
                 var principal = _tokenService.ValidateToken(token);
-                var email = principal.FindFirst(ClaimTypes.Email)?.Value;
+                var email = Common.ClaimUtils.GetEmailClaim(principal);
 
                 if (string.IsNullOrEmpty(email))
                 {

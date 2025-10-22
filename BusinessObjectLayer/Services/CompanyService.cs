@@ -24,7 +24,7 @@ namespace BusinessObjectLayer.Services
         private readonly ICompanyUserRepository _companyUserRepository;
         private readonly ICompanyDocumentService _companyDocumentService;
         private readonly IUserRepository _userRepository;
-        private readonly Cloudinary _cloudinary;
+        private readonly Common.CloudinaryHelper _cloudinaryHelper;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
         public CompanyService(
@@ -32,14 +32,14 @@ namespace BusinessObjectLayer.Services
             ICompanyUserRepository companyUserRepository,
             ICompanyDocumentService companyDocumentService,
             IUserRepository userRepository,
-            Cloudinary cloudinary,
+            Common.CloudinaryHelper cloudinaryHelper,
             IHttpContextAccessor httpContextAccessor)
         {
             _companyRepository = companyRepository;
             _companyUserRepository = companyUserRepository;
             _companyDocumentService = companyDocumentService;
             _userRepository = userRepository;
-            _cloudinary = cloudinary;
+            _cloudinaryHelper = cloudinaryHelper;
             _httpContextAccessor = httpContextAccessor;
         }
 
@@ -233,7 +233,7 @@ namespace BusinessObjectLayer.Services
             {
                 // Get current admin user ID from claims for ApprovedBy
                 var user = _httpContextAccessor.HttpContext?.User;
-                var adminUserIdClaim = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var adminUserIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
 
                 if (string.IsNullOrEmpty(adminUserIdClaim))
                 {
@@ -338,7 +338,7 @@ namespace BusinessObjectLayer.Services
             {
                 // Get current user ID from claims
                 var user = _httpContextAccessor.HttpContext?.User;
-                var userIdClaim = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
 
                 if (string.IsNullOrEmpty(userIdClaim))
                 {
@@ -425,7 +425,7 @@ namespace BusinessObjectLayer.Services
             {
                 // ✅ Lấy userId từ claims
                 var user = _httpContextAccessor.HttpContext?.User;
-                var userIdClaim = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
 
                 if (string.IsNullOrEmpty(userIdClaim))
                 {
@@ -567,7 +567,7 @@ namespace BusinessObjectLayer.Services
             {
                 // Get current user ID from claims
                 var user = _httpContextAccessor.HttpContext?.User;
-                var userIdClaim = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
 
                 if (string.IsNullOrEmpty(userIdClaim))
                 {
@@ -808,24 +808,7 @@ namespace BusinessObjectLayer.Services
         // Upload helper for logo images only
         private async Task<(bool Success, string? Url, string? ErrorMessage)> UploadFileAsync(IFormFile file, string folder)
         {
-            try
-            {
-                using var stream = file.OpenReadStream();
-                var uploadParams = new ImageUploadParams()
-                {
-                    File = new FileDescription(file.FileName, stream),
-                    Folder = folder,
-                    Transformation = new Transformation().Width(400).Height(400).Crop("fill")
-                };
-                var result = await _cloudinary.UploadAsync(uploadParams);
-                if (result.Error != null)
-                    return (false, null, result.Error.Message);
-                return (true, result.SecureUrl.ToString(), null);
-            }
-            catch (Exception ex)
-            {
-                return (false, null, ex.Message);
-            }
+            return await _cloudinaryHelper.UploadCompanyLogoAsync(file);
         }
 
         public async Task<ServiceResponse> UpdateCompanyStatusAsync(int companyId, CompanyStatusEnum status, string? rejectionReason = null)
@@ -834,7 +817,7 @@ namespace BusinessObjectLayer.Services
             {
                 // Get current user ID from claims
                 var user = _httpContextAccessor.HttpContext?.User;
-                var userIdClaim = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
 
                 if (string.IsNullOrEmpty(userIdClaim))
                 {

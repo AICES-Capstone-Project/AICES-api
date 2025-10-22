@@ -127,8 +127,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 // Get user email from claims
-                var emailClaim = userClaims.FindFirst(ClaimTypes.Email)?.Value
-                     ?? userClaims.FindFirst("email")?.Value;
+             var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
 
                 if (string.IsNullOrEmpty(emailClaim))
                 {
