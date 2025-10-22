@@ -20,6 +20,5 @@ namespace Data.Entities
 
         // Navigation
         public ICollection<User>? Users { get; set; }
-        public ICollection<CompanyUser>? CompanyUsers { get; set; }
     }
 }

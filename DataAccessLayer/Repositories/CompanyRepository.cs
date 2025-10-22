@@ -29,6 +29,52 @@ namespace DataAccessLayer.Repositories
             return await query.ToListAsync();
         }
 
+        public async Task<List<Company>> GetCompaniesAsync(int page, int pageSize, string? search = null)
+        {
+            var query = _context.Companies.AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(c => c.Name.Contains(search) || 
+                                       (c.Description != null && c.Description.Contains(search)) ||
+                                       (c.Address != null && c.Address.Contains(search)));
+            }
+
+            return await query
+                .OrderByDescending(c => c.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        public async Task<int> GetTotalCompaniesAsync(string? search = null)
+        {
+            var query = _context.Companies.AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(c => c.Name.Contains(search) || 
+                                       (c.Description != null && c.Description.Contains(search)) ||
+                                       (c.Address != null && c.Address.Contains(search)));
+            }
+
+            return await query.CountAsync();
+        }
+
+        public async Task<List<Company>> GetPublicCompaniesAsync()
+        {
+            return await _context.Companies
+                .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<Company?> GetPublicByIdAsync(int id)
+        {
+            return await _context.Companies
+                .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
+                .FirstOrDefaultAsync(c => c.CompanyId == id);
+        }
 
         public async Task<Company?> GetByIdAsync(int id)
         {
@@ -36,6 +82,7 @@ namespace DataAccessLayer.Repositories
                 .Include(c => c.CompanyUsers!)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Role)
+                .Include(c => c.CompanyDocuments)
                 .FirstOrDefaultAsync(c => c.CompanyId == id);
         }
 

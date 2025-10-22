@@ -28,15 +28,10 @@ namespace Data.Models.Request
         // Logo file upload
         public IFormFile? LogoFile { get; set; }
 
-        // at least 1
-        [Required(ErrorMessage = "At least one document file is required")]
-        [MinLength(1, ErrorMessage = "At least one document must be provided")]
+        // Document files (optional for PATCH, required for POST)
         public List<IFormFile>? DocumentFiles { get; set; }
         
-        // at least 1
-        [Required(ErrorMessage = "Document types are required")]
-        [MinLength(1, ErrorMessage = "At least one document type must be provided")]
-        [DefaultValue(new string[] { "Business License" })]
+        // Document types (optional for PATCH, required for POST)
         public List<string>? DocumentTypes { get; set; }
     }
 }

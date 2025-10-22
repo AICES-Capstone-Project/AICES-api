@@ -3,6 +3,7 @@ using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
+using Data.Models.Response.Pagination;
 using DataAccessLayer.IRepositories;
 using System;
 using System.Collections.Generic;
@@ -69,6 +70,54 @@ namespace BusinessObjectLayer.Services
                 {
                     Status = SRStatus.Error,
                     Message = "An error occurred while retrieving the job."
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> GetJobsAsync(int page = 1, int pageSize = 10, string? search = null)
+        {
+            try
+            {
+                var jobs = await _jobRepository.GetJobsAsync(page, pageSize, search);
+                var total = await _jobRepository.GetTotalJobsAsync(search);
+
+                var jobResponses = jobs.Select(j => new JobResponse
+                {
+                    JobId = j.JobId,
+                    ComUserId = j.ComUserId,
+                    CompanyId = j.CompanyId,
+                    CompanyName = j.Company?.Name ?? "",
+                    Title = j.Title,
+                    Description = j.Description,
+                    Slug = j.Slug,
+                    Requirements = j.Requirements,
+                    IsActive = j.IsActive,
+                    CreatedAt = j.CreatedAt ?? DateTime.MinValue,
+                    Categories = j.JobCategories?.Select(jc => jc.Category?.Name ?? "").ToList() ?? new List<string>(),
+                    EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>()
+                }).ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Jobs retrieved successfully.",
+                    Data = new PaginatedJobResponse
+                    {
+                        Jobs = jobResponses,
+                        TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                        CurrentPage = page,
+                        PageSize = pageSize
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get jobs error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving jobs."
                 };
             }
         }

@@ -140,7 +140,7 @@ namespace BusinessObjectLayer.Services
             // Create default company user for roleId 4 (HR_Manager) and 5 (HR_Recruiter)
             if (request.RoleId == 4 || request.RoleId == 5)
             {
-                var companyUserResult = await _companyUserService.CreateDefaultCompanyUserAsync(addedUser.UserId, request.RoleId);
+                var companyUserResult = await _companyUserService.CreateDefaultCompanyUserAsync(addedUser.UserId);
                 if (companyUserResult.Status != SRStatus.Success)
                 {
                     // Log the error but don't fail the user creation

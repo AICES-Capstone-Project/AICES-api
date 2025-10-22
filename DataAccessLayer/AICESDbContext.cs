@@ -118,13 +118,6 @@ namespace DataAccessLayer
                 .IsRequired(false)  // ✅ CompanyId is now optional
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Role - CompanyUser
-            modelBuilder.Entity<Role>()
-                .HasMany(r => r.CompanyUsers)
-                .WithOne(cu => cu.Role)
-                .HasForeignKey(cu => cu.RoleId)
-                .OnDelete(DeleteBehavior.NoAction);
-
             // Company - CompanySubscription
             modelBuilder.Entity<Company>()
                 .HasMany(c => c.CompanySubscriptions)

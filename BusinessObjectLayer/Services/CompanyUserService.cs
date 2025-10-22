@@ -20,7 +20,7 @@ namespace BusinessObjectLayer.Services
             _companyUserRepository = companyUserRepository;
         }
 
-        public async Task<ServiceResponse> CreateDefaultCompanyUserAsync(int userId, int userRoleId)
+        public async Task<ServiceResponse> CreateDefaultCompanyUserAsync(int userId)
         {
             try
             {
@@ -28,7 +28,6 @@ namespace BusinessObjectLayer.Services
                 var companyUser = new CompanyUser
                 {
                     UserId = userId,
-                    RoleId = userRoleId,
                     JoinStatus = JoinStatusEnum.NotApplied,
                     IsActive = true
                 };

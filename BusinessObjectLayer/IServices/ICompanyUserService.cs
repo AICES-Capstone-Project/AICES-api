@@ -9,6 +9,6 @@ namespace BusinessObjectLayer.IServices
 {
     public interface ICompanyUserService
     {
-        Task<ServiceResponse> CreateDefaultCompanyUserAsync(int userId, int userRoleId);
+        Task<ServiceResponse> CreateDefaultCompanyUserAsync(int userId);
     }
 }

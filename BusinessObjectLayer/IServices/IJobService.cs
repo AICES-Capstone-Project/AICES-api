@@ -13,6 +13,7 @@ namespace BusinessObjectLayer.IServices
     {
         Task<ServiceResponse> CreateJobAsync(JobRequest request, ClaimsPrincipal userClaims);
         Task<ServiceResponse> GetJobByIdAsync(int jobId);
+        Task<ServiceResponse> GetJobsAsync(int page = 1, int pageSize = 10, string? search = null);
     }
 }
 

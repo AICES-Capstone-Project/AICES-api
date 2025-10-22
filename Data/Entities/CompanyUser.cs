@@ -22,14 +22,11 @@ namespace Data.Entities
         [ForeignKey("Company")]
         public int? CompanyId { get; set; } 
 
-        [ForeignKey("Role")]
-        public int RoleId { get; set; }
         public JoinStatusEnum JoinStatus { get; set; }
 
         // Navigation
         public User User { get; set; } = null!;
         public Company? Company { get; set; } 
-        public Role Role { get; set; } = null!;
         public ICollection<Job>? Jobs { get; set; }
     }
 }

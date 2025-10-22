@@ -11,6 +11,8 @@ namespace DataAccessLayer.IRepositories
     {
         Task<Job> CreateJobAsync(Job job);
         Task<Job?> GetJobByIdAsync(int jobId);
+        Task<List<Job>> GetJobsAsync(int page, int pageSize, string? search = null);
+        Task<int> GetTotalJobsAsync(string? search = null);
     }
 }
 

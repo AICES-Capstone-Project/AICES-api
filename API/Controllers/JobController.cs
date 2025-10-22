@@ -18,12 +18,20 @@ namespace API.Controllers
             _jobService = jobService;
         }
 
-        //[HttpGet("{id}")]
-        //public async Task<IActionResult> GetJobById(int id)
-        //{
-        //    var serviceResponse = await _jobService.GetJobByIdAsync(id);
-        //    return ControllerResponse.Response(serviceResponse);
-        //}
+        [HttpGet]
+        [Authorize(Roles = "System_Admin, System_Manager, System_Staff")]
+        public async Task<IActionResult> GetJobs([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
+        {
+            var serviceResponse = await _jobService.GetJobsAsync(page, pageSize, search);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetJobById(int id)
+        {
+            var serviceResponse = await _jobService.GetJobByIdAsync(id);
+            return ControllerResponse.Response(serviceResponse);
+        }
 
         [HttpPost]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]

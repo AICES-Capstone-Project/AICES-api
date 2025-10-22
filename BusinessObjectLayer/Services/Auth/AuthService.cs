@@ -119,7 +119,7 @@ namespace BusinessObjectLayer.Services.Auth
 
             // Create default company and company user
             if (user.RoleId == 4 || user.RoleId == 5)
-                await _companyUserService.CreateDefaultCompanyUserAsync(addedUser.UserId, addedUser.RoleId);
+                await _companyUserService.CreateDefaultCompanyUserAsync(addedUser.UserId);
 
             var newVerificationToken = _tokenService.GenerateVerificationToken(email);
             await _emailService.SendVerificationEmailAsync(email, newVerificationToken);
@@ -296,7 +296,7 @@ namespace BusinessObjectLayer.Services.Auth
 
                     // Create default company and company user
                     if (user.RoleId == 4 || user.RoleId == 5)
-                        await _companyUserService.CreateDefaultCompanyUserAsync(user.UserId, user.RoleId);
+                        await _companyUserService.CreateDefaultCompanyUserAsync(user.UserId);
                 }
                 else
                 {
@@ -469,7 +469,7 @@ namespace BusinessObjectLayer.Services.Auth
 
                     // Create default company and company user
                     if(user.RoleId == 4 || user.RoleId == 5)
-                        await _companyUserService.CreateDefaultCompanyUserAsync(user.UserId, user.RoleId);
+                        await _companyUserService.CreateDefaultCompanyUserAsync(user.UserId);
                 }
                 else
                 {
