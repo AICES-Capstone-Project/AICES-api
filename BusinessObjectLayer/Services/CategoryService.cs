@@ -21,28 +21,49 @@ namespace BusinessObjectLayer.Services
             _categoryRepository = categoryRepository;
         }
 
-        public async Task<ServiceResponse> GetAllAsync()
+        public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null)
         {
             var categories = await _categoryRepository.GetAllAsync();
 
-            var data = categories
-                .OrderBy(c => c.CategoryId)
-                .Select(c => new CategoryResponse
+            if (!string.IsNullOrEmpty(search))
             {
-                CategoryId = c.CategoryId,
-                Name = c.Name,
-                IsActive = c.IsActive,
-                CreatedAt = c.CreatedAt ?? DateTime.UtcNow
-            });
+                categories = categories
+                    .Where(c => c.Name.Contains(search, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            var total = categories.Count();
+
+            var pagedData = categories
+                .OrderByDescending(c => c.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(c => new CategoryResponse
+                {
+                    CategoryId = c.CategoryId,
+                    Name = c.Name,
+                    IsActive = c.IsActive,
+                    CreatedAt = c.CreatedAt ?? DateTime.UtcNow
+                })
+                .ToList();
+
+            var responseData = new
+            {
+                TotalItems = total,
+                TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                CurrentPage = page,
+                PageSize = pageSize,
+                Items = pagedData
+            };
 
             return new ServiceResponse
             {
                 Status = SRStatus.Success,
                 Message = "Categories retrieved successfully.",
-                Data = data
-
+                Data = responseData
             };
         }
+
 
         public async Task<ServiceResponse> GetByIdAsync(int id)
         {

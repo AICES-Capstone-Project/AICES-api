@@ -20,9 +20,9 @@ namespace API.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            var response = await _categoryService.GetAllAsync();
+            var response = await _categoryService.GetAllAsync(page, pageSize);
             return ControllerResponse.Response(response);
         }
 
