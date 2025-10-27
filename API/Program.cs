@@ -136,6 +136,7 @@ builder.Services.AddScoped<IJobRepository, JobRepository>();
 builder.Services.AddScoped<IJobCategoryRepository, JobCategoryRepository>();
 builder.Services.AddScoped<IJobEmploymentTypeRepository, JobEmploymentTypeRepository>();
 builder.Services.AddScoped<ICriteriaRepository, CriteriaRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 
 // Services
 builder.Services.AddScoped<IProfileService, ProfileService>();
@@ -146,6 +147,7 @@ builder.Services.AddScoped<ICompanyDocumentService, CompanyDocumentService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IEmploymentTypeService, EmploymentTypeService>();
 builder.Services.AddScoped<IJobService, JobService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 //  Auth Services
 builder.Services.AddScoped<ITokenService, TokenService>();
