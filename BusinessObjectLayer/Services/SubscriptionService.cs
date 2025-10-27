@@ -27,7 +27,7 @@ namespace BusinessObjectLayer.Services
 
             var result = subscriptions.Select(s => new SubscriptionResponse
             {
-                SubcriptionId = s.SubcriptionId,
+                SubscriptionId = s.SubscriptionId,
                 Name = s.Name,
                 Description = s.Description,
                 Price = s.Price,
@@ -51,7 +51,7 @@ namespace BusinessObjectLayer.Services
 
             var result = subscriptions.Select(s => new SubscriptionResponse
             {
-                SubcriptionId = s.SubcriptionId,
+                SubscriptionId = s.SubscriptionId,
                 Name = s.Name,
                 Description = s.Description,
                 Price = s.Price,
@@ -89,7 +89,7 @@ namespace BusinessObjectLayer.Services
                 Message = "Subscription retrieved successfully.",
                 Data = new SubscriptionResponse
                 {
-                    SubcriptionId = subscription.SubcriptionId,
+                    SubscriptionId = subscription.SubscriptionId,
                     Name = subscription.Name,
                     Description = subscription.Description,
                     Price = subscription.Price,
@@ -115,7 +115,7 @@ namespace BusinessObjectLayer.Services
 
             var result = new SubscriptionResponse
             {
-                SubcriptionId = subscription.SubcriptionId,
+                SubscriptionId = subscription.SubscriptionId,
                 Name = subscription.Name,
                 Description = subscription.Description,
                 Price = subscription.Price,

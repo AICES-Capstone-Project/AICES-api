@@ -40,7 +40,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<Subscription?> GetByIdAsync(int id)
         {
-            return await _context.Subscriptions.FirstOrDefaultAsync(s => s.SubcriptionId == id && s.IsActive);
+            return await _context.Subscriptions.FirstOrDefaultAsync(s => s.SubscriptionId == id && s.IsActive);
         }
 
         public async Task<Subscription?> GetByIdAsync(int id, bool includeInactive)
@@ -50,7 +50,7 @@ namespace DataAccessLayer.Repositories
             if (!includeInactive)
                 query = query.Where(s => s.IsActive);
 
-            return await query.FirstOrDefaultAsync(s => s.SubcriptionId == id);
+            return await query.FirstOrDefaultAsync(s => s.SubscriptionId == id);
         }
 
         public async Task<Subscription> AddAsync(Subscription subscription)
