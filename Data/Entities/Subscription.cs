@@ -9,11 +9,11 @@ using System.Threading.Tasks;
 
 namespace Data.Entities
 {
-    [Table("Subcriptions")]
+    [Table("Subscriptions")]
     public class Subscription : BaseEntity
     {
         [Key]
-        public int SubcriptionId { get; set; }
+        public int SubscriptionId { get; set; }
 
         [Required, MaxLength(255)]
         public string Name { get; set; } = string.Empty;

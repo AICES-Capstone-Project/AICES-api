@@ -20,7 +20,7 @@ namespace Data.Entities
         public int CompanyId { get; set; }
 
         [ForeignKey("Subscription")]
-        public int SubcriptionId { get; set; }
+        public int SubscriptionId { get; set; }
 
         public DateTime StartDate { get; set; }
 

@@ -27,6 +27,9 @@ namespace DataAccessLayer
         public virtual DbSet<CompanySubscription> CompanySubscriptions { get; set; }
         public virtual DbSet<Payment> Payments { get; set; }
     public virtual DbSet<CompanyDocument> CompanyDocuments { get; set; }
+        public virtual DbSet<Transaction> Transactions { get; set; }
+        public virtual DbSet<Skill> Skills { get; set; }
+        public virtual DbSet<JobSkill> JobSkills { get; set; }
         
         // Job Related
         public virtual DbSet<Job> Jobs { get; set; }
@@ -129,7 +132,7 @@ namespace DataAccessLayer
             modelBuilder.Entity<Subscription>()
                 .HasMany(s => s.CompanySubscriptions)
                 .WithOne(cs => cs.Subscription)
-                .HasForeignKey(cs => cs.SubcriptionId)
+                .HasForeignKey(cs => cs.SubscriptionId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             // Company - Payment
@@ -137,6 +140,27 @@ namespace DataAccessLayer
                 .HasMany(c => c.Payments)
                 .WithOne(p => p.Company)
                 .HasForeignKey(p => p.CompanyId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Payment - Transactions
+            modelBuilder.Entity<Payment>()
+                .HasMany(p => p.Transactions)
+                .WithOne(t => t.Payment)
+                .HasForeignKey(t => t.PaymentId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Job - JobSkills
+            modelBuilder.Entity<Job>()
+                .HasMany(j => j.JobSkills)
+                .WithOne(js => js.Job)
+                .HasForeignKey(js => js.JobId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Skill - JobSkills
+            modelBuilder.Entity<Skill>()
+                .HasMany(s => s.JobSkills)
+                .WithOne(js => js.Skill)
+                .HasForeignKey(js => js.SkillId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             // Company - CompanyDocuments
@@ -344,6 +368,12 @@ namespace DataAccessLayer
 
             modelBuilder.Entity<Job>()
                 .Property(j => j.JobStatus)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            // Configure enum conversion for TransactionGateway
+            modelBuilder.Entity<Transaction>()
+                .Property(t => t.Gateway)
                 .HasConversion<string>()
                 .HasMaxLength(50);
 

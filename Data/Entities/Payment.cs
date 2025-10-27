@@ -19,16 +19,14 @@ namespace Data.Entities
         [ForeignKey("Company")]
         public int CompanyId { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal Amount { get; set; }
-
-        [MaxLength(100)]
-        public string? PaymentMethod { get; set; } // CreditCard, PayPal, BankTransfer, etc.
+        [MaxLength(500)]
+        public string? InvoiceUrl { get; set; }
 
         public PaymentStatusEnum PaymentStatus { get; set; }
 
         // Navigation
         public Company Company { get; set; } = null!;
+        public ICollection<Transaction>? Transactions { get; set; }
     }
 }
 
