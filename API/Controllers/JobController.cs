@@ -48,9 +48,9 @@ namespace API.Controllers
 
         [HttpPost("self")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> CreateJob([FromBody] JobRequest request)
+        public async Task<IActionResult> SelfCompanyCreateJob([FromBody] JobRequest request)
         {
-            var serviceResponse = await _jobService.CreateJobAsync(request, User);
+            var serviceResponse = await _jobService.SelfCompanyCreateJobAsync(request, User);
             return ControllerResponse.Response(serviceResponse);
         } 
     }

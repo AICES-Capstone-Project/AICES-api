@@ -17,6 +17,7 @@ namespace Data.Models.Response
         public DateTime CreatedAt { get; set; }
         public List<string>? Categories { get; set; }
         public List<string>? EmploymentTypes { get; set; }
+        public List<CriteriaResponse>? Criteria { get; set; }
     }
 }
 

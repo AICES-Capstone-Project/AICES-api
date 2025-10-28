@@ -48,6 +48,7 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(jc => jc.Category)
                 .Include(j => j.JobEmploymentTypes!)
                     .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.Criteria)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -87,6 +88,7 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(jc => jc.Category)
                 .Include(j => j.JobEmploymentTypes!)
                     .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.Criteria)
                 .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
                 .AsQueryable();
 

@@ -1,12 +1,13 @@
-﻿using System;
+﻿using Data.Models.Request;
+using Data.Models.Response;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace BusinessObjectLayer.IServices
 {
-    internal class ICriteriaService
+    public interface ICriteriaService
     {
+        Task<ServiceResponse> CreateCriteriaForJobAsync(int jobId, List<CriteriaRequest> criteriaRequests);
     }
 }

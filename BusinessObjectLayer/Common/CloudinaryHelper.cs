@@ -147,12 +147,47 @@ namespace BusinessObjectLayer.Common
         }
 
         /// <summary>
-        /// Upload company document (any file type)
+        /// Upload company document (PDF, DOCX, DOC, images, and other common formats)
         /// </summary>
         public async Task<(bool Success, string? Url, string? ErrorMessage)> UploadCompanyDocumentAsync(
             IFormFile file)
         {
-            return await UploadFileAsync(file, "companies/documents");
+            try
+            {
+                // Validate file extension - includes images, documents, spreadsheets, presentations, and archives
+                var allowedExtensions = new[] 
+                { 
+                    // Images
+                    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg",
+                    // Documents
+                    ".pdf", ".doc", ".docx", ".txt", ".rtf", ".odt",
+                    // Spreadsheets
+                    ".xls", ".xlsx", ".csv", ".ods",
+                    // Presentations
+                    ".ppt", ".pptx", ".odp",
+                    // Archives
+                    ".zip", ".rar", ".7z"
+                };
+                var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                
+                if (!allowedExtensions.Contains(extension))
+                {
+                    return (false, null, "Invalid file type. Allowed formats: images (JPG, PNG, GIF, etc.), documents (PDF, DOC, DOCX, TXT, etc.), spreadsheets (XLS, XLSX, CSV), presentations (PPT, PPTX), and archives (ZIP, RAR, 7Z).");
+                }
+
+                // Validate file size (20MB limit for documents and other files)
+                const int maxFileSize = 20 * 1024 * 1024;
+                if (file.Length > maxFileSize)
+                {
+                    return (false, null, "File size exceeds 20MB limit.");
+                }
+
+                return await UploadFileAsync(file, "companies/documents");
+            }
+            catch (Exception ex)
+            {
+                return (false, null, ex.Message);
+            }
         }
     }
 }

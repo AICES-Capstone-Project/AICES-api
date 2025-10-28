@@ -24,6 +24,7 @@ namespace BusinessObjectLayer.Services
         private readonly IEmploymentTypeRepository _employmentTypeRepository;
         private readonly IJobCategoryRepository _jobCategoryRepository;
         private readonly IJobEmploymentTypeRepository _jobEmploymentTypeRepository;
+        private readonly ICriteriaService _criteriaService;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
         public JobService(
@@ -34,6 +35,7 @@ namespace BusinessObjectLayer.Services
             IEmploymentTypeRepository employmentTypeRepository,
             IJobCategoryRepository jobCategoryRepository,
             IJobEmploymentTypeRepository jobEmploymentTypeRepository,
+            ICriteriaService criteriaService,
             IHttpContextAccessor httpContextAccessor)
         {
             _jobRepository = jobRepository;
@@ -43,6 +45,7 @@ namespace BusinessObjectLayer.Services
             _employmentTypeRepository = employmentTypeRepository;
             _jobCategoryRepository = jobCategoryRepository;
             _jobEmploymentTypeRepository = jobEmploymentTypeRepository;
+            _criteriaService = criteriaService;
             _httpContextAccessor = httpContextAccessor;
         }
 
@@ -99,7 +102,13 @@ namespace BusinessObjectLayer.Services
                     IsActive = j.IsActive,
                     CreatedAt = j.CreatedAt ?? DateTime.MinValue,
                     Categories = j.JobCategories?.Select(jc => jc.Category?.Name ?? "").ToList() ?? new List<string>(),
-                    EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>()
+                    EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
+                    Criteria = j.Criteria?.Select(c => new CriteriaResponse
+                    {
+                        CriteriaId = c.CriteriaId,
+                        Name = c.Name,
+                        Weight = c.Weight
+                    }).ToList() ?? new List<CriteriaResponse>()
                 }).ToList();
 
                 return new ServiceResponse
@@ -127,7 +136,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> CreateJobAsync(JobRequest request, ClaimsPrincipal userClaims)
+        public async Task<ServiceResponse> SelfCompanyCreateJobAsync(JobRequest request, ClaimsPrincipal userClaims)
         {
             try
             {
@@ -197,9 +206,13 @@ namespace BusinessObjectLayer.Services
                 var createdJob = await _jobRepository.CreateJobAsync(job);
 
                 // Validate and add job categories
-                if (request.CategoryIds == null || !request.CategoryIds.Any())
+                if (request.CategoryIds == null || request.CategoryIds.Count == 0)
                 {
-                    throw new InvalidOperationException("At least one category is required.");
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "At least one category is required."
+                    };
                 }
 
                 // Validate that all category IDs exist
@@ -208,7 +221,11 @@ namespace BusinessObjectLayer.Services
                     var categoryExists = await _categoryRepository.ExistsAsync(categoryId);
                     if (!categoryExists)
                     {
-                        throw new InvalidOperationException($"Category with ID {categoryId} does not exist.");
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = $"Category with ID {categoryId} does not exist."
+                        };
                     }
                 }
 
@@ -221,9 +238,13 @@ namespace BusinessObjectLayer.Services
                 await _jobCategoryRepository.AddJobCategoriesAsync(jobCategories);
 
                 // Validate and add job employment types
-                if (request.EmploymentTypeIds == null || !request.EmploymentTypeIds.Any())
+                if (request.EmploymentTypeIds == null || request.EmploymentTypeIds.Count == 0)
                 {
-                    throw new InvalidOperationException("At least one employment type is required.");
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "At least one employment type is required."
+                    };
                 }
 
                 // Validate that all employment type IDs exist
@@ -232,7 +253,11 @@ namespace BusinessObjectLayer.Services
                     var employmentTypeExists = await _employmentTypeRepository.ExistsAsync(employTypeId);
                     if (!employmentTypeExists)
                     {
-                        throw new InvalidOperationException($"Employment type with ID {employTypeId} does not exist.");
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = $"Employment type with ID {employTypeId} does not exist."
+                        };
                     }
                 }
 
@@ -244,19 +269,21 @@ namespace BusinessObjectLayer.Services
 
                 await _jobEmploymentTypeRepository.AddJobEmploymentTypesAsync(jobEmploymentTypes);
 
-                // Add criteria if provided
-                // if (request.Criteria != null && request.Criteria.Any())
-                // {
-                //     var criteria = request.Criteria.Select(c => new Criteria
-                //     {
-                //         JobId = createdJob.JobId,
-                //         Name = c.Name,
-                //         Weight = c.Weight,
-                //         IsActive = true
-                //     }).ToList();
+                // Validate and create criteria via service
+                if (request.Criteria == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Criteria are required."
+                    };
+                }
 
-                //     await _jobRepository.AddCriteriaAsync(criteria);
-                // }
+                var criteriaResponse = await _criteriaService.CreateCriteriaForJobAsync(createdJob.JobId, request.Criteria);
+                if (criteriaResponse.Status != SRStatus.Success)
+                {
+                    return criteriaResponse;
+                }
 
                 // Get the complete job with all relationships
                 var jobWithRelations = await _jobRepository.GetJobByIdAsync(createdJob.JobId);
@@ -339,7 +366,13 @@ namespace BusinessObjectLayer.Services
                     Slug = j.Slug,
                     Requirements = j.Requirements,
                     Categories = j.JobCategories?.Select(jc => jc.Category?.Name ?? "").ToList() ?? new List<string>(),
-                    EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>()
+                    EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
+                    Criteria = j.Criteria?.Select(c => new CriteriaResponse
+                    {
+                        CriteriaId = c.CriteriaId,
+                        Name = c.Name,
+                        Weight = c.Weight
+                    }).ToList() ?? new List<CriteriaResponse>()
                 }).ToList();
 
                 return new ServiceResponse
@@ -426,7 +459,13 @@ namespace BusinessObjectLayer.Services
                     Slug = job.Slug,
                     Requirements = job.Requirements,
                     Categories = job.JobCategories?.Select(jc => jc.Category?.Name ?? "").ToList() ?? new List<string>(),
-                    EmploymentTypes = job.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>()
+                    EmploymentTypes = job.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
+                    Criteria = job.Criteria?.Select(c => new CriteriaResponse
+                    {
+                        CriteriaId = c.CriteriaId,
+                        Name = c.Name,
+                        Weight = c.Weight
+                    }).ToList() ?? new List<CriteriaResponse>()
                 };
 
                 return new ServiceResponse

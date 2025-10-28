@@ -150,6 +150,7 @@ builder.Services.AddScoped<IEmploymentTypeService, EmploymentTypeService>();
 builder.Services.AddScoped<IJobService, JobService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IBannerConfigService, BannerConfigService>();
+builder.Services.AddScoped<ICriteriaService, CriteriaService>();
 
 //  Auth Services
 builder.Services.AddScoped<ITokenService, TokenService>();

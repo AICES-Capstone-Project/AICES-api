@@ -34,6 +34,12 @@ namespace Data.Models.Request
         [MinLength(1, ErrorMessage = "At least one employment type ID must be provided.")]
         [DefaultValue(new int[] { 1 })]
         public List<int>? EmploymentTypeIds { get; set; }
+
+        // Criteria are required and must contain between 2 and 19 items
+        [Required(ErrorMessage = "Criteria are required")]
+        [MinLength(2, ErrorMessage = "At least 2 criteria must be provided.")]
+        [MaxLength(19, ErrorMessage = "Maximum of 19 criteria can be provided.")]
+        public List<CriteriaRequest>? Criteria { get; set; }
     }
 }
 
