@@ -13,6 +13,7 @@ namespace Data.Models.Response
         public string? Description { get; set; }
         public string? Address { get; set; }
         public string? WebsiteUrl { get; set; }
+        public string? TaxCode { get; set; }
         public string? LogoUrl { get; set; }
         public string? CompanyStatus { get; set; }
         public int CreatedBy { get; set; }

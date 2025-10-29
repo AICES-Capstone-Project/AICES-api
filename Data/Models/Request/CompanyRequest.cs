@@ -25,6 +25,9 @@ namespace Data.Models.Request
         [DefaultValue("https://www.techsolutions.com")]
         public string? Website { get; set; }
 
+        [DefaultValue("1234567890")]
+        public string? TaxCode { get; set; }
+
         // Logo file upload
         public IFormFile? LogoFile { get; set; }
 

@@ -31,10 +31,12 @@ namespace DataAccessLayer.Repositories
             return await _context.Jobs
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
-                .Include(j => j.JobCategories!)
-                    .ThenInclude(jc => jc.Category)
+                .Include(j => j.Specialization!)
+                    .ThenInclude(s => s.Category)
                 .Include(j => j.JobEmploymentTypes!)
                     .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.JobSkills!)
+                    .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
@@ -44,10 +46,12 @@ namespace DataAccessLayer.Repositories
             var query = _context.Jobs
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
-                .Include(j => j.JobCategories!)
-                    .ThenInclude(jc => jc.Category)
+                .Include(j => j.Specialization!)
+                    .ThenInclude(s => s.Category)
                 .Include(j => j.JobEmploymentTypes!)
                     .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.JobSkills!)
+                    .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
                 .AsQueryable();
 
@@ -84,10 +88,12 @@ namespace DataAccessLayer.Repositories
             var query = _context.Jobs
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
-                .Include(j => j.JobCategories!)
-                    .ThenInclude(jc => jc.Category)
+                .Include(j => j.Specialization!)
+                    .ThenInclude(s => s.Category)
                 .Include(j => j.JobEmploymentTypes!)
                     .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.JobSkills!)
+                    .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
                 .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
                 .AsQueryable();
@@ -127,10 +133,12 @@ namespace DataAccessLayer.Repositories
             return await _context.Jobs
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
-                .Include(j => j.JobCategories!)
-                    .ThenInclude(jc => jc.Category)
+                .Include(j => j.Specialization!)
+                    .ThenInclude(s => s.Category)
                 .Include(j => j.JobEmploymentTypes!)
                     .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.JobSkills!)
+                    .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
                 .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
                 .FirstOrDefaultAsync(j => j.JobId == jobId);

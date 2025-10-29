@@ -19,6 +19,6 @@ namespace Data.Entities
         public string Name { get; set; } = string.Empty;
 
         // Navigation
-        public ICollection<JobCategory>? JobCategories { get; set; }
+        public ICollection<Specialization>? Specializations { get; set; }
     }
 }

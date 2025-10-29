@@ -20,9 +20,11 @@ namespace Data.Models.Response
         public JobStatusEnum JobStatus { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
-        public List<string>? Categories { get; set; }
+        public string? CategoryName { get; set; }
+        public string? SpecializationName { get; set; }
         public List<string>? EmploymentTypes { get; set; }
         public List<CriteriaResponse>? Criteria { get; set; }
+        public List<string>? Skills { get; set; }
     }
 }
 

@@ -20,10 +20,11 @@ namespace BusinessObjectLayer.Services
         private readonly IJobRepository _jobRepository;
         private readonly IAuthRepository _authRepository;
         private readonly ICompanyUserRepository _companyUserRepository;
-        private readonly ICategoryRepository _categoryRepository;
+        private readonly ISpecializationRepository _specializationRepository;
         private readonly IEmploymentTypeRepository _employmentTypeRepository;
-        private readonly IJobCategoryRepository _jobCategoryRepository;
         private readonly IJobEmploymentTypeRepository _jobEmploymentTypeRepository;
+        private readonly ISkillRepository _skillRepository;
+        private readonly IJobSkillRepository _jobSkillRepository;
         private readonly ICriteriaService _criteriaService;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
@@ -31,20 +32,22 @@ namespace BusinessObjectLayer.Services
             IJobRepository jobRepository, 
             IAuthRepository authRepository,
             ICompanyUserRepository companyUserRepository,
-            ICategoryRepository categoryRepository,
+            ISpecializationRepository specializationRepository,
             IEmploymentTypeRepository employmentTypeRepository,
-            IJobCategoryRepository jobCategoryRepository,
             IJobEmploymentTypeRepository jobEmploymentTypeRepository,
+            ISkillRepository skillRepository,
+            IJobSkillRepository jobSkillRepository,
             ICriteriaService criteriaService,
             IHttpContextAccessor httpContextAccessor)
         {
             _jobRepository = jobRepository;
             _authRepository = authRepository;
             _companyUserRepository = companyUserRepository;
-            _categoryRepository = categoryRepository;
+            _specializationRepository = specializationRepository;
             _employmentTypeRepository = employmentTypeRepository;
-            _jobCategoryRepository = jobCategoryRepository;
             _jobEmploymentTypeRepository = jobEmploymentTypeRepository;
+            _skillRepository = skillRepository;
+            _jobSkillRepository = jobSkillRepository;
             _criteriaService = criteriaService;
             _httpContextAccessor = httpContextAccessor;
         }
@@ -101,8 +104,10 @@ namespace BusinessObjectLayer.Services
                     JobStatus = j.JobStatus,
                     IsActive = j.IsActive,
                     CreatedAt = j.CreatedAt ?? DateTime.MinValue,
-                    Categories = j.JobCategories?.Select(jc => jc.Category?.Name ?? "").ToList() ?? new List<string>(),
+                    CategoryName = j.Specialization?.Category?.Name,
+                    SpecializationName = j.Specialization?.Name,
                     EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
+                    Skills = j.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
                     Criteria = j.Criteria?.Select(c => new CriteriaResponse
                     {
                         CriteriaId = c.CriteriaId,
@@ -199,43 +204,32 @@ namespace BusinessObjectLayer.Services
                     Slug = GenerateSlug(request.Title ?? string.Empty),
                     Requirements = request.Requirements,
                     JobStatus = jobStatus,
-                    IsActive = true
+                    IsActive = true,
+                    SpecializationId = request.SpecializationId
                 };
 
                 // Save job
                 var createdJob = await _jobRepository.CreateJobAsync(job);
 
-                // Validate and add job categories
-                if (request.CategoryIds == null || request.CategoryIds.Count == 0)
+                // Validate specialization
+                if (request.SpecializationId == null)
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = "At least one category is required."
+                        Message = "Specialization is required."
                     };
                 }
 
-                // Validate that all category IDs exist
-                foreach (var categoryId in request.CategoryIds)
+                var specExists = await _specializationRepository.ExistsAsync(request.SpecializationId.Value);
+                if (!specExists)
                 {
-                    var categoryExists = await _categoryRepository.ExistsAsync(categoryId);
-                    if (!categoryExists)
+                    return new ServiceResponse
                     {
-                        return new ServiceResponse
-                        {
-                            Status = SRStatus.Validation,
-                            Message = $"Category with ID {categoryId} does not exist."
-                        };
-                    }
+                        Status = SRStatus.Validation,
+                        Message = $"Specialization with ID {request.SpecializationId} does not exist."
+                    };
                 }
-
-                var jobCategories = request.CategoryIds.Select(categoryId => new JobCategory
-                {
-                    JobId = createdJob.JobId,
-                    CategoryId = categoryId
-                }).ToList();
-
-                await _jobCategoryRepository.AddJobCategoriesAsync(jobCategories);
 
                 // Validate and add job employment types
                 if (request.EmploymentTypeIds == null || request.EmploymentTypeIds.Count == 0)
@@ -268,6 +262,41 @@ namespace BusinessObjectLayer.Services
                 }).ToList();
 
                 await _jobEmploymentTypeRepository.AddJobEmploymentTypesAsync(jobEmploymentTypes);
+
+                // Add job skills if provided
+                if (request.SkillIds != null && request.SkillIds.Count > 0)
+                {
+                    // validate skills
+                    var invalidSkillId = 0;
+                    foreach (var skillId in request.SkillIds)
+                    {
+                        var skill = await _skillRepository.GetByIdAsync(skillId);
+                        if (skill == null)
+                        {
+                            invalidSkillId = skillId;
+                            break;
+                        }
+                    }
+                    if (invalidSkillId != 0)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = $"Skill with ID {invalidSkillId} does not exist."
+                        };
+                    }
+
+                    var jobSkills = request.SkillIds.Select(id => new JobSkill
+                    {
+                        JobId = createdJob.JobId,
+                        SkillId = id
+                    }).ToList();
+
+                    foreach (var js in jobSkills)
+                    {
+                        await _jobSkillRepository.AddAsync(js);
+                    }
+                }
 
                 // Validate and create criteria via service
                 if (request.Criteria == null)
@@ -365,8 +394,10 @@ namespace BusinessObjectLayer.Services
                     Description = j.Description,
                     Slug = j.Slug,
                     Requirements = j.Requirements,
-                    Categories = j.JobCategories?.Select(jc => jc.Category?.Name ?? "").ToList() ?? new List<string>(),
+                    CategoryName = j.Specialization?.Category?.Name,
+                    SpecializationName = j.Specialization?.Name,
                     EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
+                    Skills = j.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
                     Criteria = j.Criteria?.Select(c => new CriteriaResponse
                     {
                         CriteriaId = c.CriteriaId,
@@ -458,8 +489,10 @@ namespace BusinessObjectLayer.Services
                     Description = job.Description,
                     Slug = job.Slug,
                     Requirements = job.Requirements,
-                    Categories = job.JobCategories?.Select(jc => jc.Category?.Name ?? "").ToList() ?? new List<string>(),
+                    CategoryName = job.Specialization?.Category?.Name,
+                    SpecializationName = job.Specialization?.Name,
                     EmploymentTypes = job.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
+                    Skills = job.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
                     Criteria = job.Criteria?.Select(c => new CriteriaResponse
                     {
                         CriteriaId = c.CriteriaId,

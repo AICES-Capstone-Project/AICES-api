@@ -1,4 +1,4 @@
-﻿using API.Common;
+using API.Common;
 using BusinessObjectLayer.IServices;
 using Data.Models.Request;
 using Microsoft.AspNetCore.Authorization;
@@ -7,55 +7,54 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-    [Route("api/categories")]
+    [Route("api/specializations")]
     [ApiController]
-    
-    public class CategoryController : ControllerBase
+    public class SpecializationController : ControllerBase
     {
-        private readonly ICategoryService _categoryService;
+        private readonly ISpecializationService _specializationService;
 
-        public CategoryController(ICategoryService categoryService)
+        public SpecializationController(ISpecializationService specializationService)
         {
-            _categoryService = categoryService;
+            _specializationService = specializationService;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
         {
-            var response = await _categoryService.GetAllAsync(page, pageSize, search);
+            var response = await _specializationService.GetAllAsync(page, pageSize, search);
             return ControllerResponse.Response(response);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var response = await _categoryService.GetByIdAsync(id);
+            var response = await _specializationService.GetByIdAsync(id);
             return ControllerResponse.Response(response);
         }
 
         [HttpPost]
         [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
-        public async Task<IActionResult> Create([FromBody] CategoryRequest request)
+        public async Task<IActionResult> Create([FromBody] SpecializationRequest request)
         {
-            var response = await _categoryService.CreateAsync(request);
+            var response = await _specializationService.CreateAsync(request);
             return ControllerResponse.Response(response);
         }
 
         [HttpPatch("{id}")]
         [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
-        public async Task<IActionResult> Update(int id, [FromBody] CategoryRequest request)
+        public async Task<IActionResult> Update(int id, [FromBody] SpecializationRequest request)
         {
-            var response = await _categoryService.UpdateAsync(id, request);
+            var response = await _specializationService.UpdateAsync(id, request);
             return ControllerResponse.Response(response);
         }
-
 
         [HttpDelete("{id}")]
         [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
         public async Task<IActionResult> SoftDelete(int id)
         {
-            var response = await _categoryService.SoftDeleteAsync(id);
+            var response = await _specializationService.SoftDeleteAsync(id);
             return ControllerResponse.Response(response);
         }
     }
 }
+

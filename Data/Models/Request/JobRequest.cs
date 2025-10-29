@@ -23,17 +23,20 @@ namespace Data.Models.Request
         [DefaultValue("3+ years experience with C#, .NET, and SQL.")]
         public string? Requirements { get; set; }
 
-        // Category IDs are required and must contain at least one ID
-        [Required(ErrorMessage = "At least one Category ID is required")]
-        [MinLength(1, ErrorMessage = "At least one category ID must be provided.")]
-        [DefaultValue(new int[] { 1 })]
-        public List<int>? CategoryIds { get; set; }
+        // Specialization is required (replaces categories)
+        [Required(ErrorMessage = "Specialization ID is required")]
+        [DefaultValue(1)]
+        public int? SpecializationId { get; set; }
 
         // Employment Type IDs are required and must contain at least one ID
         [Required(ErrorMessage = "At least one Employment Type ID is required")]
         [MinLength(1, ErrorMessage = "At least one employment type ID must be provided.")]
         [DefaultValue(new int[] { 1 })]
         public List<int>? EmploymentTypeIds { get; set; }
+
+        // Optional: attach required skills to job
+        [DefaultValue(new int[] { })]
+        public List<int>? SkillIds { get; set; }
 
         // Criteria are required and must contain between 2 and 19 items
         [Required(ErrorMessage = "Criteria are required")]

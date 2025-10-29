@@ -35,7 +35,7 @@ namespace DataAccessLayer
         public virtual DbSet<Job> Jobs { get; set; }
         public virtual DbSet<Category> Categories { get; set; }
         public virtual DbSet<EmploymentType> EmploymentTypes { get; set; }
-        public virtual DbSet<JobCategory> JobCategories { get; set; }
+        public virtual DbSet<Specialization> Specializations { get; set; }
         public virtual DbSet<JobEmploymentType> JobEmploymentTypes { get; set; }
         public virtual DbSet<Criteria> Criterias { get; set; }
         
@@ -171,18 +171,20 @@ namespace DataAccessLayer
                 .OnDelete(DeleteBehavior.NoAction);
 
             // ===== JOB RELATIONSHIPS =====
-            
-            // Job - Category (Many-to-Many through JobCategory)
-            modelBuilder.Entity<JobCategory>()
-                .HasOne(jc => jc.Job)
-                .WithMany(j => j.JobCategories)
-                .HasForeignKey(jc => jc.JobId)
+
+            // Category - Specialization (One-to-Many)
+            modelBuilder.Entity<Category>()
+                .HasMany(c => c.Specializations)
+                .WithOne(s => s.Category)
+                .HasForeignKey(s => s.CategoryId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            modelBuilder.Entity<JobCategory>()
-                .HasOne(jc => jc.Category)
-                .WithMany(c => c.JobCategories)
-                .HasForeignKey(jc => jc.CategoryId)
+            // Job - Specialization (Many-to-One)
+            modelBuilder.Entity<Job>()
+                .HasOne(j => j.Specialization)
+                .WithMany(s => s.Jobs!)
+                .HasForeignKey(j => j.SpecializationId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.NoAction);
 
             // Job - EmploymentType (Many-to-Many through JobEmploymentType)

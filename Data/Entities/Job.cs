@@ -32,11 +32,14 @@ namespace Data.Entities
 
         public string? Requirements { get; set; }
         public JobStatusEnum JobStatus { get; set; }
+        
+        [ForeignKey("Specialization")]
+        public int? SpecializationId { get; set; }
 
         // Navigation
         public CompanyUser CompanyUser { get; set; } = null!;
         public Company Company { get; set; } = null!;
-        public ICollection<JobCategory>? JobCategories { get; set; }
+        public Specialization? Specialization { get; set; }
         public ICollection<JobEmploymentType>? JobEmploymentTypes { get; set; }
         public ICollection<Criteria>? Criteria { get; set; }
         public ICollection<ParsedCandidates>? ParsedCandidates { get; set; }

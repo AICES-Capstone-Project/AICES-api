@@ -10,6 +10,7 @@ namespace Data.Models.Response
         public string? Description { get; set; }
         public string? Address { get; set; }
         public string? WebsiteUrl { get; set; }
+        public string? TaxCode { get; set; }
         public string? LogoUrl { get; set; }
         public CompanyStatusEnum CompanyStatus { get; set; }
         public string? RejectionReason { get; set; }

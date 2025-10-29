@@ -1,27 +1,27 @@
+using Data.Entities.Base;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Data.Entities
 {
-    [Table("JobCategories")]
-    public class JobCategory
+    [Table("Specializations")]
+    public class Specialization : BaseEntity
     {
         [Key]
-        public int JobCategoryId { get; set; }
-
-        [ForeignKey("Job")]
-        public int JobId { get; set; }
+        public int SpecializationId { get; set; }
 
         [ForeignKey("Category")]
         public int CategoryId { get; set; }
 
+        [Required, MaxLength(255)]
+        public string Name { get; set; } = string.Empty;
+
         // Navigation
-        public Job Job { get; set; } = null!;
         public Category Category { get; set; } = null!;
+        public ICollection<Job>? Jobs { get; set; }
     }
 }
+
+

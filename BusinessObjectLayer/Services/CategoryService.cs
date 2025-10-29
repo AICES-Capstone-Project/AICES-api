@@ -49,11 +49,10 @@ namespace BusinessObjectLayer.Services
 
             var responseData = new
             {
-                TotalItems = total,
+                Categories = pagedData,
                 TotalPages = (int)Math.Ceiling(total / (double)pageSize),
                 CurrentPage = page,
-                PageSize = pageSize,
-                Items = pagedData
+                PageSize = pageSize
             };
 
             return new ServiceResponse

@@ -15,9 +15,11 @@ namespace Data.Models.Response
         public string? Slug { get; set; }
         public string? Requirements { get; set; }
         public DateTime CreatedAt { get; set; }
-        public List<string>? Categories { get; set; }
+        public string? CategoryName { get; set; }
+        public string? SpecializationName { get; set; }
         public List<string>? EmploymentTypes { get; set; }
         public List<CriteriaResponse>? Criteria { get; set; }
+        public List<string>? Skills { get; set; }
     }
 }
 

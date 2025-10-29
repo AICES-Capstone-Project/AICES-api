@@ -139,6 +139,7 @@ namespace BusinessObjectLayer.Services
                     Description = c.Description,
                     Address = c.Address,
                     WebsiteUrl = c.Website,
+                    TaxCode = c.TaxCode,
                     LogoUrl = c.LogoUrl,
                     CompanyStatus = c.CompanyStatus.ToString(),
                     CreatedBy = c.CreatedBy,
@@ -196,6 +197,7 @@ namespace BusinessObjectLayer.Services
                     Description = company.Description,
                     Address = company.Address,
                     WebsiteUrl = company.Website,
+                    TaxCode = company.TaxCode,
                     LogoUrl = company.LogoUrl,
                     CompanyStatus = company.CompanyStatus.ToString(),
                     CreatedBy = company.CreatedBy,
@@ -224,8 +226,6 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-
-
         // Create company for System Admin (automatically approved)
         public async Task<ServiceResponse> CreateAsync(CompanyRequest request)
         {
@@ -247,20 +247,20 @@ namespace BusinessObjectLayer.Services
                 int adminUserId = int.Parse(adminUserIdClaim);
 
                 // ✅ Validate documents for POST (required)
-                if (request.DocumentFiles == null || !request.DocumentFiles.Any())
+                if (request.DocumentFiles == null || request.DocumentFiles.Count == 0)
                 {
                     return new ServiceResponse
                     {
-                        Status = SRStatus.Error,
+                        Status = SRStatus.Validation,
                         Message = "At least one document file is required."
                     };
                 }
 
-                if (request.DocumentTypes == null || !request.DocumentTypes.Any())
+                if (request.DocumentTypes == null || request.DocumentTypes.Count == 0)
                 {
                     return new ServiceResponse
                     {
-                        Status = SRStatus.Error,
+                        Status = SRStatus.Validation,
                         Message = "Document types are required."
                     };
                 }
@@ -292,6 +292,7 @@ namespace BusinessObjectLayer.Services
                     Description = request.Description,
                     Address = request.Address,
                     Website = request.Website,
+                    TaxCode = request.TaxCode,
                     LogoUrl = logoUrl,
                     CompanyStatus = CompanyStatusEnum.Approved, // Automatically approved
                     CreatedBy = adminUserId, // User who owns the company
@@ -305,7 +306,7 @@ namespace BusinessObjectLayer.Services
                 var createdCompany = await _companyRepository.AddAsync(company);
 
                 // ✅ Upload documents (nếu có) using CompanyDocumentService
-                if (request.DocumentFiles != null && request.DocumentFiles.Any())
+                if (request.DocumentFiles != null && request.DocumentFiles.Count > 0)
                 {
                     await _companyDocumentService.UploadAndSaveDocumentsAsync(
                         createdCompany.CompanyId,
@@ -389,6 +390,7 @@ namespace BusinessObjectLayer.Services
                     Description = company.Description,
                     Address = company.Address,
                     WebsiteUrl = company.Website,
+                    TaxCode = company.TaxCode,
                     LogoUrl = company.LogoUrl,
                     CompanyStatus = company.CompanyStatus,
                     RejectionReason = company.RejectReason,
@@ -460,7 +462,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // ✅ Validate documents for POST (required)
-                if (request.DocumentFiles == null || !request.DocumentFiles.Any())
+                if (request.DocumentFiles == null || request.DocumentFiles.Count == 0)
                 {
                     return new ServiceResponse
                     {
@@ -469,7 +471,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                if (request.DocumentTypes == null || !request.DocumentTypes.Any())
+                if (request.DocumentTypes == null || request.DocumentTypes.Count == 0)
                 {
                     return new ServiceResponse
                     {
@@ -505,6 +507,7 @@ namespace BusinessObjectLayer.Services
                     Description = request.Description,
                     Address = request.Address,
                     Website = request.Website,
+                    TaxCode = request.TaxCode,
                     LogoUrl = logoUrl,
                     CompanyStatus = CompanyStatusEnum.Pending,
                     CreatedBy = userId,
@@ -518,7 +521,7 @@ namespace BusinessObjectLayer.Services
                 var createdCompany = await _companyRepository.AddAsync(company);
 
                 // ✅ Upload documents (nếu có) using CompanyDocumentService
-                if (request.DocumentFiles != null && request.DocumentFiles.Any())
+                if (request.DocumentFiles != null && request.DocumentFiles.Count > 0)
                 {
                     await _companyDocumentService.UploadAndSaveDocumentsAsync(
                         createdCompany.CompanyId,
@@ -616,6 +619,8 @@ namespace BusinessObjectLayer.Services
                     company.Address = request.Address;
                 if (!string.IsNullOrEmpty(request.Website))
                     company.Website = request.Website;
+                if (!string.IsNullOrEmpty(request.TaxCode))
+                    company.TaxCode = request.TaxCode;
 
                 // Upload new logo if provided
                 if (request.LogoFile != null)
@@ -636,7 +641,7 @@ namespace BusinessObjectLayer.Services
                 await _companyRepository.UpdateAsync(company);
 
                 // Upload new documents if provided
-                if (request.DocumentFiles != null && request.DocumentFiles.Any())
+                if (request.DocumentFiles != null && request.DocumentFiles.Count > 0)
                 {
                     await _companyDocumentService.UploadAndSaveDocumentsAsync(
                         company.CompanyId,

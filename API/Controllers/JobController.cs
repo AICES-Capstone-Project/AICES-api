@@ -33,7 +33,7 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        [HttpGet("company/self")]
+        [HttpGet("company/self/jobs")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetSelfCompanyJobs([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
         {
@@ -41,12 +41,12 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        [HttpGet("company/self/{id}")]
+        [HttpGet("company/self/jobs/{id}")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetSelfCompanyJobById(int id) =>
             ControllerResponse.Response(await _jobService.GetSelfCompanyJobByIdAsync(id));
 
-        [HttpPost("company/self")]
+        [HttpPost("company/self/jobs")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> CompanySelfCreateJob([FromBody] JobRequest request)
         {
