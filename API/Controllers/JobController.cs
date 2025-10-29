@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-    [Route("api/jobs")]
+    [Route("api")]
     [ApiController]
     public class JobController : ControllerBase
     {
@@ -18,7 +18,7 @@ namespace API.Controllers
             _jobService = jobService;
         }
 
-        [HttpGet]
+        [HttpGet("jobs")]
         [Authorize(Roles = "System_Admin, System_Manager, System_Staff")]
         public async Task<IActionResult> GetJobs([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
         {
@@ -26,7 +26,14 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        [HttpGet("self")]
+        [HttpGet("jobs/{id}")]
+        public async Task<IActionResult> GetJobById(int id)
+        {
+            var serviceResponse = await _jobService.GetJobByIdAsync(id);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpGet("company/self")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetSelfCompanyJobs([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
         {
@@ -34,23 +41,16 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        [HttpGet("self/{id}")]
+        [HttpGet("company/self/{id}")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetSelfCompanyJobById(int id) =>
             ControllerResponse.Response(await _jobService.GetSelfCompanyJobByIdAsync(id));
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetJobById(int id)
-        {
-            var serviceResponse = await _jobService.GetJobByIdAsync(id);
-            return ControllerResponse.Response(serviceResponse);
-        }
-
-        [HttpPost("self")]
+        [HttpPost("company/self")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> SelfCompanyCreateJob([FromBody] JobRequest request)
+        public async Task<IActionResult> CompanySelfCreateJob([FromBody] JobRequest request)
         {
-            var serviceResponse = await _jobService.SelfCompanyCreateJobAsync(request, User);
+            var serviceResponse = await _jobService.CompanySelfCreateJobAsync(request, User);
             return ControllerResponse.Response(serviceResponse);
         } 
     }

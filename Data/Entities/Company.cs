@@ -22,6 +22,9 @@ namespace Data.Entities
         public string? Description { get; set; }
 
         public string? Address { get; set; }
+        
+        [MaxLength(255)]
+        public string? TaxCode { get; set; }
 
         [MaxLength(255)]
         public string? Website { get; set; }

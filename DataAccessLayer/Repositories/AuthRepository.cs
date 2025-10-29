@@ -24,6 +24,8 @@ namespace DataAccessLayer.Repositories
             return await _context.Users
                 .Include(u => u.Role)
                 .Include(u => u.Profile)
+                .Include(u => u.CompanyUser)
+                    .ThenInclude(cu => cu.Company)
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 

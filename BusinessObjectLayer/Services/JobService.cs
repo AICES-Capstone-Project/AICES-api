@@ -136,7 +136,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> SelfCompanyCreateJobAsync(JobRequest request, ClaimsPrincipal userClaims)
+        public async Task<ServiceResponse> CompanySelfCreateJobAsync(JobRequest request, ClaimsPrincipal userClaims)
         {
             try
             {

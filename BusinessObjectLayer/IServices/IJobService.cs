@@ -11,7 +11,7 @@ namespace BusinessObjectLayer.IServices
 {
     public interface IJobService
     {
-        Task<ServiceResponse> SelfCompanyCreateJobAsync(JobRequest request, ClaimsPrincipal userClaims);
+        Task<ServiceResponse> CompanySelfCreateJobAsync(JobRequest request, ClaimsPrincipal userClaims);
         Task<ServiceResponse> GetJobByIdAsync(int jobId);
         Task<ServiceResponse> GetJobsAsync(int page = 1, int pageSize = 10, string? search = null);
         Task<ServiceResponse> GetSelfCompanyJobsAsync(int page = 1, int pageSize = 10, string? search = null);

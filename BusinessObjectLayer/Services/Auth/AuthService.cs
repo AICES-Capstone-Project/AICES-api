@@ -512,13 +512,21 @@ namespace BusinessObjectLayer.Services.Auth
           var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
             if (string.IsNullOrEmpty(emailClaim))
             {
-                throw new UnauthorizedAccessException("Email claim not found in token.");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "Email claim not found in token.",
+                };
             }
 
             var user = await _authRepository.GetByEmailAsync(emailClaim);
             if (user == null)
             {
-                throw new UnauthorizedAccessException("User not found.");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "User not found.",
+                };
             }
 
             try
@@ -537,6 +545,7 @@ namespace BusinessObjectLayer.Services.Auth
                         DateOfBirth = user.Profile?.DateOfBirth,
                         RoleName = user.Role?.RoleName,
                         AvatarUrl = user.Profile?.AvatarUrl,
+                        CompanyName = (user.RoleId == 4 || user.RoleId == 5) ? user.CompanyUser?.Company?.Name : null,
                         IsActive = user.IsActive
                     }
                 };
