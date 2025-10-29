@@ -10,5 +10,6 @@ namespace DataAccessLayer.IRepositories
     public interface ICriteriaRepository
     {
         Task AddCriteriaAsync(List<Criteria> criteria);
+        Task DeleteByJobIdAsync(int jobId);
     }
 }

@@ -10,5 +10,6 @@ namespace DataAccessLayer.IRepositories
     public interface IJobEmploymentTypeRepository
     {
         Task AddJobEmploymentTypesAsync(List<JobEmploymentType> jobEmploymentTypes);
+        Task DeleteByJobIdAsync(int jobId);
     }
 }

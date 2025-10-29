@@ -14,5 +14,8 @@ namespace DataAccessLayer.IRepositories
         Task<JobSkill> AddAsync(JobSkill jobSkill);
         Task UpdateAsync(JobSkill jobSkill);
         Task DeleteAsync(JobSkill jobSkill);
+        Task<List<JobSkill>> GetByJobIdAsync(int jobId);
+        Task AddRangeAsync(List<JobSkill> jobSkills);
+        Task DeleteByJobIdAsync(int jobId);
     }
 }

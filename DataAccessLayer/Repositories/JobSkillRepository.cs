@@ -52,5 +52,26 @@ namespace DataAccessLayer.Repositories
             _context.JobSkills.Remove(jobSkill);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<List<JobSkill>> GetByJobIdAsync(int jobId)
+        {
+            return await _context.JobSkills.Where(js => js.JobId == jobId).ToListAsync();
+        }
+
+        public async Task AddRangeAsync(List<JobSkill> jobSkills)
+        {
+            _context.JobSkills.AddRange(jobSkills);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DeleteByJobIdAsync(int jobId)
+        {
+            var toRemove = await _context.JobSkills.Where(js => js.JobId == jobId).ToListAsync();
+            if (toRemove.Count > 0)
+            {
+                _context.JobSkills.RemoveRange(toRemove);
+                await _context.SaveChangesAsync();
+            }
+        }
     }
 }

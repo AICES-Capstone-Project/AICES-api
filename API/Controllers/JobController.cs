@@ -52,7 +52,23 @@ namespace API.Controllers
         {
             var serviceResponse = await _jobService.CompanySelfCreateJobAsync(request, User);
             return ControllerResponse.Response(serviceResponse);
-        } 
+        }
+
+        [HttpPatch("company/self/jobs/{id}")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> CompanySelfUpdateJob(int id, [FromBody] JobRequest request)
+        {
+            var serviceResponse = await _jobService.UpdateSelfCompanyJobAsync(id, request, User);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpDelete("company/self/jobs/{id}")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> CompanySelfDeleteJob(int id)
+        {
+            var serviceResponse = await _jobService.DeleteSelfCompanyJobAsync(id, User);
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
 

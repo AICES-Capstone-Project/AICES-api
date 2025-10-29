@@ -520,6 +520,165 @@ namespace BusinessObjectLayer.Services
             }
         }
 
+        // Update a job for the authenticated user's company (basic fields and specialization)
+        public async Task<ServiceResponse> UpdateSelfCompanyJobAsync(int jobId, JobRequest request, ClaimsPrincipal userClaims)
+        {
+            try
+            {
+                var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
+                if (string.IsNullOrEmpty(emailClaim))
+                {
+                    return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "Email claim not found in token." };
+                }
+
+                var user = await _authRepository.GetByEmailAsync(emailClaim);
+                if (user == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not found." };
+                }
+
+                var companyUser = await _companyUserRepository.GetCompanyUserByUserIdAsync(user.UserId);
+                if (companyUser?.CompanyId == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before updating a job." };
+                }
+
+                var job = await _jobRepository.GetJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                if (job == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
+                }
+
+                if (!string.IsNullOrEmpty(request.Title))
+                {
+                    job.Title = request.Title;
+                    job.Slug = GenerateSlug(request.Title);
+                }
+                if (request.Description != null) job.Description = request.Description;
+                if (request.Requirements != null) job.Requirements = request.Requirements;
+
+                if (request.SpecializationId != null)
+                {
+                    var specExists = await _specializationRepository.ExistsAsync(request.SpecializationId.Value);
+                    if (!specExists)
+                    {
+                        return new ServiceResponse { Status = SRStatus.Validation, Message = $"Specialization with ID {request.SpecializationId} does not exist." };
+                    }
+                    job.SpecializationId = request.SpecializationId;
+                }
+
+                await _jobRepository.UpdateJobAsync(job);
+
+                // Replace job skills if provided
+                if (request.SkillIds != null)
+                {
+                    // Validate skills
+                    foreach (var skillId in request.SkillIds)
+                    {
+                        var skill = await _skillRepository.GetByIdAsync(skillId);
+                        if (skill == null)
+                        {
+                            return new ServiceResponse
+                            {
+                                Status = SRStatus.Validation,
+                                Message = $"Skill with ID {skillId} does not exist."
+                            };
+                        }
+                    }
+
+                    await _jobSkillRepository.DeleteByJobIdAsync(job.JobId);
+                    var newJobSkills = request.SkillIds.Select(id => new JobSkill
+                    {
+                        JobId = job.JobId,
+                        SkillId = id
+                    }).ToList();
+                    await _jobSkillRepository.AddRangeAsync(newJobSkills);
+                }
+
+                // Replace criteria if provided
+                if (request.Criteria != null)
+                {
+                    var criteriaReplaceResponse = await _criteriaService.ReplaceCriteriaForJobAsync(job.JobId, request.Criteria);
+                    if (criteriaReplaceResponse.Status != SRStatus.Success)
+                    {
+                        return criteriaReplaceResponse;
+                    }
+                }
+
+                // Replace employment types if provided
+                if (request.EmploymentTypeIds != null)
+                {
+                    foreach (var etId in request.EmploymentTypeIds)
+                    {
+                        var exist = await _employmentTypeRepository.ExistsAsync(etId);
+                        if (!exist)
+                        {
+                            return new ServiceResponse
+                            {
+                                Status = SRStatus.Validation,
+                                Message = $"Employment type with ID {etId} does not exist."
+                            };
+                        }
+                    }
+
+                    await _jobEmploymentTypeRepository.DeleteByJobIdAsync(job.JobId);
+                    var newJets = request.EmploymentTypeIds.Select(id => new JobEmploymentType
+                    {
+                        JobId = job.JobId,
+                        EmployTypeId = id
+                    }).ToList();
+                    await _jobEmploymentTypeRepository.AddJobEmploymentTypesAsync(newJets);
+                }
+
+                return new ServiceResponse { Status = SRStatus.Success, Message = "Job updated successfully." };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Update job error: {ex.Message}");
+                return new ServiceResponse { Status = SRStatus.Error, Message = "An error occurred while updating the job." };
+            }
+        }
+
+        // Soft delete a job for the authenticated user's company
+        public async Task<ServiceResponse> DeleteSelfCompanyJobAsync(int jobId, ClaimsPrincipal userClaims)
+        {
+            try
+            {
+                var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
+                if (string.IsNullOrEmpty(emailClaim))
+                {
+                    return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "Email claim not found in token." };
+                }
+
+                var user = await _authRepository.GetByEmailAsync(emailClaim);
+                if (user == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not found." };
+                }
+
+                var companyUser = await _companyUserRepository.GetCompanyUserByUserIdAsync(user.UserId);
+                if (companyUser?.CompanyId == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before deleting a job." };
+                }
+
+                var job = await _jobRepository.GetJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                if (job == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
+                }
+
+                await _jobRepository.SoftDeleteJobAsync(job);
+
+                return new ServiceResponse { Status = SRStatus.Success, Message = "Job deleted successfully." };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Delete job error: {ex.Message}");
+                return new ServiceResponse { Status = SRStatus.Error, Message = "An error occurred while deleting the job." };
+            }
+        }
+
         private string GenerateSlug(string title)
         {
             if (string.IsNullOrEmpty(title))

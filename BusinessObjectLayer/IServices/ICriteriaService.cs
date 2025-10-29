@@ -9,5 +9,6 @@ namespace BusinessObjectLayer.IServices
     public interface ICriteriaService
     {
         Task<ServiceResponse> CreateCriteriaForJobAsync(int jobId, List<CriteriaRequest> criteriaRequests);
+        Task<ServiceResponse> ReplaceCriteriaForJobAsync(int jobId, List<CriteriaRequest> criteriaRequests);
     }
 }

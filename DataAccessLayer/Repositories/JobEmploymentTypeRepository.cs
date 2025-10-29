@@ -22,5 +22,15 @@ namespace DataAccessLayer.Repositories
             _context.JobEmploymentTypes.AddRange(jobEmploymentTypes);
             await _context.SaveChangesAsync();
         }
+
+        public async Task DeleteByJobIdAsync(int jobId)
+        {
+            var toRemove = _context.JobEmploymentTypes.Where(x => x.JobId == jobId).ToList();
+            if (toRemove.Count > 0)
+            {
+                _context.JobEmploymentTypes.RemoveRange(toRemove);
+                await _context.SaveChangesAsync();
+            }
+        }
     }
 }

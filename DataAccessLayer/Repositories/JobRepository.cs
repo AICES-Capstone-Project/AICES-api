@@ -143,6 +143,19 @@ namespace DataAccessLayer.Repositories
                 .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
+
+        public async Task UpdateJobAsync(Job job)
+        {
+            _context.Jobs.Update(job);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task SoftDeleteJobAsync(Job job)
+        {
+            job.IsActive = false;
+            _context.Jobs.Update(job);
+            await _context.SaveChangesAsync();
+        }
     }
 }
 

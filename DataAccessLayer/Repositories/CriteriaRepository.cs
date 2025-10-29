@@ -22,5 +22,15 @@ namespace DataAccessLayer.Repositories
             _context.Criterias.AddRange(criteria);
             await _context.SaveChangesAsync();
         }
+
+        public async Task DeleteByJobIdAsync(int jobId)
+        {
+            var toRemove = _context.Criterias.Where(c => c.JobId == jobId).ToList();
+            if (toRemove.Count > 0)
+            {
+                _context.Criterias.RemoveRange(toRemove);
+                await _context.SaveChangesAsync();
+            }
+        }
     }
 }

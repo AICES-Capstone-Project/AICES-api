@@ -16,6 +16,8 @@ namespace DataAccessLayer.IRepositories
         Task<List<Job>> GetJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null);
         Task<int> GetTotalJobsByCompanyIdAsync(int companyId, string? search = null);
         Task<Job?> GetJobByIdAndCompanyIdAsync(int jobId, int companyId);
+        Task UpdateJobAsync(Job job);
+        Task SoftDeleteJobAsync(Job job);
     }
 }
 

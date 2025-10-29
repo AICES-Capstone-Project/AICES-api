@@ -17,6 +17,7 @@ namespace Data.Models.Response
         public string? AvatarUrl { get; set; }
         public string? RoleName { get; set; }
         public string? CompanyName { get; set; }
+        public string? CompanyStatus { get; set; }
         public bool IsActive { get; set; }
     }
 }
