@@ -532,12 +532,12 @@ namespace BusinessObjectLayer.Services
                 await _companyUserRepository.UpdateAsync(companyUser);
 
                 // Update user roleId from 5 (HR_Recruiter) to 4 (HR_Manager)
-                var userEntity = await _userRepository.GetByIdAsync(userId);
-                if (userEntity != null && userEntity.RoleId == 5)
-                {
-                    userEntity.RoleId = 4; // Change from HR_Recruiter to HR_Manager
-                    await _userRepository.UpdateAsync(userEntity);
-                }
+                // var userEntity = await _userRepository.GetByIdAsync(userId);
+                // if (userEntity != null && userEntity.RoleId == 5)
+                // {
+                //     userEntity.RoleId = 4; // Change from HR_Recruiter to HR_Manager
+                //     await _userRepository.UpdateAsync(userEntity);
+                // }
 
                 return new ServiceResponse
                 {
