@@ -546,6 +546,7 @@ namespace BusinessObjectLayer.Services.Auth
                         RoleName = user.Role?.RoleName,
                         AvatarUrl = user.Profile?.AvatarUrl,
                         CompanyName = (user.RoleId == 4 || user.RoleId == 5) ? user.CompanyUser?.Company?.Name : null,
+                        CompanyStatus = (user.RoleId == 4 || user.RoleId == 5) ? user.CompanyUser?.Company?.CompanyStatus.ToString() : null,
                         IsActive = user.IsActive
                     }
                 };
