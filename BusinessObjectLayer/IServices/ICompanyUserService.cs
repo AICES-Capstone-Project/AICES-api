@@ -11,5 +11,11 @@ namespace BusinessObjectLayer.IServices
     {
         Task<ServiceResponse> CreateDefaultCompanyUserAsync(int userId);
         Task<ServiceResponse> GetMembersByCompanyIdAsync(int companyId);
+        Task<ServiceResponse> SendJoinRequestAsync(int companyId);
+        Task<ServiceResponse> GetPendingJoinRequestsAsync(int companyId);
+        Task<ServiceResponse> UpdateJoinRequestStatusAsync(int companyId, int comUserId, Data.Enum.JoinStatusEnum joinStatus, string? rejectionReason);
+        Task<ServiceResponse> GetSelfCompanyMembersAsync();
+        Task<ServiceResponse> GetPendingJoinRequestsSelfAsync();
+        Task<ServiceResponse> UpdateJoinRequestStatusSelfAsync(int comUserId, Data.Enum.JoinStatusEnum joinStatus, string? rejectionReason);
     }
 }

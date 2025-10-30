@@ -34,6 +34,17 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(cu => cu.UserId == userId && cu.IsActive);
         }
 
+        public async Task<CompanyUser?> GetByComUserIdAsync(int comUserId)
+        {
+            return await _context.CompanyUsers
+                .Include(cu => cu.User)
+                    .ThenInclude(u => u.Profile)
+                .Include(cu => cu.User)
+                    .ThenInclude(u => u.Role)
+                .Include(cu => cu.Company)
+                .FirstOrDefaultAsync(cu => cu.ComUserId == comUserId && cu.IsActive);
+        }
+
         public async Task<bool> ExistsAsync(int comUserId)
         {
             return await _context.CompanyUsers.AnyAsync(cu => cu.ComUserId == comUserId);
@@ -53,6 +64,17 @@ namespace DataAccessLayer.Repositories
                 .Include(cu => cu.User)
                     .ThenInclude(u => u.Role)
                 .Where(cu => cu.CompanyId == companyId && cu.IsActive && cu.User != null)
+                .ToListAsync();
+        }
+
+        public async Task<List<CompanyUser>> GetPendingByCompanyIdAsync(int companyId)
+        {
+            return await _context.CompanyUsers
+                .Include(cu => cu.User)
+                    .ThenInclude(u => u.Profile)
+                .Include(cu => cu.User)
+                    .ThenInclude(u => u.Role)
+                .Where(cu => cu.CompanyId == companyId && cu.IsActive && cu.JoinStatus == JoinStatusEnum.Pending)
                 .ToListAsync();
         }
     }
