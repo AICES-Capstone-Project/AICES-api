@@ -158,7 +158,7 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var auth = await EnsureManagerOfCompany(companyId);
+                var auth = await CheckManagerOfCompany(companyId);
                 if (auth.Status != SRStatus.Success) return auth;
 
                 var pendings = await _companyUserRepository.GetPendingByCompanyIdAsync(companyId);
@@ -186,11 +186,11 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> UpdateJoinRequestStatusAsync(int companyId, int comUserId, JoinStatusEnum joinStatus, string? rejectionReason)
+        public async Task<ServiceResponse> UpdateJoinRequestStatusAsync(int companyId, int comUserId, JoinStatusEnum joinStatus)
         {
             try
             {
-                var auth = await EnsureManagerOfCompany(companyId);
+                var auth = await CheckManagerOfCompany(companyId);
                 if (auth.Status != SRStatus.Success) return auth;
 
                 var companyUser = await _companyUserRepository.GetByComUserIdAsync(comUserId);
@@ -246,7 +246,7 @@ namespace BusinessObjectLayer.Services
             return await GetPendingJoinRequestsAsync(companyUser.CompanyId.Value);
         }
 
-        public async Task<ServiceResponse> UpdateJoinRequestStatusSelfAsync(int comUserId, JoinStatusEnum joinStatus, string? rejectionReason)
+        public async Task<ServiceResponse> UpdateJoinRequestStatusSelfAsync(int comUserId, JoinStatusEnum joinStatus)
         {
             var user = _httpContextAccessor.HttpContext?.User;
             var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
@@ -256,10 +256,10 @@ namespace BusinessObjectLayer.Services
             var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
             if (companyUser == null || companyUser.CompanyId == null)
                 return new ServiceResponse { Status = SRStatus.Forbidden, Message = "You are not a manager of any company." };
-            return await UpdateJoinRequestStatusAsync(companyUser.CompanyId.Value, comUserId, joinStatus, rejectionReason);
+            return await UpdateJoinRequestStatusAsync(companyUser.CompanyId.Value, comUserId, joinStatus);
         }
 
-        private async Task<ServiceResponse> EnsureManagerOfCompany(int companyId)
+        private async Task<ServiceResponse> CheckManagerOfCompany(int companyId)
         {
             var user = _httpContextAccessor.HttpContext?.User;
             var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;

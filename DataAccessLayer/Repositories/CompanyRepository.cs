@@ -128,7 +128,11 @@ namespace DataAccessLayer.Repositories
             // Cập nhật role
             companyUser.User.RoleId = newRole.RoleId;
 
+            // Update joinStatus to Approved
+            companyUser.JoinStatus = JoinStatusEnum.Approved;
+
             _context.Users.Update(companyUser.User);
+            _context.CompanyUsers.Update(companyUser);
             await _context.SaveChangesAsync();
 
             return true;

@@ -49,7 +49,7 @@ namespace API.Controllers
         [Authorize(Roles = "HR_Manager")]
         public async Task<IActionResult> UpdateJoinRequestStatus(int comUserId, [FromBody] UpdateJoinStatusRequest request)
         {
-            var response = await _companyUserService.UpdateJoinRequestStatusSelfAsync(comUserId, request.JoinStatus, request.RejectionReason);
+            var response = await _companyUserService.UpdateJoinRequestStatusSelfAsync(comUserId, request.JoinStatus);
             return ControllerResponse.Response(response);
         }
 

@@ -83,11 +83,19 @@ namespace API.Controllers
         public async Task<IActionResult> Delete(int id) =>
             ControllerResponse.Response(await _companyService.DeleteAsync(id));
 
-        [HttpPatch("{id}/status")]
+        [HttpPut("{id}/status")]
         [Authorize(Roles = "System_Admin, System_Manager")]
-        public async Task<IActionResult> UpdateCompanyStatus(int id, [FromQuery] CompanyStatusEnum status, [FromQuery] string? rejectionReason = null)
+        public async Task<IActionResult> UpdateCompanyStatus(int id, [FromBody] UpdateCompanyStatusRequest request)
         {
-            var response = await _companyService.UpdateCompanyStatusAsync(id, status, rejectionReason);
+            var response = await _companyService.UpdateCompanyStatusAsync(id, request.Status, request.RejectionReason);
+            return ControllerResponse.Response(response);
+        }
+
+        [HttpPut("self/cancel")]
+        [Authorize(Roles = "HR_Recruiter")]
+        public async Task<IActionResult> CancelCompany()
+        {
+            var response = await _companyService.CancelCompanyAsync();
             return ControllerResponse.Response(response);
         }
 

@@ -536,16 +536,7 @@ namespace BusinessObjectLayer.Services
 
                 // Associate user with the newly created company
                 companyUser.CompanyId = createdCompany.CompanyId;
-                companyUser.JoinStatus = JoinStatusEnum.Approved;
                 await _companyUserRepository.UpdateAsync(companyUser);
-
-                // Update user roleId from 5 (HR_Recruiter) to 4 (HR_Manager)
-                // var userEntity = await _userRepository.GetByIdAsync(userId);
-                // if (userEntity != null && userEntity.RoleId == 5)
-                // {
-                //     userEntity.RoleId = 4; // Change from HR_Recruiter to HR_Manager
-                //     await _userRepository.UpdateAsync(userEntity);
-                // }
 
                 return new ServiceResponse
                 {
@@ -837,6 +828,16 @@ namespace BusinessObjectLayer.Services
 
                 int currentUserId = int.Parse(userIdClaim);
 
+                // Check if user has required roles (System_Admin or System_Manager)
+                if (user == null || (!user.IsInRole("System_Admin") && !user.IsInRole("System_Manager")))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Only System_Admin and System_Manager can update company status."
+                    };
+                }
+
                 var company = await _companyRepository.GetByIdAsync(companyId);
 
                 if (company == null)
@@ -845,6 +846,18 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.NotFound,
                         Message = "Company not found."
+                    };
+                }
+
+                // Only allow Approved, Rejected, or Suspended
+                if (status != CompanyStatusEnum.Approved && 
+                    status != CompanyStatusEnum.Rejected && 
+                    status != CompanyStatusEnum.Suspended)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Invalid company status. Only Approved, Rejected, or Suspended statuses are allowed."
                     };
                 }
 
@@ -892,19 +905,6 @@ namespace BusinessObjectLayer.Services
                             Message = "Company rejected."
                         };
 
-                    case CompanyStatusEnum.Pending:
-                        // Clear both approvedBy and rejection reason
-                        company.ApprovedBy = null;
-                        company.RejectReason = null;
-                        
-                        await _companyRepository.UpdateAsync(company);
-
-                        return new ServiceResponse
-                        {
-                            Status = SRStatus.Success,
-                            Message = "Company status set to pending."
-                        };
-
                     case CompanyStatusEnum.Suspended:
                         // Keep existing approvedBy and rejection reason
                         await _companyRepository.UpdateAsync(company);
@@ -913,16 +913,6 @@ namespace BusinessObjectLayer.Services
                         {
                             Status = SRStatus.Success,
                             Message = "Company suspended."
-                        };
-
-                    case CompanyStatusEnum.Canceled:
-                        // Keep existing approvedBy and rejection reason
-                        await _companyRepository.UpdateAsync(company);
-
-                        return new ServiceResponse
-                        {
-                            Status = SRStatus.Success,
-                            Message = "Company canceled."
                         };
 
                     default:
@@ -941,6 +931,116 @@ namespace BusinessObjectLayer.Services
                 {
                     Status = SRStatus.Error,
                     Message = "An error occurred while updating company status."
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> CancelCompanyAsync()
+        {
+            try
+            {
+                // Get current user ID from claims
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int currentUserId = int.Parse(userIdClaim);
+
+                // Check if user has HR_Recruiter role
+                if (user == null || !user.IsInRole("HR_Recruiter"))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Only HR_Recruiter can cancel companies."
+                    };
+                }
+
+                // Get company user to find associated company
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(currentUserId);
+                if (companyUser == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company user not found."
+                    };
+                }
+
+                if (companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "You are not associated with any company."
+                    };
+                }
+
+                var company = await _companyRepository.GetByIdAsync(companyUser.CompanyId.Value);
+
+                if (company == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company not found."
+                    };
+                }
+
+                // Check if current user is the creator of the company
+                if (company.CreatedBy != currentUserId)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You can only cancel companies you created."
+                    };
+                }
+
+                // Only allow canceling if status is Pending
+                if (company.CompanyStatus != CompanyStatusEnum.Pending)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "You can only cancel companies with Pending status."
+                    };
+                }
+
+                // Update status to Canceled
+                company.CompanyStatus = CompanyStatusEnum.Canceled;
+                company.ApprovedBy = null;
+                company.RejectReason = null;
+
+                await _companyRepository.UpdateAsync(company);
+
+                // Remove companyId from the user's CompanyUser record
+                companyUser.CompanyId = null;
+                companyUser.JoinStatus = JoinStatusEnum.NotApplied;
+                await _companyUserRepository.UpdateAsync(companyUser);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Company registration has been canceled successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error canceling company: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while canceling the company."
                 };
             }
         }

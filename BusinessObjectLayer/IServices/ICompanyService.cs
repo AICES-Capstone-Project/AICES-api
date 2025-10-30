@@ -23,6 +23,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> UpdateCompanyProfileAsync(int id, CompanyProfileUpdateRequest request);
         Task<ServiceResponse> DeleteAsync(int id);
         Task<ServiceResponse> UpdateCompanyStatusAsync(int companyId, CompanyStatusEnum status, string? rejectionReason = null);
+        Task<ServiceResponse> CancelCompanyAsync();
 
     }
 }
