@@ -52,5 +52,44 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetMembersByCompanyIdAsync(int companyId)
+        {
+            try
+            {
+                var members = await _companyUserRepository.GetMembersByCompanyIdAsync(companyId);
+
+                var responses = members.Select(m => new CompanyMemberResponse
+                {
+                    ComUserId = m.ComUserId,
+                    UserId = m.UserId,
+                    Email = m.User?.Email ?? string.Empty,
+                    RoleName = m.User?.Role?.RoleName ?? string.Empty,
+                    FullName = m.User?.Profile?.FullName ?? string.Empty,
+                    AvatarUrl = m.User?.Profile?.AvatarUrl,
+                    PhoneNumber = m.User?.Profile?.PhoneNumber,
+                    JoinStatus = m.JoinStatus,
+                    IsActive = m.IsActive,
+                    CreatedAt = m.CreatedAt
+                }).ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Company members retrieved successfully.",
+                    Data = responses
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get company members error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving company members."
+                };
+            }
+        }
     }
 }

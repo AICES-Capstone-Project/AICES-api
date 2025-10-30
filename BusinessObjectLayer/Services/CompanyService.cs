@@ -204,7 +204,12 @@ namespace BusinessObjectLayer.Services
                     ApprovalBy = company.ApprovedBy,
                     RejectionReason = company.RejectReason,
                     IsActive = company.IsActive,
-                    CreatedAt = company.CreatedAt
+                    CreatedAt = company.CreatedAt,
+                    Documents = company.CompanyDocuments?.Select(d => new CompanyDocumentResponse
+                    {
+                        DocumentType = d.DocumentType ?? string.Empty,
+                        FileUrl = d.FileUrl ?? string.Empty
+                    }).ToList() ?? new List<CompanyDocumentResponse>()
                 };
 
                 return new ServiceResponse
@@ -466,7 +471,7 @@ namespace BusinessObjectLayer.Services
                 {
                     return new ServiceResponse
                     {
-                        Status = SRStatus.Error,
+                        Status = SRStatus.Validation,
                         Message = "At least one document file is required."
                     };
                 }
@@ -475,7 +480,7 @@ namespace BusinessObjectLayer.Services
                 {
                     return new ServiceResponse
                     {
-                        Status = SRStatus.Error,
+                        Status = SRStatus.Validation,
                         Message = "Document types are required."
                     };
                 }

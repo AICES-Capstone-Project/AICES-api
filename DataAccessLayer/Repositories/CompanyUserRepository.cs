@@ -44,6 +44,17 @@ namespace DataAccessLayer.Repositories
             _context.CompanyUsers.Update(companyUser);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<List<CompanyUser>> GetMembersByCompanyIdAsync(int companyId)
+        {
+            return await _context.CompanyUsers
+                .Include(cu => cu.User)
+                    .ThenInclude(u => u.Profile)
+                .Include(cu => cu.User)
+                    .ThenInclude(u => u.Role)
+                .Where(cu => cu.CompanyId == companyId && cu.IsActive && cu.User != null)
+                .ToListAsync();
+        }
     }
 } 
 

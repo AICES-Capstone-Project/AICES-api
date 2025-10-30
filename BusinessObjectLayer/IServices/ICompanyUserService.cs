@@ -10,5 +10,6 @@ namespace BusinessObjectLayer.IServices
     public interface ICompanyUserService
     {
         Task<ServiceResponse> CreateDefaultCompanyUserAsync(int userId);
+        Task<ServiceResponse> GetMembersByCompanyIdAsync(int companyId);
     }
 }

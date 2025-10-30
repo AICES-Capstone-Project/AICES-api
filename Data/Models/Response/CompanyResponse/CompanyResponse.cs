@@ -21,5 +21,6 @@ namespace Data.Models.Response
         public string? RejectionReason { get; set; }
         public bool IsActive { get; set; }
         public DateTime? CreatedAt { get; set; }
+        public List<CompanyDocumentResponse> Documents { get; set; } = new List<CompanyDocumentResponse>();
     }
 }
