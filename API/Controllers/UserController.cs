@@ -40,13 +40,25 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        [HttpPut("{id}")]
+        [HttpPatch("{id}")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UserRequest request)
         {
             var serviceResponse = await _userService.UpdateUserAsync(id, request);
             return ControllerResponse.Response(serviceResponse);
         }
 
-       
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> SoftDeleteUser(int id)
+        {
+            var serviceResponse = await _userService.SoftDeleteAsync(id);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpPut("{id}/restore")]
+        public async Task<IActionResult> RestoreUser(int id)
+        {
+            var serviceResponse = await _userService.RestoreAsync(id);
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }

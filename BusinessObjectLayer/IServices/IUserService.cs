@@ -14,6 +14,8 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetUserByIdAsync(int id);
         Task<ServiceResponse> GetUsersAsync(int page = 1, int pageSize = 10, string? search = null);
         Task<ServiceResponse> UpdateUserAsync(int id, UserRequest request);
+        Task<ServiceResponse> SoftDeleteAsync(int id);
+        Task<ServiceResponse> RestoreAsync(int id);
         
     }
 }

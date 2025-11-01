@@ -18,12 +18,21 @@ namespace BusinessObjectLayer.Services
         private readonly IUserRepository _userRepository;
         private readonly IProfileService _profileService;
         private readonly ICompanyUserService _companyUserService;
+        private readonly IProfileRepository _profileRepository;
+        private readonly ICompanyUserRepository _companyUserRepository;
 
-        public UserService(IUserRepository userRepository, IProfileService profileService, ICompanyUserService companyUserService)
+        public UserService(
+            IUserRepository userRepository, 
+            IProfileService profileService, 
+            ICompanyUserService companyUserService,
+            IProfileRepository profileRepository,
+            ICompanyUserRepository companyUserRepository)
         {
             _userRepository = userRepository;
             _profileService = profileService;
             _companyUserService = companyUserService;
+            _profileRepository = profileRepository;
+            _companyUserRepository = companyUserRepository;
         }
 
         public async Task<ServiceResponse> GetUsersAsync(int page = 1, int pageSize = 10, string? search = null)
@@ -91,6 +100,8 @@ namespace BusinessObjectLayer.Services
                     DateOfBirth = user.Profile?.DateOfBirth,
                     AvatarUrl = user.Profile?.AvatarUrl ?? "",
                     PhoneNumber = user.Profile?.PhoneNumber ?? "",
+                    CompanyName = user.CompanyUser?.Company?.Name ?? "",
+                    JoinStatus = user.CompanyUser?.JoinStatus.ToString() ?? "",
                     IsActive = user.IsActive,
                     CreatedAt = user.CreatedAt ?? DateTime.UtcNow,
                     LoginProviders = user.LoginProviders?.Select(lp => new LoginProviderInfo
@@ -195,6 +206,104 @@ namespace BusinessObjectLayer.Services
             };
         }
 
-       
+        public async Task<ServiceResponse> SoftDeleteAsync(int id)
+        {
+            try
+            {
+                var user = await _userRepository.GetByIdAsync(id);
+                if (user == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "User not found."
+                    };
+                }
+
+                // Soft delete user
+                user.IsActive = false;
+                await _userRepository.UpdateAsync(user);
+
+                // Soft delete profile if exists (using navigation property)
+                if (user.Profile != null)
+                {
+                    user.Profile.IsActive = false;
+                    await _profileRepository.UpdateAsync(user.Profile);
+                }
+
+                // Soft delete company user if exists (using navigation property)
+                if (user.CompanyUser != null)
+                {
+                    user.CompanyUser.IsActive = false;
+                    await _companyUserRepository.UpdateAsync(user.CompanyUser);
+                }
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "User deactivated successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error soft deleting user: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while deactivating the user."
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> RestoreAsync(int id)
+        {
+            try
+            {
+                var user = await _userRepository.GetByIdAsync(id);
+                if (user == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "User not found."
+                    };
+                }
+
+                // Restore user
+                user.IsActive = true;
+                await _userRepository.UpdateAsync(user);
+
+                // Restore profile if exists (using navigation property)
+                if (user.Profile != null)
+                {
+                    user.Profile.IsActive = true;
+                    await _profileRepository.UpdateAsync(user.Profile);
+                }
+
+                // Restore company user if exists (using navigation property)
+                if (user.CompanyUser != null)
+                {
+                    user.CompanyUser.IsActive = true;
+                    await _companyUserRepository.UpdateAsync(user.CompanyUser);
+                }
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "User restored successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error restoring user: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while restoring the user."
+                };
+            }
+        }
     }
 }

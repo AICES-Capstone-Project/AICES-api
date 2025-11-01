@@ -24,6 +24,8 @@ namespace DataAccessLayer.Repositories
                 .Include(u => u.Role)
                 .Include(u => u.Profile)
                 .Include(u => u.LoginProviders)
+                .Include(u => u.CompanyUser)
+                .Include(u => u.CompanyUser.Company)
                 .FirstOrDefaultAsync(u => u.UserId == id);
         }
 
