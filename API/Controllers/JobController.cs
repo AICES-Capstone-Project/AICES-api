@@ -33,11 +33,19 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        [HttpGet("company/self/jobs")]
+        [HttpGet("company/self/jobs/published")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetSelfCompanyJobs([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
         {
             var serviceResponse = await _jobService.GetSelfCompanyJobsAsync(page, pageSize, search);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpGet("company/self/jobs/pending")]
+        [Authorize(Roles = "HR_Manager")]
+        public async Task<IActionResult> GetSelfCompanyJobsPending([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
+        {
+            var serviceResponse = await _jobService.GetSelfCompanyJobsPendingAsync(page, pageSize, search);
             return ControllerResponse.Response(serviceResponse);
         }
 
@@ -68,6 +76,14 @@ namespace API.Controllers
         {
             var serviceResponse = await _jobService.DeleteSelfCompanyJobAsync(id, User);
             return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpPut("company/self/jobs/{id}/status")]
+        [Authorize(Roles = "HR_Manager")]
+        public async Task<IActionResult> UpdateSelfCompanyJobStatus(int id, [FromBody] UpdateJobStatusRequest request)
+        {
+            var response = await _jobService.UpdateSelfCompanyJobStatusAsync(id, request.Status, User);
+            return ControllerResponse.Response(response);
         }
     }
 }

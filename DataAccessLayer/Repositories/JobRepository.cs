@@ -41,7 +41,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
 
-        public async Task<List<Job>> GetJobsAsync(int page, int pageSize, string? search = null)
+        public async Task<List<Job>> GetPublishedJobsAsync(int page, int pageSize, string? search = null)
         {
             var query = _context.Jobs
                 .Include(j => j.Company)
@@ -53,6 +53,7 @@ namespace DataAccessLayer.Repositories
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
+                .Where(j => j.JobStatus == JobStatusEnum.Published && j.IsActive)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -69,9 +70,9 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalJobsAsync(string? search = null)
+        public async Task<int> GetTotalPublishedJobsAsync(string? search = null)
         {
-            var query = _context.Jobs.AsQueryable();
+            var query = _context.Jobs.Where(j => j.JobStatus == JobStatusEnum.Published && j.IsActive).AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -83,7 +84,7 @@ namespace DataAccessLayer.Repositories
             return await query.CountAsync();
         }
 
-        public async Task<List<Job>> GetJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null)
+        public async Task<List<Job>> GetPublishedJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null)
         {
             var query = _context.Jobs
                 .Include(j => j.Company)
@@ -95,7 +96,7 @@ namespace DataAccessLayer.Repositories
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
-                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
+                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published && j.IsActive)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -112,10 +113,55 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalJobsByCompanyIdAsync(int companyId, string? search = null)
+        public async Task<int> GetTotalPublishedJobsByCompanyIdAsync(int companyId, string? search = null)
         {
             var query = _context.Jobs
-                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
+                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published && j.IsActive)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(j => j.Title.Contains(search) || 
+                                       (j.Description != null && j.Description.Contains(search)) ||
+                                       (j.Requirements != null && j.Requirements.Contains(search)));
+            }
+
+            return await query.CountAsync();
+        }
+
+        public async Task<List<Job>> GetPendingJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null)
+        {
+            var query = _context.Jobs
+                .Include(j => j.Company)
+                .Include(j => j.CompanyUser)
+                .Include(j => j.Specialization!)
+                    .ThenInclude(s => s.Category)
+                .Include(j => j.JobEmploymentTypes!)
+                    .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.JobSkills!)
+                    .ThenInclude(js => js.Skill)
+                .Include(j => j.Criteria)
+                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Pending)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(j => j.Title.Contains(search) || 
+                                       (j.Description != null && j.Description.Contains(search)) ||
+                                       (j.Requirements != null && j.Requirements.Contains(search)));
+            }
+
+            return await query
+                .OrderByDescending(j => j.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        public async Task<int> GetTotalPendingJobsByCompanyIdAsync(int companyId, string? search = null)
+        {
+            var query = _context.Jobs
+                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Pending && j.IsActive)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -141,6 +187,22 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
                 .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
+                .FirstOrDefaultAsync(j => j.JobId == jobId);
+        }
+
+        public async Task<Job?> GetAnyJobByIdAndCompanyIdAsync(int jobId, int companyId)
+        {
+            return await _context.Jobs
+                .Include(j => j.Company)
+                .Include(j => j.CompanyUser)
+                .Include(j => j.Specialization!)
+                    .ThenInclude(s => s.Category)
+                .Include(j => j.JobEmploymentTypes!)
+                    .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.JobSkills!)
+                    .ThenInclude(js => js.Skill)
+                .Include(j => j.Criteria)
+                .Where(j => j.CompanyId == companyId && j.IsActive)
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
 

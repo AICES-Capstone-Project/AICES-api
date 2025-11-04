@@ -27,12 +27,10 @@ namespace Data.Entities
         [ForeignKey("Role")]
         public int RoleId { get; set; }
         public Role Role { get; set; } = null!;
-
         public Profile? Profile { get; set; }
-
+        public CompanyUser? CompanyUser { get; set; }
         public ICollection<LoginProvider>? LoginProviders { get; set; }
         public ICollection<RefreshToken>? RefreshTokens { get; set; }
-        public CompanyUser? CompanyUser { get; set; }
         public ICollection<Notification>? Notifications { get; set; }
         public ICollection<Reports>? Reports { get; set; }
     }

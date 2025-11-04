@@ -7,7 +7,7 @@ using Data.Enum;
 
 namespace Data.Models.Response
 {
-    public class SelfJobResponse
+    public class ManagerJobResponse
     {
         public int JobId { get; set; }
         public string Title { get; set; } = string.Empty;

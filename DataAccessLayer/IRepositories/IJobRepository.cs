@@ -11,11 +11,14 @@ namespace DataAccessLayer.IRepositories
     {
         Task<Job> CreateJobAsync(Job job);
         Task<Job?> GetJobByIdAsync(int jobId);
-        Task<List<Job>> GetJobsAsync(int page, int pageSize, string? search = null);
-        Task<int> GetTotalJobsAsync(string? search = null);
-        Task<List<Job>> GetJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null);
-        Task<int> GetTotalJobsByCompanyIdAsync(int companyId, string? search = null);
+        Task<List<Job>> GetPublishedJobsAsync(int page, int pageSize, string? search = null);
+        Task<int> GetTotalPublishedJobsAsync(string? search = null);
+        Task<List<Job>> GetPublishedJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null);
+        Task<int> GetTotalPublishedJobsByCompanyIdAsync(int companyId, string? search = null);
+        Task<List<Job>> GetPendingJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null);
+        Task<int> GetTotalPendingJobsByCompanyIdAsync(int companyId, string? search = null);
         Task<Job?> GetJobByIdAndCompanyIdAsync(int jobId, int companyId);
+        Task<Job?> GetAnyJobByIdAndCompanyIdAsync(int jobId, int companyId);
         Task UpdateJobAsync(Job job);
         Task SoftDeleteJobAsync(Job job);
     }

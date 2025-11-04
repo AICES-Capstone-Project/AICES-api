@@ -15,9 +15,11 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetJobByIdAsync(int jobId);
         Task<ServiceResponse> GetJobsAsync(int page = 1, int pageSize = 10, string? search = null);
         Task<ServiceResponse> GetSelfCompanyJobsAsync(int page = 1, int pageSize = 10, string? search = null);
+        Task<ServiceResponse> GetSelfCompanyJobsPendingAsync(int page = 1, int pageSize = 10, string? search = null);
         Task<ServiceResponse> GetSelfCompanyJobByIdAsync(int jobId);
         Task<ServiceResponse> UpdateSelfCompanyJobAsync(int jobId, JobRequest request, ClaimsPrincipal userClaims);
         Task<ServiceResponse> DeleteSelfCompanyJobAsync(int jobId, ClaimsPrincipal userClaims);
+        Task<ServiceResponse> UpdateSelfCompanyJobStatusAsync(int jobId, Data.Enum.JobStatusEnum status, ClaimsPrincipal userClaims);
     }
 }
 

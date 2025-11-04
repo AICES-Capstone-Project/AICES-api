@@ -88,8 +88,8 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var jobs = await _jobRepository.GetJobsAsync(page, pageSize, search);
-                var total = await _jobRepository.GetTotalJobsAsync(search);
+                var jobs = await _jobRepository.GetPublishedJobsAsync(page, pageSize, search);
+                var total = await _jobRepository.GetTotalPublishedJobsAsync(search);
 
                 var jobResponses = jobs.Select(j => new JobResponse
                 {
@@ -384,8 +384,8 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var jobs = await _jobRepository.GetJobsByCompanyIdAsync(companyUser.CompanyId.Value, page, pageSize, search);
-                var total = await _jobRepository.GetTotalJobsByCompanyIdAsync(companyUser.CompanyId.Value, search);
+                var jobs = await _jobRepository.GetPublishedJobsByCompanyIdAsync(companyUser.CompanyId.Value, page, pageSize, search);
+                var total = await _jobRepository.GetTotalPublishedJobsByCompanyIdAsync(companyUser.CompanyId.Value, search);
 
                 var jobResponses = jobs.Select(j => new SelfJobResponse
                 {
@@ -394,6 +394,7 @@ namespace BusinessObjectLayer.Services
                     Description = j.Description,
                     Slug = j.Slug,
                     Requirements = j.Requirements,
+                    JobStatus = j.JobStatus,
                     CategoryName = j.Specialization?.Category?.Name,
                     SpecializationName = j.Specialization?.Name,
                     EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
@@ -411,6 +412,95 @@ namespace BusinessObjectLayer.Services
                     Status = SRStatus.Success,
                     Message = "Jobs retrieved successfully.",
                     Data = new PaginatedSelfJobResponse
+                    {
+                        Jobs = jobResponses,
+                        TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                        CurrentPage = page,
+                        PageSize = pageSize
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get self company jobs error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving jobs."
+                };
+            }
+        }
+
+        // Get all jobs (all statuses) for HR_Manager to manage
+        public async Task<ServiceResponse> GetSelfCompanyJobsPendingAsync(int page = 1, int pageSize = 10, string? search = null)
+        {
+            try
+            {
+                // Get current user ID from claims
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+
+                // Get company user to find associated company
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                if (companyUser == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company user not found."
+                    };
+                }
+
+                if (companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "You are not associated with any company."
+                    };
+                }
+
+                var jobs = await _jobRepository.GetPendingJobsByCompanyIdAsync(companyUser.CompanyId.Value, page, pageSize, search);
+                var total = await _jobRepository.GetTotalPendingJobsByCompanyIdAsync(companyUser.CompanyId.Value, search);
+
+                var jobResponses = jobs.Select(j => new ManagerJobResponse
+                {
+                    JobId = j.JobId,
+                    Title = j.Title,
+                    Description = j.Description,
+                    Slug = j.Slug,
+                    Requirements = j.Requirements,
+                    JobStatus = j.JobStatus,
+                    CreatedAt = j.CreatedAt ?? DateTime.MinValue,
+                    CategoryName = j.Specialization?.Category?.Name,
+                    SpecializationName = j.Specialization?.Name,
+                    EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
+                    Skills = j.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
+                    Criteria = j.Criteria?.Select(c => new CriteriaResponse
+                    {
+                        CriteriaId = c.CriteriaId,
+                        Name = c.Name,
+                        Weight = c.Weight
+                    }).ToList() ?? new List<CriteriaResponse>()
+                }).ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Jobs retrieved successfully.",
+                    Data = new PaginatedManagerJobResponse
                     {
                         Jobs = jobResponses,
                         TotalPages = (int)Math.Ceiling(total / (double)pageSize),
@@ -676,6 +766,129 @@ namespace BusinessObjectLayer.Services
             {
                 Console.WriteLine($"Delete job error: {ex.Message}");
                 return new ServiceResponse { Status = SRStatus.Error, Message = "An error occurred while deleting the job." };
+            }
+        }
+
+        public async Task<ServiceResponse> UpdateSelfCompanyJobStatusAsync(int jobId, JobStatusEnum status, ClaimsPrincipal userClaims)
+        {
+            try
+            {
+                var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
+                if (string.IsNullOrEmpty(emailClaim))
+                {
+                    return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "Email claim not found in token." };
+                }
+
+                var user = await _authRepository.GetByEmailAsync(emailClaim);
+                if (user == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not found." };
+                }
+
+                var companyUser = await _companyUserRepository.GetCompanyUserByUserIdAsync(user.UserId);
+                if (companyUser?.CompanyId == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before updating job status." };
+                }
+
+                // Use GetAnyJobByIdAndCompanyIdAsync to get job regardless of current status
+                var job = await _jobRepository.GetAnyJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                if (job == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
+                }
+
+                // Role-based validation for status transitions
+                var userRole = user.Role?.RoleName;
+
+                // Validate transitions based on role
+                if (userRole == "HR_Recruiter")
+                {
+                    // HR_Recruiter can only create jobs (status is set at creation)
+                    // They cannot change status after creation
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "HR_Recruiter cannot update job status. Only HR_Manager can manage job status."
+                    };
+                }
+
+                if (userRole != "HR_Manager")
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Only HR_Manager can update job status."
+                    };
+                }
+
+                // Validate status transitions based on current status and new status
+                switch (job.JobStatus)
+                {
+                    case JobStatusEnum.Pending:
+                        // From Pending: can only go to Published or Rejected
+                        if (status != JobStatusEnum.Published && status != JobStatusEnum.Rejected)
+                        {
+                            return new ServiceResponse
+                            {
+                                Status = SRStatus.Validation,
+                                Message = $"Cannot change status from Pending to {status}. Only Published or Rejected are allowed."
+                            };
+                        }
+                        break;
+
+                    case JobStatusEnum.Published:
+                        // From Published: can only go to Archived
+                        if (status != JobStatusEnum.Archived)
+                        {
+                            return new ServiceResponse
+                            {
+                                Status = SRStatus.Validation,
+                                Message = $"Cannot change status from Published to {status}. Only Archived is allowed."
+                            };
+                        }
+                        break;
+
+                    case JobStatusEnum.Rejected:
+                        // From Rejected: terminal state, cannot change
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = "Cannot change status from Rejected. This is a terminal state."
+                        };
+
+                    case JobStatusEnum.Archived:
+                        // From Archived: can only go back to Published (un-archive)
+                        if (status != JobStatusEnum.Published)
+                        {
+                            return new ServiceResponse
+                            {
+                                Status = SRStatus.Validation,
+                                Message = $"Cannot change status from Archived to {status}. Only Published (un-archive) is allowed."
+                            };
+                        }
+                        break;
+                }
+
+                // Update job status
+                job.JobStatus = status;
+                await _jobRepository.UpdateJobAsync(job);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = $"Job status updated to {status} successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Update job status error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while updating job status."
+                };
             }
         }
 
