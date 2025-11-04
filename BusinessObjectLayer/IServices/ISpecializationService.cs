@@ -8,6 +8,7 @@ namespace BusinessObjectLayer.IServices
     {
         Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null);
         Task<ServiceResponse> GetByIdAsync(int id);
+        Task<ServiceResponse> GetByCategoryIdAsync(int categoryId);
         Task<ServiceResponse> CreateAsync(SpecializationRequest request);
         Task<ServiceResponse> UpdateAsync(int id, SpecializationRequest request);
         Task<ServiceResponse> SoftDeleteAsync(int id);

@@ -110,6 +110,53 @@ namespace BusinessObjectLayer.Services
             }
         }
 
+        public async Task<ServiceResponse> GetByCategoryIdAsync(int categoryId)
+        {
+            try
+            {
+                // Validate category exists
+                var categoryExists = await _categoryRepository.ExistsAsync(categoryId);
+                if (!categoryExists)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Category not found."
+                    };
+                }
+
+                var specializations = await _specializationRepository.GetByCategoryIdAsync(categoryId);
+
+                var responseData = specializations
+                    .Select(s => new SpecializationResponse
+                    {
+                        SpecializationId = s.SpecializationId,
+                        Name = s.Name,
+                        CategoryId = s.CategoryId,
+                        CategoryName = s.Category?.Name,
+                        IsActive = s.IsActive,
+                        CreatedAt = s.CreatedAt ?? DateTime.UtcNow
+                    })
+                    .ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Specializations retrieved successfully.",
+                    Data = responseData
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get specializations by category error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving specializations."
+                };
+            }
+        }
+
         public async Task<ServiceResponse> CreateAsync(SpecializationRequest request)
         {
             try

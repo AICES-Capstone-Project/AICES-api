@@ -87,6 +87,15 @@ namespace DataAccessLayer.Repositories
 
             return await query.CountAsync();
         }
+
+        public async Task<List<Specialization>> GetByCategoryIdAsync(int categoryId)
+        {
+            return await _context.Specializations
+                .Include(s => s.Category)
+                .Where(s => s.CategoryId == categoryId && s.IsActive)
+                .OrderBy(s => s.Name)
+                .ToListAsync();
+        }
     }
 }
 

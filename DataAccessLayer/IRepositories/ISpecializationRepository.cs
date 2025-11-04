@@ -14,6 +14,7 @@ namespace DataAccessLayer.IRepositories
         Task UpdateAsync(Specialization specialization);
         Task<List<Specialization>> GetPagedAsync(int page, int pageSize, string? search = null);
         Task<int> GetTotalCountAsync(string? search = null);
+        Task<List<Specialization>> GetByCategoryIdAsync(int categoryId);
     }
 }
 

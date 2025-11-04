@@ -13,10 +13,12 @@ namespace API.Controllers
     public class CategoryController : ControllerBase
     {
         private readonly ICategoryService _categoryService;
+        private readonly ISpecializationService _specializationService;
 
-        public CategoryController(ICategoryService categoryService)
+        public CategoryController(ICategoryService categoryService, ISpecializationService specializationService)
         {
             _categoryService = categoryService;
+            _specializationService = specializationService;
         }
 
         [HttpGet]
@@ -30,6 +32,13 @@ namespace API.Controllers
         public async Task<IActionResult> GetById(int id)
         {
             var response = await _categoryService.GetByIdAsync(id);
+            return ControllerResponse.Response(response);
+        }
+
+        [HttpGet("{categoryId}/specializations")]
+        public async Task<IActionResult> GetSpecializationsByCategoryId(int categoryId)
+        {
+            var response = await _specializationService.GetByCategoryIdAsync(categoryId);
             return ControllerResponse.Response(response);
         }
 
