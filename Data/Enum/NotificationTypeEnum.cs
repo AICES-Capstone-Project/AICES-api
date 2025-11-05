@@ -8,8 +8,12 @@ namespace Data.Enum
 {
     public enum NotificationTypeEnum
     {
-        System = 1,
-        Account = 2,
-        Reminder = 3
+        System = 1,               
+        Company = 2,            
+        Job = 3,                  
+        Payment = 4,              
+        Subscription = 5,         
+        User = 6                  
     }
 }
+    

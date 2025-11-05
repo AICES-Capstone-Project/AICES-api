@@ -26,6 +26,7 @@ namespace BusinessObjectLayer.Services
         private readonly IUserRepository _userRepository;
         private readonly Common.CloudinaryHelper _cloudinaryHelper;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly INotificationService _notificationService;
 
         public CompanyService(
             ICompanyRepository companyRepository,
@@ -33,7 +34,8 @@ namespace BusinessObjectLayer.Services
             ICompanyDocumentService companyDocumentService,
             IUserRepository userRepository,
             Common.CloudinaryHelper cloudinaryHelper,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            INotificationService notificationService)
         {
             _companyRepository = companyRepository;
             _companyUserRepository = companyUserRepository;
@@ -41,6 +43,7 @@ namespace BusinessObjectLayer.Services
             _userRepository = userRepository;
             _cloudinaryHelper = cloudinaryHelper;
             _httpContextAccessor = httpContextAccessor;
+             _notificationService = notificationService;
         }
 
         // Get public companies (active and approved only)
@@ -828,7 +831,7 @@ namespace BusinessObjectLayer.Services
 
                 int currentUserId = int.Parse(userIdClaim);
 
-                // Check if user has required roles (System_Admin or System_Manager)
+                // Only System_Admin or System_Manager can update company status
                 if (user == null || (!user.IsInRole("System_Admin") && !user.IsInRole("System_Manager")))
                 {
                     return new ServiceResponse
@@ -838,8 +841,8 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Get company
                 var company = await _companyRepository.GetByIdAsync(companyId);
-
                 if (company == null)
                 {
                     return new ServiceResponse
@@ -850,8 +853,8 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Only allow Approved, Rejected, or Suspended
-                if (status != CompanyStatusEnum.Approved && 
-                    status != CompanyStatusEnum.Rejected && 
+                if (status != CompanyStatusEnum.Approved &&
+                    status != CompanyStatusEnum.Rejected &&
                     status != CompanyStatusEnum.Suspended)
                 {
                     return new ServiceResponse
@@ -864,55 +867,87 @@ namespace BusinessObjectLayer.Services
                 // Update company status
                 company.CompanyStatus = status;
 
-                // Handle status-specific logic
+                // Get company creator (Recruiter)
+                var creator = company.CompanyUsers?.FirstOrDefault();
+                int? creatorUserId = creator?.UserId;
+
+                // Handle each status
                 switch (status)
                 {
                     case CompanyStatusEnum.Approved:
-                        // Set approvedBy and clear rejection reason
                         company.ApprovedBy = currentUserId;
                         company.RejectReason = null;
-                        
                         await _companyRepository.UpdateAsync(company);
 
-                        // Promote user to HR_Manager
+                        // Promote the recruiter to HR_Manager
                         bool updated = await _companyRepository.UpdateUserRoleByCompanyAsync(companyId, "HR_Manager");
+
+                        // Send notification to recruiter
+                        if (creatorUserId.HasValue)
+                        {
+                            await _notificationService.CreateAsync(
+                                creatorUserId.Value,
+                                NotificationTypeEnum.Company,
+                                $"Your company '{company.Name}' has been approved ✅",
+                                "Congratulations! Your company has been approved by the system manager."
+                            );
+                        }
 
                         if (!updated)
                         {
                             return new ServiceResponse
                             {
                                 Status = SRStatus.Error,
-                                Message = "Company approved, but failed to update user role."
+                                Message = "Company approved, but failed to promote the recruiter to HR_Manager."
                             };
                         }
 
                         return new ServiceResponse
                         {
                             Status = SRStatus.Success,
-                            Message = "Company approved and user promoted to HR_Manager."
+                            Message = "Company approved and notification sent."
                         };
 
                     case CompanyStatusEnum.Rejected:
-                        // Set rejection reason and clear approvedBy
                         company.RejectReason = rejectionReason;
                         company.ApprovedBy = null;
-                        
                         await _companyRepository.UpdateAsync(company);
+
+                        // Send rejection notification
+                        if (creatorUserId.HasValue)
+                        {
+                            await _notificationService.CreateAsync(
+                                creatorUserId.Value,
+                                NotificationTypeEnum.Company,
+                                $"Your company '{company.Name}' has been rejected ❌",
+                                $"Reason: {rejectionReason ?? "No reason provided."}"
+                            );
+                        }
 
                         return new ServiceResponse
                         {
                             Status = SRStatus.Success,
-                            Message = "Company rejected."
+                            Message = "Company rejected and notification sent."
                         };
 
                     case CompanyStatusEnum.Suspended:
-                        // Keep existing approvedBy and rejection reason
                         await _companyRepository.UpdateAsync(company);
+
+                        // Send suspension notification
+                        if (creatorUserId.HasValue)
+                        {
+                            await _notificationService.CreateAsync(
+                                creatorUserId.Value,
+                                NotificationTypeEnum.Company,
+                                $"Your company '{company.Name}' has been suspended ⚠️",
+                                "Your company has been temporarily suspended. Please contact support for more details."
+                            );
+                        }
 
                         return new ServiceResponse
                         {
                             Status = SRStatus.Success,
-                            Message = "Company suspended."
+                            Message = "Company suspended and notification sent."
                         };
 
                     default:
@@ -934,6 +969,7 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
 
         public async Task<ServiceResponse> CancelCompanyAsync()
         {

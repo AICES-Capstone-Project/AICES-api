@@ -84,6 +84,8 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSignalR();
+
 
 // ------------------------
 // ?? DATABASE CONFIGURATION
@@ -133,6 +135,7 @@ builder.Services.AddScoped<ICompanyDocumentRepository, CompanyDocumentRepository
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IEmploymentTypeRepository, EmploymentTypeRepository>();
 builder.Services.AddScoped<IJobRepository, JobRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 // Removed JobCategoryRepository after replacing with Specialization
 builder.Services.AddScoped<ISpecializationRepository, SpecializationRepository>();
 builder.Services.AddScoped<IJobEmploymentTypeRepository, JobEmploymentTypeRepository>();
@@ -157,6 +160,7 @@ builder.Services.AddScoped<IBannerConfigService, BannerConfigService>();
 builder.Services.AddScoped<ISkillService, SkillService>();
 builder.Services.AddScoped<IJobSkillService, JobSkillService>();
 builder.Services.AddScoped<ICriteriaService, CriteriaService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 //  Auth Services
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -198,6 +202,26 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey ?? "DEFAULT_KEY")),
         ClockSkew = TimeSpan.Zero
     };
+
+    // ?? Thêm ?o?n này ?? SignalR ??c JWT t? query string
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+
+            // N?u request ??n SignalR thì l?y token t? query string
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/notification"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
+    };
+});
+
     
     // Custom authentication events to handle 401 responses
     //options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
@@ -269,14 +293,14 @@ builder.Services.AddAuthentication(options =>
     //        await context.Response.WriteAsync(jsonResponse);
     //    }
     //};
-});
+
 
 // ------------------------
 // ?? CORS CONFIGURATION
 // ------------------------
 builder.Services.AddCors(p => p.AddPolicy("Cors", policy =>
 {
-    policy.WithOrigins("http://localhost:5173", "https://localhost:7220")
+    policy.WithOrigins("http://localhost:5173", "https://localhost:7220", "null")
           .AllowAnyHeader()
           .AllowAnyMethod()
           .AllowCredentials();
@@ -317,10 +341,12 @@ app.UseExceptionHandler(errorApp =>
 // ------------------------
 // ?? MIDDLEWARE PIPELINE
 // ------------------------
+
 app.UseCors("Cors");
 app.UseHttpsRedirection();
 app.UseStaticFiles(); 
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notification");
 app.Run();
