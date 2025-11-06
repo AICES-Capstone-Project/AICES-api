@@ -20,6 +20,7 @@ namespace DataAccessLayer.IRepositories
         Task<Job?> GetPublishedJobByIdAndCompanyIdAsync(int jobId, int companyId);
         Task<Job?> GetPendingJobByIdAndCompanyIdAsync(int jobId, int companyId);
         Task<Job?> GetAllJobByIdAndCompanyIdAsync(int jobId, int companyId);
+        Task<bool> JobTitleExistsInCompanyAsync(string title, int companyId);
         Task UpdateJobAsync(Job job);
         Task SoftDeleteJobAsync(Job job);
     }

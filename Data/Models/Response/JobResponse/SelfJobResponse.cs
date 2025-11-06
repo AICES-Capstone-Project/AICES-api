@@ -21,6 +21,7 @@ namespace Data.Models.Response
         public List<string>? EmploymentTypes { get; set; }
         public List<CriteriaResponse>? Criteria { get; set; }
         public List<string>? Skills { get; set; }
+        public string? FullName { get; set; }
     }
 }
 

@@ -67,10 +67,37 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                var jobResponse = new JobResponse
+                {
+                    JobId = job.JobId,
+                    ComUserId = job.ComUserId,
+                    CompanyId = job.CompanyId,
+                    CompanyName = job.Company?.Name ?? "",
+                    Title = job.Title,
+                    Description = job.Description,
+                    Slug = job.Slug,
+                    Requirements = job.Requirements,
+                    JobStatus = job.JobStatus,
+                    IsActive = job.IsActive,
+                    CreatedAt = job.CreatedAt ?? DateTime.MinValue,
+                    CategoryName = job.Specialization?.Category?.Name,
+                    SpecializationName = job.Specialization?.Name,
+                    EmploymentTypes = job.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
+                    Skills = job.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
+                    Criteria = job.Criteria?.Select(c => new CriteriaResponse
+                    {
+                        CriteriaId = c.CriteriaId,
+                        Name = c.Name,
+                        Weight = c.Weight
+                    }).ToList() ?? new List<CriteriaResponse>(),
+                    FullName = job.CompanyUser?.User?.Profile?.FullName
+                };
+
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "Job retrieved successfully.",
+                    Data = jobResponse
                 };
             }
             catch (Exception ex)
@@ -113,7 +140,8 @@ namespace BusinessObjectLayer.Services
                         CriteriaId = c.CriteriaId,
                         Name = c.Name,
                         Weight = c.Weight
-                    }).ToList() ?? new List<CriteriaResponse>()
+                    }).ToList() ?? new List<CriteriaResponse>(),
+                    FullName = j.CompanyUser?.User?.Profile?.FullName
                 }).ToList();
 
                 return new ServiceResponse
@@ -187,6 +215,20 @@ namespace BusinessObjectLayer.Services
                         Status = SRStatus.NotFound,
                         Message = "You must join a company before creating a job."
                     };
+                }
+
+                // Check for duplicate job title in company
+                if (!string.IsNullOrEmpty(request.Title))
+                {
+                    var titleExists = await _jobRepository.JobTitleExistsInCompanyAsync(request.Title, companyUser.CompanyId.Value);
+                    if (titleExists)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = "A job with this title already exists in your company."
+                        };
+                    }
                 }
 
                 // Determine JobStatus based on user role
@@ -395,6 +437,7 @@ namespace BusinessObjectLayer.Services
                     Slug = j.Slug,
                     Requirements = j.Requirements,
                     JobStatus = j.JobStatus,
+                    CreatedAt = j.CreatedAt ?? DateTime.MinValue,
                     CategoryName = j.Specialization?.Category?.Name,
                     SpecializationName = j.Specialization?.Name,
                     EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
@@ -404,7 +447,8 @@ namespace BusinessObjectLayer.Services
                         CriteriaId = c.CriteriaId,
                         Name = c.Name,
                         Weight = c.Weight
-                    }).ToList() ?? new List<CriteriaResponse>()
+                    }).ToList() ?? new List<CriteriaResponse>(),
+                    FullName = j.CompanyUser?.User?.Profile?.FullName
                 }).ToList();
 
                 return new ServiceResponse
@@ -493,7 +537,8 @@ namespace BusinessObjectLayer.Services
                         CriteriaId = c.CriteriaId,
                         Name = c.Name,
                         Weight = c.Weight
-                    }).ToList() ?? new List<CriteriaResponse>()
+                    }).ToList() ?? new List<CriteriaResponse>(),
+                    FullName = j.CompanyUser?.User?.Profile?.FullName
                 }).ToList();
 
                 return new ServiceResponse
@@ -588,7 +633,8 @@ namespace BusinessObjectLayer.Services
                         CriteriaId = c.CriteriaId,
                         Name = c.Name,
                         Weight = c.Weight
-                    }).ToList() ?? new List<CriteriaResponse>()
+                    }).ToList() ?? new List<CriteriaResponse>(),
+                    FullName = job.CompanyUser?.User?.Profile?.FullName
                 };
 
                 return new ServiceResponse
@@ -675,7 +721,8 @@ namespace BusinessObjectLayer.Services
                         CriteriaId = c.CriteriaId,
                         Name = c.Name,
                         Weight = c.Weight
-                    }).ToList() ?? new List<CriteriaResponse>()
+                    }).ToList() ?? new List<CriteriaResponse>(),
+                    FullName = job.CompanyUser?.User?.Profile?.FullName
                 };
 
                 return new ServiceResponse

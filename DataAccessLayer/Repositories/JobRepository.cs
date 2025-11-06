@@ -31,6 +31,8 @@ namespace DataAccessLayer.Repositories
             return await _context.Jobs
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
+                    .ThenInclude(cu => cu.User)
+                        .ThenInclude(u => u.Profile)
                 .Include(j => j.Specialization!)
                     .ThenInclude(s => s.Category)
                 .Include(j => j.JobEmploymentTypes!)
@@ -46,6 +48,8 @@ namespace DataAccessLayer.Repositories
             var query = _context.Jobs
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
+                    .ThenInclude(cu => cu.User)
+                        .ThenInclude(u => u.Profile)
                 .Include(j => j.Specialization!)
                     .ThenInclude(s => s.Category)
                 .Include(j => j.JobEmploymentTypes!)
@@ -89,6 +93,8 @@ namespace DataAccessLayer.Repositories
             var query = _context.Jobs
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
+                    .ThenInclude(cu => cu.User)
+                        .ThenInclude(u => u.Profile)
                 .Include(j => j.Specialization!)
                     .ThenInclude(s => s.Category)
                 .Include(j => j.JobEmploymentTypes!)
@@ -134,6 +140,8 @@ namespace DataAccessLayer.Repositories
             var query = _context.Jobs
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
+                    .ThenInclude(cu => cu.User)
+                        .ThenInclude(u => u.Profile)
                 .Include(j => j.Specialization!)
                     .ThenInclude(s => s.Category)
                 .Include(j => j.JobEmploymentTypes!)
@@ -179,6 +187,8 @@ namespace DataAccessLayer.Repositories
             return await _context.Jobs
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
+                    .ThenInclude(cu => cu.User)
+                        .ThenInclude(u => u.Profile)
                 .Include(j => j.Specialization!)
                     .ThenInclude(s => s.Category)
                 .Include(j => j.JobEmploymentTypes!)
@@ -195,6 +205,8 @@ namespace DataAccessLayer.Repositories
             return await _context.Jobs
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
+                    .ThenInclude(cu => cu.User)
+                        .ThenInclude(u => u.Profile)
                 .Include(j => j.Specialization!)
                     .ThenInclude(s => s.Category)
                 .Include(j => j.JobEmploymentTypes!)
@@ -211,6 +223,8 @@ namespace DataAccessLayer.Repositories
             return await _context.Jobs
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
+                    .ThenInclude(cu => cu.User)
+                        .ThenInclude(u => u.Profile)
                 .Include(j => j.Specialization!)
                     .ThenInclude(s => s.Category)
                 .Include(j => j.JobEmploymentTypes!)
@@ -220,6 +234,12 @@ namespace DataAccessLayer.Repositories
                 .Include(j => j.Criteria)
                 .Where(j => j.CompanyId == companyId && j.IsActive)
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
+        }
+
+        public async Task<bool> JobTitleExistsInCompanyAsync(string title, int companyId)
+        {
+            return await _context.Jobs
+                .AnyAsync(j => j.CompanyId == companyId && j.Title == title && j.IsActive);
         }
 
         public async Task UpdateJobAsync(Job job)
