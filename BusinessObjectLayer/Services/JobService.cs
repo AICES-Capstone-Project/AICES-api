@@ -522,7 +522,7 @@ namespace BusinessObjectLayer.Services
         }
 
         // Get specific job by ID for the authenticated user's company
-        public async Task<ServiceResponse> GetSelfCompanyJobByIdAsync(int jobId)
+        public async Task<ServiceResponse> GetSelfCompanyPublishedJobByIdAsync(int jobId)
         {
             try
             {
@@ -561,7 +561,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var job = await _jobRepository.GetJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var job = await _jobRepository.GetPublishedJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
 
                 if (job == null)
                 {
@@ -610,6 +610,93 @@ namespace BusinessObjectLayer.Services
             }
         }
 
+        public async Task<ServiceResponse> GetSelfCompanyPendingJobByIdAsync(int jobId)
+        {
+            try
+            {
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                if (companyUser == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company user not found."
+                    };
+                }
+
+                if (companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "You are not associated with any company."
+                    };
+                }
+
+                var job = await _jobRepository.GetPendingJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                if (job == null || job.JobStatus != JobStatusEnum.Pending)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Pending job not found or does not belong to your company."
+                    };
+                }
+
+                var jobResponse = new ManagerJobResponse
+                {
+                    JobId = job.JobId,
+                    Title = job.Title,
+                    Description = job.Description,
+                    Slug = job.Slug,
+                    Requirements = job.Requirements,
+                    JobStatus = job.JobStatus,
+                    CreatedAt = job.CreatedAt ?? DateTime.MinValue,
+                    CategoryName = job.Specialization?.Category?.Name,
+                    SpecializationName = job.Specialization?.Name,
+                    EmploymentTypes = job.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
+                    Skills = job.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
+                    Criteria = job.Criteria?.Select(c => new CriteriaResponse
+                    {
+                        CriteriaId = c.CriteriaId,
+                        Name = c.Name,
+                        Weight = c.Weight
+                    }).ToList() ?? new List<CriteriaResponse>()
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Job retrieved successfully.",
+                    Data = jobResponse
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get self company pending job error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving the job."
+                };
+            }
+        }
+
         // Update a job for the authenticated user's company (basic fields and specialization)
         public async Task<ServiceResponse> UpdateSelfCompanyJobAsync(int jobId, JobRequest request, ClaimsPrincipal userClaims)
         {
@@ -633,7 +720,7 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before updating a job." };
                 }
 
-                var job = await _jobRepository.GetJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var job = await _jobRepository.GetPublishedJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
@@ -752,7 +839,7 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before deleting a job." };
                 }
 
-                var job = await _jobRepository.GetJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var job = await _jobRepository.GetPublishedJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
@@ -792,7 +879,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Use GetAnyJobByIdAndCompanyIdAsync to get job regardless of current status
-                var job = await _jobRepository.GetAnyJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var job = await _jobRepository.GetAllJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };

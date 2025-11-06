@@ -174,7 +174,7 @@ namespace DataAccessLayer.Repositories
             return await query.CountAsync();
         }
 
-        public async Task<Job?> GetJobByIdAndCompanyIdAsync(int jobId, int companyId)
+        public async Task<Job?> GetPublishedJobByIdAndCompanyIdAsync(int jobId, int companyId)
         {
             return await _context.Jobs
                 .Include(j => j.Company)
@@ -190,7 +190,23 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
 
-        public async Task<Job?> GetAnyJobByIdAndCompanyIdAsync(int jobId, int companyId)
+         public async Task<Job?> GetPendingJobByIdAndCompanyIdAsync(int jobId, int companyId)
+        {
+            return await _context.Jobs
+                .Include(j => j.Company)
+                .Include(j => j.CompanyUser)
+                .Include(j => j.Specialization!)
+                    .ThenInclude(s => s.Category)
+                .Include(j => j.JobEmploymentTypes!)
+                    .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.JobSkills!)
+                    .ThenInclude(js => js.Skill)
+                .Include(j => j.Criteria)
+                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Pending)
+                .FirstOrDefaultAsync(j => j.JobId == jobId);
+        }
+
+        public async Task<Job?> GetAllJobByIdAndCompanyIdAsync(int jobId, int companyId)
         {
             return await _context.Jobs
                 .Include(j => j.Company)

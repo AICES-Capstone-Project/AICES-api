@@ -49,10 +49,15 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        [HttpGet("company/self/jobs/{id}")]
+        [HttpGet("company/self/jobs/published/{id}")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> GetSelfCompanyJobById(int id) =>
-            ControllerResponse.Response(await _jobService.GetSelfCompanyJobByIdAsync(id));
+        public async Task<IActionResult> GetSelfCompanyPublishedJobById(int id) =>
+            ControllerResponse.Response(await _jobService.GetSelfCompanyPublishedJobByIdAsync(id));
+
+        [HttpGet("company/self/jobs/pending/{id}")]
+        [Authorize(Roles = "HR_Manager")]
+        public async Task<IActionResult> GetSelfCompanyPendingJobById(int id) =>
+            ControllerResponse.Response(await _jobService.GetSelfCompanyPendingJobByIdAsync(id));
 
         [HttpPost("company/self/jobs")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
