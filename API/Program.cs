@@ -122,6 +122,33 @@ else
 }
 
 // ------------------------
+// ?? GOOGLE CLOUD STORAGE CONFIGURATION
+// ------------------------
+var gcpProjectId = Environment.GetEnvironmentVariable("GCS__PROJECT_ID");
+var gcpBucketName = Environment.GetEnvironmentVariable("GCS__BUCKET_NAME");
+var gcpCredentialPath = Environment.GetEnvironmentVariable("GCS__CREDENTIAL_PATH");
+
+if (!string.IsNullOrEmpty(gcpBucketName) && !string.IsNullOrEmpty(gcpCredentialPath))
+{
+    // Configure GCP settings in IConfiguration
+    builder.Configuration["GCP:BUCKET_NAME"] = gcpBucketName;
+    builder.Configuration["GCP:CREDENTIAL_PATH"] = gcpCredentialPath;
+    if (!string.IsNullOrEmpty(gcpProjectId))
+    {
+        builder.Configuration["GCP:PROJECT_ID"] = gcpProjectId;
+    }
+    
+    // Register GoogleCloudStorageService
+    builder.Services.AddSingleton<IGoogleCloudStorageService, GoogleCloudStorageService>();
+    
+    Console.WriteLine($"‚úÖ Google Cloud Storage configured successfully: {gcpBucketName}");
+}
+else
+{
+    Console.WriteLine("‚ö†Ô∏è Google Cloud Storage configuration missing in .env file.");
+}
+
+// ------------------------
 // ?? REGISTER REPOSITORIES & SERVICES
 // ------------------------
 
@@ -144,6 +171,7 @@ builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddScoped<IBannerConfigRepository, BannerConfigRepository>();
 builder.Services.AddScoped<ISkillRepository, SkillRepository>();
 builder.Services.AddScoped<IJobSkillRepository, JobSkillRepository>();
+builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 
 // Services
 builder.Services.AddScoped<IProfileService, ProfileService>();
@@ -161,6 +189,7 @@ builder.Services.AddScoped<ISkillService, SkillService>();
 builder.Services.AddScoped<IJobSkillService, JobSkillService>();
 builder.Services.AddScoped<ICriteriaService, CriteriaService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
 
 //  Auth Services
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -203,7 +232,7 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 
-    // ?? ThÍm ?o?n n‡y ?? SignalR ??c JWT t? query string
+    // ?? ThÔøΩm ?o?n nÔøΩy ?? SignalR ??c JWT t? query string
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -211,7 +240,7 @@ builder.Services.AddAuthentication(options =>
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
 
-            // N?u request ??n SignalR thÏ l?y token t? query string
+            // N?u request ??n SignalR thÔøΩ l?y token t? query string
             if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/notification"))
             {
                 context.Token = accessToken;

@@ -17,10 +17,10 @@ namespace Data.Models.Response
         public DateTime? DateOfBirth { get; set; }
         public string AvatarUrl { get; set; }
         public string PhoneNumber { get; set; }
+        public string UserStatus { get; set; }
         public string CompanyName { get; set; }
         public string JoinStatus { get; set; }
         public List<LoginProviderInfo> LoginProviders { get; set; } = new List<LoginProviderInfo>();
-        public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 
@@ -28,6 +28,5 @@ namespace Data.Models.Response
     {
         public AuthProviderEnum AuthProvider { get; set; }
         public string ProviderId { get; set; }
-        public bool IsActive { get; set; }
     }
 }

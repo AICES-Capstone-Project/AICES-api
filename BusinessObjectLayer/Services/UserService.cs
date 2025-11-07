@@ -50,13 +50,12 @@ namespace BusinessObjectLayer.Services
                 DateOfBirth = u.Profile?.DateOfBirth,
                 AvatarUrl = u.Profile?.AvatarUrl ?? "",
                 PhoneNumber = u.Profile?.PhoneNumber ?? "",
-                IsActive = u.IsActive,
+                UserStatus = u.Status.ToString(),
                 CreatedAt = u.CreatedAt ?? DateTime.UtcNow,
                 LoginProviders = u.LoginProviders?.Select(lp => new LoginProviderInfo
                 {
                     AuthProvider = lp.AuthProvider,
                     ProviderId = lp.ProviderId,
-                    IsActive = lp.IsActive
                 }).ToList() ?? new List<LoginProviderInfo>()
             }).ToList();
 
@@ -102,13 +101,12 @@ namespace BusinessObjectLayer.Services
                     PhoneNumber = user.Profile?.PhoneNumber ?? "",
                     CompanyName = user.CompanyUser?.Company?.Name ?? "",
                     JoinStatus = user.CompanyUser?.JoinStatus.ToString() ?? "",
-                    IsActive = user.IsActive,
+                    UserStatus = user.Status.ToString(),
                     CreatedAt = user.CreatedAt ?? DateTime.UtcNow,
                     LoginProviders = user.LoginProviders?.Select(lp => new LoginProviderInfo
                     {
                         AuthProvider = lp.AuthProvider,
                         ProviderId = lp.ProviderId,
-                        IsActive = lp.IsActive
                     }).ToList() ?? new List<LoginProviderInfo>()
                 }
             };
@@ -130,7 +128,6 @@ namespace BusinessObjectLayer.Services
                 Email = request.Email,
                 Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 RoleId = request.RoleId,
-                IsActive = request.IsActive ?? true
             };
 
             var addedUser = await _userRepository.AddAsync(user);
@@ -196,9 +193,6 @@ namespace BusinessObjectLayer.Services
 
             await _userRepository.UpdateAsync(user);
 
-            // Get the updated user with all related data to return proper response
-            var updatedUser = await _userRepository.GetByIdAsync(id);
-
             return new ServiceResponse
             {
                 Status = SRStatus.Success,
@@ -241,7 +235,7 @@ namespace BusinessObjectLayer.Services
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
-                    Message = "User deactivated successfully."
+                    Message = "User deleted successfully."
                 };
             }
             catch (Exception ex)
@@ -251,12 +245,12 @@ namespace BusinessObjectLayer.Services
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
-                    Message = "An error occurred while deactivating the user."
+                    Message = "An error occurred while deleting the user."
                 };
             }
         }
 
-        public async Task<ServiceResponse> RestoreAsync(int id)
+        public async Task<ServiceResponse> UpdateUserStatusAsync(int id, UserStatusEnum status)
         {
             try
             {
@@ -270,38 +264,24 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Restore user
-                user.IsActive = true;
+                // Update user status
+                user.Status = status;
                 await _userRepository.UpdateAsync(user);
-
-                // Restore profile if exists (using navigation property)
-                if (user.Profile != null)
-                {
-                    user.Profile.IsActive = true;
-                    await _profileRepository.UpdateAsync(user.Profile);
-                }
-
-                // Restore company user if exists (using navigation property)
-                if (user.CompanyUser != null)
-                {
-                    user.CompanyUser.IsActive = true;
-                    await _companyUserRepository.UpdateAsync(user.CompanyUser);
-                }
 
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
-                    Message = "User restored successfully."
+                    Message = $"User status updated to {status} successfully."
                 };
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error restoring user: {ex.Message}");
+                Console.WriteLine($"Error updating user status: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
-                    Message = "An error occurred while restoring the user."
+                    Message = "An error occurred while updating user status."
                 };
             }
         }

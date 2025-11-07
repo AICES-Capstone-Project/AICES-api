@@ -21,20 +21,24 @@ namespace DataAccessLayer.Repositories
         public async Task<User> GetByIdAsync(int id)
         {
             return await _context.Users
+                .AsNoTracking()
                 .Include(u => u.Role)
                 .Include(u => u.Profile)
                 .Include(u => u.LoginProviders)
                 .Include(u => u.CompanyUser)
                 .Include(u => u.CompanyUser.Company)
+                .Where(u => u.IsActive)
                 .FirstOrDefaultAsync(u => u.UserId == id);
         }
 
         public async Task<List<User>> GetUsersAsync(int page, int pageSize, string? search = null)
         {
             var query = _context.Users
+                .AsNoTracking()
                 .Include(u => u.Role)
                 .Include(u => u.Profile)
                 .Include(u => u.LoginProviders)
+                .Where(u => u.IsActive)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -50,7 +54,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<int> GetTotalUsersAsync(string? search = null)
         {
-            var query = _context.Users.AsQueryable();
+            var query = _context.Users.AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {

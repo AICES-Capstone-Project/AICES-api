@@ -54,10 +54,10 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        [HttpPut("{id}/restore")]
-        public async Task<IActionResult> RestoreUser(int id)
+        [HttpPut("{id}/status")]
+        public async Task<IActionResult> UpdateUserStatus(int id, [FromBody] UpdateUserStatusRequest request)
         {
-            var serviceResponse = await _userService.RestoreAsync(id);
+            var serviceResponse = await _userService.UpdateUserStatusAsync(id, request.Status);
             return ControllerResponse.Response(serviceResponse);
         }
     }
