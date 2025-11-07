@@ -34,6 +34,6 @@ namespace Data.Entities
         public ICollection<LoginProvider>? LoginProviders { get; set; }
         public ICollection<RefreshToken>? RefreshTokens { get; set; }
         public ICollection<Notification>? Notifications { get; set; }
-        public ICollection<Reports>? Reports { get; set; }
+        public ICollection<Blog>? Blogs { get; set; }
     }
 }

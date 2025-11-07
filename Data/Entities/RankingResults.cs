@@ -29,7 +29,6 @@ namespace Data.Entities
         // Navigation
         public Job Job { get; set; } = null!;
         public ParsedCandidates ParsedCandidate { get; set; } = null!;
-        public AIScores AIScores { get; set; } = null!;
     }
 }
 

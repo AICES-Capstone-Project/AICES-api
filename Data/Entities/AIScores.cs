@@ -23,7 +23,6 @@ namespace Data.Entities
         // Navigation
         public ICollection<AIScoreDetail>? AIScoreDetails { get; set; }
         public ParsedCandidates? ParsedCandidate { get; set; }
-        public ICollection<RankingResults>? RankingResults { get; set; }
     }
 }
 

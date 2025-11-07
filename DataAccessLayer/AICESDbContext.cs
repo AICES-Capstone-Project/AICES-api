@@ -48,7 +48,7 @@ namespace DataAccessLayer
         
         // Communication & Reporting
         public virtual DbSet<Notification> Notifications { get; set; }
-        public virtual DbSet<Reports> Reports { get; set; }
+        public virtual DbSet<Blog> Blogs { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -59,7 +59,7 @@ namespace DataAccessLayer
                 {
                     throw new InvalidOperationException("Connection string not found or invalid in appsettings.json.");
                 }
-                optionsBuilder.UseSqlServer(connectionString);
+                optionsBuilder.UseNpgsql(connectionString);
             }
         }
 
@@ -237,11 +237,11 @@ namespace DataAccessLayer
                 .HasForeignKey(pr => pr.JobId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // ParsedResumes - ParsedCandidates
+            // ParsedResumes - ParsedCandidates (one-to-one)
             modelBuilder.Entity<ParsedResumes>()
-                .HasMany(pr => pr.ParsedCandidates)
+                .HasOne(pr => pr.ParsedCandidates)
                 .WithOne(pc => pc.ParsedResumes)
-                .HasForeignKey(pc => pc.ResumeId)
+                .HasForeignKey<ParsedCandidates>(pc => pc.ResumeId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             // Job - ParsedCandidates
@@ -286,13 +286,6 @@ namespace DataAccessLayer
                 .HasForeignKey<RankingResults>(rr => rr.CandidateId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // AIScores - RankingResults
-            modelBuilder.Entity<AIScores>()
-                .HasMany(s => s.RankingResults)
-                .WithOne(rr => rr.AIScores)
-                .HasForeignKey(rr => rr.ScoreId)
-                .OnDelete(DeleteBehavior.NoAction);
-
             // ===== COMMUNICATION & REPORTING RELATIONSHIPS =====
             
             // User - Notifications
@@ -302,18 +295,11 @@ namespace DataAccessLayer
                 .HasForeignKey(n => n.UserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // User - Reports
+            // User - Blogs
             modelBuilder.Entity<User>()
-                .HasMany(u => u.Reports)
-                .WithOne(r => r.User)
-                .HasForeignKey(r => r.UserId)
-                .OnDelete(DeleteBehavior.NoAction);
-
-            // Job - Reports
-            modelBuilder.Entity<Job>()
-                .HasMany(j => j.Reports)
-                .WithOne(r => r.Job)
-                .HasForeignKey(r => r.JobId)
+                .HasMany(u => u.Blogs)
+                .WithOne(b => b.User)
+                .HasForeignKey(b => b.UserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             // ===== GLOBAL CASCADE DELETE PREVENTION =====
@@ -335,16 +321,6 @@ namespace DataAccessLayer
             // Configure enum conversions for new enums
             modelBuilder.Entity<CompanyUser>()
                 .Property(cu => cu.JoinStatus)
-                .HasConversion<string>()
-                .HasMaxLength(50);
-
-            modelBuilder.Entity<Reports>()
-                .Property(r => r.Type)
-                .HasConversion<string>()
-                .HasMaxLength(50);
-
-            modelBuilder.Entity<Reports>()
-                .Property(r => r.ExportFormat)
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
@@ -375,6 +351,11 @@ namespace DataAccessLayer
 
             modelBuilder.Entity<User>()
                 .Property(u => u.Status)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<ParsedResumes>()
+                .Property(pr => pr.ResumeStatus)
                 .HasConversion<string>()
                 .HasMaxLength(50);
 

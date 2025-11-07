@@ -96,7 +96,7 @@ if (string.IsNullOrEmpty(connectionString))
     Console.WriteLine("?? Database connection string not found in .env");
 }
 builder.Services.AddDbContext<AICESDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseNpgsql(connectionString));
 
 // ------------------------
 // ?? CLOUDINARY CONFIGURATION

@@ -45,7 +45,6 @@ namespace Data.Entities
         public ICollection<ParsedCandidates>? ParsedCandidates { get; set; }
         public ICollection<ParsedResumes>? ParsedResumes { get; set; }
         public ICollection<RankingResults>? RankingResults { get; set; }
-        public ICollection<Reports>? Reports { get; set; }
         public ICollection<JobSkill>? JobSkills { get; set; }
     }
 }
