@@ -1,4 +1,5 @@
 ﻿using Data.Entities.Base;
+using Data.Enum;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -22,6 +23,7 @@ namespace Data.Entities
 
         [MaxLength(255)]
         public string? Password { get; set; } // với social login có thể null
+        public UserStatusEnum Status { get; set; }
 
         // Navigation
         [ForeignKey("Role")]

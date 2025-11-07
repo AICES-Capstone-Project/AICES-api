@@ -373,6 +373,11 @@ namespace DataAccessLayer
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
+            modelBuilder.Entity<User>()
+                .Property(u => u.Status)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
             // Configure enum conversion for TransactionGateway
             modelBuilder.Entity<Transaction>()
                 .Property(t => t.Gateway)

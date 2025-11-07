@@ -59,6 +59,34 @@ namespace BusinessObjectLayer.Services.Auth
             return configured.Contains(email.Trim().ToLowerInvariant());
         }
 
+        /// <summary>
+        /// Validates user status and returns an error response if validation fails.
+        /// Returns null if validation passes.
+        /// </summary>
+        private ServiceResponse? ValidateUserStatus(User? user)
+        {
+            if (user == null)
+                return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "Account not found." };
+
+            if (!user.IsActive)
+                return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "Account is inactive." };
+
+            return user.Status switch
+            {
+                UserStatusEnum.Unverified => new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "Account not verified."
+                },
+                UserStatusEnum.Locked => new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "Account is locked. Please contact admin to unlock."
+                },
+                _ => null
+            };
+        }
+
         public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName)
         {
             var existedUser = await _authRepository.GetByEmailAsync(email);
@@ -101,7 +129,7 @@ namespace BusinessObjectLayer.Services.Auth
                 Email = email,
                 Password = BCrypt.Net.BCrypt.HashPassword(password),
                 RoleId = IsAdminEmail(email) ? 1 : roleId, // SystemAdmin or SystemStaff
-                IsActive = false
+                Status = UserStatusEnum.Unverified,
             };
 
             var addedUser = await _authRepository.AddAsync(user);
@@ -134,14 +162,21 @@ namespace BusinessObjectLayer.Services.Auth
         public async Task<ServiceResponse> LoginAsync(string email, string password)
         {
             var user = await _authRepository.GetByEmailAsync(email);
-            if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.Password) || !user.IsActive)
+            
+            // Check password first (for security, don't reveal if user exists)
+            if (!BCrypt.Net.BCrypt.Verify(password, user.Password))
             {
                 return new ServiceResponse
                 {
                     Status = SRStatus.Unauthorized,
-                    Message = "Invalid email, password, or account inactive."
+                    Message = "Invalid password"
                 };
             }
+
+            // Validate user status
+            var validation = ValidateUserStatus(user);
+            if (validation != null)
+                return validation;
 
             // Revoke all existing refresh tokens on new login (security: invalidate old sessions)
             await _authRepository.RevokeAllRefreshTokensAsync(user.UserId);
@@ -184,13 +219,13 @@ namespace BusinessObjectLayer.Services.Auth
                 if (user == null)
                     return new ServiceResponse { Status = SRStatus.Error, Message = "User not found." };
 
-                if (user.IsActive)
+                if (user.Status == UserStatusEnum.Verified)
                     return new ServiceResponse { Status = SRStatus.Success, Message = "Email already verified. You can now log in." };
 
-                user.IsActive = true;
+                user.Status = UserStatusEnum.Verified;
                 await _authRepository.UpdateAsync(user);
 
-                Console.WriteLine($"User {user.UserId} activated successfully.");
+                Console.WriteLine($"User {user.UserId} Verified successfully.");
 
                 return new ServiceResponse
                 {
@@ -277,7 +312,7 @@ namespace BusinessObjectLayer.Services.Auth
                     {
                         Email = userInfo.Email,
                         RoleId = roleId,
-                        IsActive = true
+                        Status = UserStatusEnum.Verified,
                     };
 
                     user = await _authRepository.AddAsync(user);
@@ -320,6 +355,11 @@ namespace BusinessObjectLayer.Services.Auth
                         user.RoleId = 1;
                         await _authRepository.UpdateAsync(user);
                     }
+
+                    // Validate user status for existing users
+                    var validation = ValidateUserStatus(user);
+                    if (validation != null)
+                        return validation;
                 }
 
                 // 3. Revoke all existing refresh tokens on new login (security: invalidate old sessions)
@@ -454,7 +494,7 @@ namespace BusinessObjectLayer.Services.Auth
                     {
                         Email = githubUser.Email,
                         RoleId = IsAdminEmail(githubUser.Email) ? 1 : 5, // SystemAdmin or HR_Recruiter
-                        IsActive = true
+                        Status = UserStatusEnum.Verified,
                     };
 
                     user = await _authRepository.AddAsync(user);
@@ -484,6 +524,11 @@ namespace BusinessObjectLayer.Services.Auth
                             ProviderId = githubUser.Id.ToString()
                         });
                     }
+
+                    // Validate user status for existing users
+                    var validation = ValidateUserStatus(user);
+                    if (validation != null)
+                        return validation;
                 }
 
                 await _authRepository.RevokeAllRefreshTokensAsync(user.UserId);
@@ -520,14 +565,11 @@ namespace BusinessObjectLayer.Services.Auth
             }
 
             var user = await _authRepository.GetByEmailAsync(emailClaim);
-            if (user == null)
-            {
-                return new ServiceResponse
-                {
-                    Status = SRStatus.NotFound,
-                    Message = "User not found.",
-                };
-            }
+
+            // Validate user status
+            var validation = ValidateUserStatus(user);
+            if (validation != null)
+                return validation;
 
             try
             {
@@ -572,14 +614,10 @@ namespace BusinessObjectLayer.Services.Auth
         public async Task<ServiceResponse> RequestPasswordResetAsync(string email)
         {
             var user = await _authRepository.GetByEmailAsync(email);
-            if (user == null || !user.IsActive)
-            {
-                return new ServiceResponse
-                {
-                    Status = SRStatus.NotFound,
-                    Message = "User not found or account inactive."
-                };
-            }
+            // Validate user status
+            var validation = ValidateUserStatus(user);
+            if (validation != null)
+                return validation;
 
             var resetToken = _tokenService.GenerateResetToken(user.Email);
             await _emailService.SendResetEmailAsync(email, resetToken);
@@ -604,10 +642,10 @@ namespace BusinessObjectLayer.Services.Auth
                 }
 
                 var user = await _authRepository.GetByEmailAsync(email);
-                if (user == null)
-                {
-                    return new ServiceResponse { Status = SRStatus.Error, Message = "User not found." };
-                }
+                // Validate user status
+                var validation = ValidateUserStatus(user);
+                if (validation != null)
+                    return validation;
 
                 user.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
                 await _authRepository.UpdateAsync(user);
