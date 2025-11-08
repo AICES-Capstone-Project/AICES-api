@@ -1,0 +1,6 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/gen-lang-client-0486955839/aices-api', '-f', 'API/Dockerfile', '.']
+
+images:
+  - 'gcr.io/gen-lang-client-0486955839/aices-api'

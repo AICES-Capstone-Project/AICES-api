@@ -1,0 +1,23 @@
+﻿# Ignore build and IDE stuff
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.git/
+**/.gitignore
+**/.env
+**/node_modules/
+**/*.user
+**/*.dbmdl
+**/*.jfm
+**/npm-debug.log
+LICENSE
+README.md
+
+# ✅ Keep these project files for build
+!API/**
+!BusinessObjectLayer/**
+!DataAccessLayer/**
+!Data/**
+!cloudbuild.yaml
+!Dockerfile

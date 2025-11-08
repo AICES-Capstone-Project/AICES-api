@@ -329,7 +329,7 @@ builder.Services.AddAuthentication(options =>
 // ------------------------
 builder.Services.AddCors(p => p.AddPolicy("Cors", policy =>
 {
-    policy.WithOrigins("http://localhost:5173", "https://localhost:7220", "null")
+    policy.WithOrigins("http://localhost:5173", "https://localhost:7220", "https://aices-api-632140981337.asia-east1.run.app")
           .AllowAnyHeader()
           .AllowAnyMethod()
           .AllowCredentials();
