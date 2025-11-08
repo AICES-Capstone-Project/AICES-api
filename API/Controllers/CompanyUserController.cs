@@ -60,6 +60,15 @@ namespace API.Controllers
             var response = await _companyUserService.GetSelfCompanyMembersAsync();
             return ControllerResponse.Response(response);
         }
+
+        // Cancel own join request (only if status is Pending)
+        [HttpDelete("self/join-request/cancel")]
+        [Authorize(Roles = "HR_Recruiter")]
+        public async Task<IActionResult> CancelJoinRequest()
+        {
+            var response = await _companyUserService.CancelJoinRequestAsync();
+            return ControllerResponse.Response(response);
+        }
     }
 }
 

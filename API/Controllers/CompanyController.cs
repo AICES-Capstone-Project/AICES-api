@@ -25,11 +25,11 @@ namespace API.Controllers
         public async Task<IActionResult> GetSelfCompany() =>
             ControllerResponse.Response(await _companyService.GetSelfCompanyAsync());
 
-        [HttpPatch("{id}/profile")]
-        [Authorize(Roles = "System_Admin, System_Manager, HR_Manager")]
+        [HttpPatch("self/profile")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         [RequestSizeLimit(10_000_000)]
-        public async Task<IActionResult> UpdateProfile(int id, [FromForm] CompanyProfileUpdateRequest request) =>
-            ControllerResponse.Response(await _companyService.UpdateCompanyProfileAsync(id, request));
+        public async Task<IActionResult> UpdateProfile([FromForm] CompanyProfileUpdateRequest request) =>
+            ControllerResponse.Response(await _companyService.UpdateCompanyProfileAsync(request));
 
         [HttpPost("self")]
         [Authorize(Roles = "HR_Recruiter, HR_Manager")]

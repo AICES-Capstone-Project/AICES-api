@@ -618,6 +618,25 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Only allow update if company status is Rejected AND companyUser status is NotApplied
+                if (company.CompanyStatus != CompanyStatusEnum.Rejected)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Company can only be updated when company status is Rejected."
+                    };
+                }
+
+                if (companyUser.JoinStatus != JoinStatusEnum.NotApplied)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Company can only be updated when your join status is NotApplied."
+                    };
+                }
+
                 // Update allowed fields
                 if (!string.IsNullOrEmpty(request.Name))
                     company.Name = request.Name;
@@ -739,11 +758,55 @@ namespace BusinessObjectLayer.Services
         }
 
         // Update company profile only (without changing status)
-        public async Task<ServiceResponse> UpdateCompanyProfileAsync(int id, CompanyProfileUpdateRequest request)
+        public async Task<ServiceResponse> UpdateCompanyProfileAsync(CompanyProfileUpdateRequest request)
         {
             try
             {
-                var company = await _companyRepository.GetByIdAsync(id);
+                // Get current user ID from claims
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+
+                // Get company user to find associated company
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                if (companyUser == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company user not found."
+                    };
+                }
+
+                if (companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "You are not associated with any company."
+                    };
+                }
+
+                if (companyUser.JoinStatus != JoinStatusEnum.Approved && companyUser.JoinStatus != JoinStatusEnum.Invited)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Only approved or invited members can update company profile."
+                    };
+                }
+
+                var company = await _companyRepository.GetByIdAsync(companyUser.CompanyId.Value);
                 if (company == null)
                 {
                     return new ServiceResponse

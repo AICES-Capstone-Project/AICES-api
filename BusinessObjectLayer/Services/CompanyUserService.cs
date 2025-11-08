@@ -290,6 +290,48 @@ namespace BusinessObjectLayer.Services
             return await UpdateJoinRequestStatusAsync(companyUser.CompanyId.Value, comUserId, joinStatus);
         }
 
+        public async Task<ServiceResponse> CancelJoinRequestAsync()
+        {
+            try
+            {
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated." };
+                }
+                int userId = int.Parse(userIdClaim);
+
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                if (companyUser == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.NotFound, Message = "Company user not found." };
+                }
+
+                if (companyUser.JoinStatus != JoinStatusEnum.Pending)
+                {
+                    return new ServiceResponse 
+                    { 
+                        Status = SRStatus.Forbidden, 
+                        Message = "You can only cancel join requests with Pending status." 
+                    };
+                }
+
+                // Cancel join request by setting CompanyId to null and JoinStatus to NotApplied
+                companyUser.CompanyId = null;
+                companyUser.JoinStatus = JoinStatusEnum.NotApplied;
+                await _companyUserRepository.UpdateAsync(companyUser);
+
+                return new ServiceResponse { Status = SRStatus.Success, Message = "Join request canceled successfully." };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Cancel join request error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse { Status = SRStatus.Error, Message = "An error occurred while canceling join request." };
+            }
+        }
+
         private async Task<ServiceResponse> CheckManagerOfCompany(int companyId)
         {
             var user = _httpContextAccessor.HttpContext?.User;
