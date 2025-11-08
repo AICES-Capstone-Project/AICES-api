@@ -380,6 +380,15 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                if (companyUser.JoinStatus != JoinStatusEnum.Approved && companyUser.JoinStatus != JoinStatusEnum.Invited)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Only approved or invited members can access company information."
+                    };
+                }
+
                 var company = await _companyRepository.GetByIdAsync(companyUser.CompanyId.Value);
 
                 if (company == null)
