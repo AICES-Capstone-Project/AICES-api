@@ -13,8 +13,7 @@ namespace Data.Models.Response
         public string? AvatarUrl { get; set; }
         public string? PhoneNumber { get; set; }
         public JoinStatusEnum JoinStatus { get; set; }
-        public bool IsActive { get; set; }
-        public DateTime? CreatedAt { get; set; }
+        public DateTime? CreatedAt { get; set; } 
     }
 }
 

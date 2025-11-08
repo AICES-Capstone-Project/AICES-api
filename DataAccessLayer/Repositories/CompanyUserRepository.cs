@@ -77,6 +77,18 @@ namespace DataAccessLayer.Repositories
                 .Where(cu => cu.CompanyId == companyId && cu.IsActive && cu.JoinStatus == JoinStatusEnum.Pending)
                 .ToListAsync();
         }
+
+        public async Task<List<CompanyUser>> GetApprovedAndInvitedMembersByCompanyIdAsync(int companyId)
+        {
+            return await _context.CompanyUsers
+                .Include(cu => cu.User)
+                    .ThenInclude(u => u.Profile)
+                .Include(cu => cu.User)
+                    .ThenInclude(u => u.Role)
+                .Where(cu => cu.CompanyId == companyId && cu.IsActive && cu.User != null && 
+                    (cu.JoinStatus == JoinStatusEnum.Approved || cu.JoinStatus == JoinStatusEnum.Invited))
+                .ToListAsync();
+        }
     }
 } 
 
