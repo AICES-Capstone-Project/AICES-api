@@ -340,7 +340,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
- // Get self company (for HR users to view their own company)
+        // Get self company (for HR users to view their own company)
         public async Task<ServiceResponse> GetSelfCompanyAsync()
         {
             try

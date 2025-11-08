@@ -218,8 +218,8 @@ builder.Services.AddAuthentication(options =>
     options.RequireHttpsMetadata = false; // Set true when deploy
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
+        ValidateIssuer = false, //set true when deployment
+        ValidateAudience = false, //set true when deployment
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         ValidIssuers = new[] { Environment.GetEnvironmentVariable("JWTCONFIG__ISSUERS__0") },
@@ -329,7 +329,7 @@ builder.Services.AddAuthentication(options =>
 // ------------------------
 builder.Services.AddCors(p => p.AddPolicy("Cors", policy =>
 {
-    policy.WithOrigins("http://localhost:5173", "https://localhost:7220", "https://aices-api-632140981337.asia-east1.run.app")
+    policy.WithOrigins("http://localhost:5173", "https://localhost:7220", "https://aices-api-632140981337.asia-east1.run.app", "null")
           .AllowAnyHeader()
           .AllowAnyMethod()
           .AllowCredentials();
