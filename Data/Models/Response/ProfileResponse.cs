@@ -16,9 +16,9 @@ namespace Data.Models.Response
         public DateTime? DateOfBirth { get; set; }
         public string? AvatarUrl { get; set; }
         public string? RoleName { get; set; }
+        public string? JoinStatus { get; set; }
         public string? CompanyName { get; set; }
         public string? CompanyStatus { get; set; }
-        public bool IsActive { get; set; }
     }
 }
 
