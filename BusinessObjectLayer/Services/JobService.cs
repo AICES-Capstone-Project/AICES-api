@@ -387,7 +387,7 @@ namespace BusinessObjectLayer.Services
         }
 
         // Get all jobs for the authenticated user's company
-        public async Task<ServiceResponse> GetSelfCompanyJobsAsync(int page = 1, int pageSize = 10, string? search = null)
+        public async Task<ServiceResponse> GetSelfCompanyPublishedJobsAsync(int page = 1, int pageSize = 10, string? search = null)
         {
             try
             {
@@ -423,6 +423,15 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.NotFound,
                         Message = "You are not associated with any company."
+                    };
+                }
+
+                if (companyUser.JoinStatus != JoinStatusEnum.Approved && companyUser.JoinStatus != JoinStatusEnum.Invited)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You must be approved or invited to access company jobs."
                     };
                 }
 
@@ -603,6 +612,15 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.NotFound,
                         Message = "You are not associated with any company."
+                    };
+                }
+
+                if (companyUser.JoinStatus != JoinStatusEnum.Approved && companyUser.JoinStatus != JoinStatusEnum.Invited)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You must be approved or invited to access company jobs."
                     };
                 }
 

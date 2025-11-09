@@ -35,9 +35,9 @@ namespace API.Controllers
 
         [HttpGet("company/self/jobs/published")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> GetSelfCompanyJobs([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
+        public async Task<IActionResult> GetSelfCompanyPublishedJobs([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
         {
-            var serviceResponse = await _jobService.GetSelfCompanyJobsAsync(page, pageSize, search);
+            var serviceResponse = await _jobService.GetSelfCompanyPublishedJobsAsync(page, pageSize, search);
             return ControllerResponse.Response(serviceResponse);
         }
 
