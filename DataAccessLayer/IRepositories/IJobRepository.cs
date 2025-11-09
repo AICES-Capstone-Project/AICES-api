@@ -1,4 +1,5 @@
 using Data.Entities;
+using Data.Enum;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +21,8 @@ namespace DataAccessLayer.IRepositories
         Task<Job?> GetPublishedJobByIdAndCompanyIdAsync(int jobId, int companyId);
         Task<Job?> GetPendingJobByIdAndCompanyIdAsync(int jobId, int companyId);
         Task<Job?> GetAllJobByIdAndCompanyIdAsync(int jobId, int companyId);
+        Task<List<Job>> GetJobsByComUserIdAsync(int comUserId, int page, int pageSize, string? search = null, JobStatusEnum? status = null);
+        Task<int> GetTotalJobsByComUserIdAsync(int comUserId, string? search = null, JobStatusEnum? status = null);
         Task<bool> JobTitleExistsInCompanyAsync(string title, int companyId);
         Task UpdateJobAsync(Job job);
         Task SoftDeleteJobAsync(Job job);

@@ -1,6 +1,7 @@
 using API.Common;
 using BusinessObjectLayer.IServices;
 using Data.Models.Request;
+using Data.Enum;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -46,6 +47,22 @@ namespace API.Controllers
         public async Task<IActionResult> GetSelfCompanyJobsPending([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
         {
             var serviceResponse = await _jobService.GetSelfCompanyJobsPendingAsync(page, pageSize, search);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpGet("company/self/jobs/me")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> GetSelfJobsByMe([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] string? status = null)
+        {
+            JobStatusEnum? jobStatus = null;
+            if (!string.IsNullOrEmpty(status))
+            {
+                if (Enum.TryParse<JobStatusEnum>(status, true, out var parsedStatus))
+                {
+                    jobStatus = parsedStatus;
+                }
+            }
+            var serviceResponse = await _jobService.GetSelfJobsByMeAsync(page, pageSize, search, jobStatus);
             return ControllerResponse.Response(serviceResponse);
         }
 

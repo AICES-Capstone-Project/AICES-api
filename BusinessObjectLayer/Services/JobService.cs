@@ -762,6 +762,95 @@ namespace BusinessObjectLayer.Services
             }
         }
 
+        // Get all jobs created by the current user (me)
+        public async Task<ServiceResponse> GetSelfJobsByMeAsync(int page = 1, int pageSize = 10, string? search = null, JobStatusEnum? status = null)
+        {
+            try
+            {
+                // Get current user ID from claims
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+
+                // Get company user to find ComUserId
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                if (companyUser == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company user not found."
+                    };
+                }
+
+                if (companyUser.JoinStatus != JoinStatusEnum.Approved && companyUser.JoinStatus != JoinStatusEnum.Invited)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You must be approved or invited to access jobs."
+                    };
+                }
+
+                var jobs = await _jobRepository.GetJobsByComUserIdAsync(companyUser.ComUserId, page, pageSize, search, status);
+                var total = await _jobRepository.GetTotalJobsByComUserIdAsync(companyUser.ComUserId, search, status);
+
+                var jobResponses = jobs.Select(j => new SelfJobResponse
+                {
+                    JobId = j.JobId,
+                    Title = j.Title,
+                    Description = j.Description,
+                    Slug = j.Slug,
+                    Requirements = j.Requirements,
+                    JobStatus = j.JobStatus,
+                    CreatedAt = j.CreatedAt ?? DateTime.MinValue,
+                    CategoryName = j.Specialization?.Category?.Name,
+                    SpecializationName = j.Specialization?.Name,
+                    EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
+                    Skills = j.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
+                    Criteria = j.Criteria?.Select(c => new CriteriaResponse
+                    {
+                        CriteriaId = c.CriteriaId,
+                        Name = c.Name,
+                        Weight = c.Weight
+                    }).ToList() ?? new List<CriteriaResponse>(),
+                }).ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Jobs retrieved successfully.",
+                    Data = new PaginatedSelfJobResponse
+                    {
+                        Jobs = jobResponses,
+                        TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                        CurrentPage = page,
+                        PageSize = pageSize
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get self jobs by me error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving jobs."
+                };
+            }
+        }
+
         // Update a job for the authenticated user's company (basic fields and specialization)
         public async Task<ServiceResponse> UpdateSelfCompanyJobAsync(int jobId, JobRequest request, ClaimsPrincipal userClaims)
         {

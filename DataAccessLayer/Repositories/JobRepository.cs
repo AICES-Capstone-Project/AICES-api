@@ -236,6 +236,63 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
 
+        public async Task<List<Job>> GetJobsByComUserIdAsync(int comUserId, int page, int pageSize, string? search = null, JobStatusEnum? status = null)
+        {
+            var query = _context.Jobs
+                .Include(j => j.Company)
+                .Include(j => j.CompanyUser)
+                    .ThenInclude(cu => cu.User)
+                        .ThenInclude(u => u.Profile)
+                .Include(j => j.Specialization!)
+                    .ThenInclude(s => s.Category)
+                .Include(j => j.JobEmploymentTypes!)
+                    .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.JobSkills!)
+                    .ThenInclude(js => js.Skill)
+                .Include(j => j.Criteria)
+                .Where(j => j.ComUserId == comUserId && j.IsActive)
+                .AsQueryable();
+
+            if (status.HasValue)
+            {
+                query = query.Where(j => j.JobStatus == status.Value);
+            }
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(j => j.Title.Contains(search) || 
+                                       (j.Description != null && j.Description.Contains(search)) ||
+                                       (j.Requirements != null && j.Requirements.Contains(search)));
+            }
+
+            return await query
+                .OrderByDescending(j => j.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        public async Task<int> GetTotalJobsByComUserIdAsync(int comUserId, string? search = null, JobStatusEnum? status = null)
+        {
+            var query = _context.Jobs
+                .Where(j => j.ComUserId == comUserId && j.IsActive)
+                .AsQueryable();
+
+            if (status.HasValue)
+            {
+                query = query.Where(j => j.JobStatus == status.Value);
+            }
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(j => j.Title.Contains(search) || 
+                                       (j.Description != null && j.Description.Contains(search)) ||
+                                       (j.Requirements != null && j.Requirements.Contains(search)));
+            }
+
+            return await query.CountAsync();
+        }
+
         public async Task<bool> JobTitleExistsInCompanyAsync(string title, int companyId)
         {
             return await _context.Jobs
