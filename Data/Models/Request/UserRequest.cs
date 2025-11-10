@@ -35,8 +35,5 @@ namespace Data.Models.Request
         [MaxLength(100, ErrorMessage = "Full name cannot exceed 100 characters.")]
         [DefaultValue("Nguyen Van FPT")]
         public string? FullName { get; set; }
-
-        [DefaultValue(true)]
-        public bool? IsActive { get; set; } 
     }
 }

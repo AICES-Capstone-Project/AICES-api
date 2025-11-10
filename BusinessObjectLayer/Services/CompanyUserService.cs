@@ -197,9 +197,9 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Join request not found for this company." };
                 }
 
-                if (joinStatus != JoinStatusEnum.Approved && joinStatus != JoinStatusEnum.Rejected)
+                if (joinStatus != JoinStatusEnum.Approved && joinStatus != JoinStatusEnum.NotApplied)
                 {
-                    return new ServiceResponse { Status = SRStatus.Validation, Message = "Invalid status. Use Approved or Rejected." };
+                    return new ServiceResponse { Status = SRStatus.Validation, Message = "Invalid status. Only allows Approved or NotApplied status." };
                 }
 
                 companyUser.JoinStatus = joinStatus;
@@ -287,6 +287,26 @@ namespace BusinessObjectLayer.Services
             var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
             if (companyUser == null || companyUser.CompanyId == null)
                 return new ServiceResponse { Status = SRStatus.Forbidden, Message = "You are not a manager of any company." };
+
+            // Check if trying to update themselves
+            if (companyUser.ComUserId == comUserId)
+            {
+                return new ServiceResponse { Status = SRStatus.Forbidden, Message = "You cannot update your own join request status." };
+            }
+
+            // Get the target company user to check their role
+            var targetCompanyUser = await _companyUserRepository.GetByComUserIdAsync(comUserId);
+            if (targetCompanyUser == null)
+            {
+                return new ServiceResponse { Status = SRStatus.NotFound, Message = "Target company user not found." };
+            }
+
+            // Check if target user is a manager (roleId = 4)
+            if (targetCompanyUser.User?.RoleId == 4)
+            {
+                return new ServiceResponse { Status = SRStatus.Forbidden, Message = "You cannot update join request status for other managers." };
+            }
+
             return await UpdateJoinRequestStatusAsync(companyUser.CompanyId.Value, comUserId, joinStatus);
         }
 
