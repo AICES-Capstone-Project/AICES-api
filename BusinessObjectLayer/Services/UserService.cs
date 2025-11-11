@@ -128,6 +128,7 @@ namespace BusinessObjectLayer.Services
                 Email = request.Email,
                 Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 RoleId = request.RoleId,
+                Status = UserStatusEnum.Verified,
             };
 
             var addedUser = await _userRepository.AddAsync(user);
@@ -189,7 +190,6 @@ namespace BusinessObjectLayer.Services
             {
                 user.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
             }
-            user.IsActive = request.IsActive ?? true; 
 
             await _userRepository.UpdateAsync(user);
 
