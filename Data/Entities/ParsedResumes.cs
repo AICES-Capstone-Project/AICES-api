@@ -22,6 +22,8 @@ namespace Data.Entities
         [ForeignKey("Job")]
         public int JobId { get; set; }
 
+        public string? QueueJobId { get; set; }
+
         public string? FileUrl { get; set; } // URL to the uploaded resume file
 
         [Column(TypeName = "jsonb")]

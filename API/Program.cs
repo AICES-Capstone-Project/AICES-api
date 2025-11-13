@@ -16,6 +16,7 @@ using BusinessObjectLayer.IServices;
 using Microsoft.AspNetCore.Mvc;
 using Data.Models.Response;
 using Data.Enum;
+using StackExchange.Redis;
 
 // ------------------------
 // ?? LOAD ENVIRONMENT FILE
@@ -154,6 +155,7 @@ else
 
 // Repositories
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
@@ -378,4 +380,62 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notification");
+
+// ------------------------
+// ?? REDIS TEST ENDPOINT
+// ------------------------
+app.MapGet("/api/redis-test", async () =>
+{
+    try
+    {
+        var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST");
+        if (string.IsNullOrEmpty(redisHost))
+        {
+            return Results.Json(
+                new { error = "Redis connection FAILED: REDIS_HOST environment variable is not set" },
+                statusCode: StatusCodes.Status500InternalServerError
+            );
+        }
+
+        // Connect to Redis
+        var connection = await ConnectionMultiplexer.ConnectAsync(redisHost);
+        var database = connection.GetDatabase();
+
+        // Write test key
+        const string testKey = "aices_test_key";
+        const string testValue = "Connected!";
+        await database.StringSetAsync(testKey, testValue);
+
+        // Read test key back
+        var retrievedValue = await database.StringGetAsync(testKey);
+
+        // Close connection
+        await connection.CloseAsync();
+
+        if (retrievedValue.HasValue && retrievedValue == testValue)
+        {
+            return Results.Ok(new
+            {
+                status = "ok",
+                message = "Redis connected successfully!",
+                value = retrievedValue.ToString()
+            });
+        }
+        else
+        {
+            return Results.Json(
+                new { error = "Redis connection FAILED: Test key value mismatch" },
+                statusCode: StatusCodes.Status500InternalServerError
+            );
+        }
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(
+            new { error = $"Redis connection FAILED: {ex.Message}" },
+            statusCode: StatusCodes.Status500InternalServerError
+        );
+    }
+});
+
 app.Run();

@@ -13,10 +13,12 @@ namespace BusinessObjectLayer.Services.Auth
     public class TokenService : ITokenService
     {
         private readonly IAuthRepository _authRepository;
+        private readonly ITokenRepository _tokenRepository;
 
-        public TokenService(IAuthRepository authRepository)
+        public TokenService(IAuthRepository authRepository, ITokenRepository tokenRepository)
         {
             _authRepository = authRepository;
+            _tokenRepository = tokenRepository;
         }
 
         private static string GetEnvOrThrow(string key)
@@ -95,7 +97,7 @@ namespace BusinessObjectLayer.Services.Auth
                 IsActive = true
             };
 
-            await _authRepository.AddRefreshTokenAsync(refreshToken);
+            await _tokenRepository.AddRefreshTokenAsync(refreshToken);
 
             return new AuthTokenResponse
             {
@@ -108,7 +110,7 @@ namespace BusinessObjectLayer.Services.Auth
         {
             try
             {
-                var storedToken = await _authRepository.GetRefreshTokenAsync(refreshToken);
+                var storedToken = await _tokenRepository.GetRefreshTokenAsync(refreshToken);
                 if (storedToken == null)
                 {
                     return new ServiceResponse
@@ -130,7 +132,7 @@ namespace BusinessObjectLayer.Services.Auth
                 if (storedToken.ExpiryDate < DateTime.UtcNow)
                 {
                     storedToken.IsActive = false;
-                    await _authRepository.UpdateRefreshTokenAsync(storedToken);
+                    await _tokenRepository.UpdateRefreshTokenAsync(storedToken);
 
                     return new ServiceResponse
                     {
@@ -148,7 +150,7 @@ namespace BusinessObjectLayer.Services.Auth
                     };
                 }
 
-                await _authRepository.RevokeAllRefreshTokensAsync(storedToken.UserId);
+                await _tokenRepository.RevokeAllRefreshTokensAsync(storedToken.UserId);
                 var tokens = await GenerateTokensAsync(storedToken.User);
 
                 return new ServiceResponse

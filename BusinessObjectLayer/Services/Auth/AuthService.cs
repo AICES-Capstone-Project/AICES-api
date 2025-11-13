@@ -20,19 +20,22 @@ namespace BusinessObjectLayer.Services.Auth
         private readonly ITokenService _tokenService;
         private readonly IEmailService _emailService;
         private readonly ICompanyUserService _companyUserService;
+        private readonly ITokenRepository _tokenRepository;
 
         public AuthService(
             IAuthRepository authRepository,
             IProfileService profileService,
             ITokenService tokenService,
             IEmailService emailService,
-            ICompanyUserService companyUserService)
+            ICompanyUserService companyUserService,
+            ITokenRepository tokenRepository)
         {
             _authRepository = authRepository;
             _profileService = profileService;
             _tokenService = tokenService;
             _emailService = emailService;
             _companyUserService = companyUserService;
+            _tokenRepository = tokenRepository;
         }
 
         private static string GetEnvOrThrow(string key)
@@ -179,7 +182,7 @@ namespace BusinessObjectLayer.Services.Auth
                 return validation;
 
             // Revoke all existing refresh tokens on new login (security: invalidate old sessions)
-            await _authRepository.RevokeAllRefreshTokensAsync(user.UserId);
+            await _tokenRepository.RevokeAllRefreshTokensAsync(user.UserId);
 
             var tokens = await _tokenService.GenerateTokensAsync(user);
 
@@ -187,7 +190,7 @@ namespace BusinessObjectLayer.Services.Auth
             {
                 Status = SRStatus.Success,
                 Message = "Login successful",
-                Data = tokens // Return AuthTokenResponse (controller will handle separation)
+                Data = tokens 
             };
         }
 
@@ -363,7 +366,7 @@ namespace BusinessObjectLayer.Services.Auth
                 }
 
                 // 3. Revoke all existing refresh tokens on new login (security: invalidate old sessions)
-                await _authRepository.RevokeAllRefreshTokensAsync(user.UserId);
+                await _tokenRepository.RevokeAllRefreshTokensAsync(user.UserId);
 
                 // 4. Generate tokens
                 var tokens = await _tokenService.GenerateTokensAsync(user);
@@ -531,7 +534,7 @@ namespace BusinessObjectLayer.Services.Auth
                         return validation;
                 }
 
-                await _authRepository.RevokeAllRefreshTokensAsync(user.UserId);
+                await _tokenRepository.RevokeAllRefreshTokensAsync(user.UserId);
                 var tokens = await _tokenService.GenerateTokensAsync(user);
 
                 return new ServiceResponse
@@ -680,7 +683,7 @@ namespace BusinessObjectLayer.Services.Auth
         {
             try
             {
-                var storedToken = await _authRepository.GetRefreshTokenAsync(refreshToken);
+                var storedToken = await _tokenRepository.GetRefreshTokenAsync(refreshToken);
                 if (storedToken == null)
                 {
                     return new ServiceResponse
@@ -691,7 +694,7 @@ namespace BusinessObjectLayer.Services.Auth
                 }
 
                 storedToken.IsActive = false;
-                await _authRepository.UpdateRefreshTokenAsync(storedToken);
+                await _tokenRepository.UpdateRefreshTokenAsync(storedToken);
 
                 return new ServiceResponse
                 {
