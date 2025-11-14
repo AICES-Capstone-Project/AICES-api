@@ -1,4 +1,6 @@
+using BusinessObjectLayer.Common;
 using BusinessObjectLayer.IServices;
+using Data.Models.Response;
 using Google.Cloud.Storage.V1;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -9,6 +11,7 @@ namespace BusinessObjectLayer.Services
     {
         private readonly string _bucketName;
         private readonly StorageClient _storageClient;
+        private readonly GoogleCloudStorageHelper _helper;
 
         public GoogleCloudStorageService(IConfiguration configuration)
         {
@@ -26,6 +29,7 @@ namespace BusinessObjectLayer.Services
 
             Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialPath);
             _storageClient = StorageClient.Create();
+            _helper = new GoogleCloudStorageHelper(_storageClient, _bucketName);
         }
 
         public async Task<string> UploadFileAsync(IFormFile file)
@@ -41,6 +45,22 @@ namespace BusinessObjectLayer.Services
             await _storageClient.UploadObjectAsync(_bucketName, objectName, null, stream);
             
             return $"https://storage.googleapis.com/{_bucketName}/{objectName}";
+        }
+
+        /// <summary>
+        /// Upload a resume file (PDF or DOCX) using the helper
+        /// </summary>
+        public async Task<ServiceResponse> UploadResumeAsync(IFormFile file, string? folder = "resumes")
+        {
+            return await _helper.UploadResumeAsync(file, folder);
+        }
+
+        /// <summary>
+        /// Upload a user's resume with user ID prefix
+        /// </summary>
+        public async Task<ServiceResponse> UploadUserResumeAsync(int userId, IFormFile file)
+        {
+            return await _helper.UploadUserResumeAsync(userId, file);
         }
     }
 }

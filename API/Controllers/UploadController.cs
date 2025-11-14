@@ -32,13 +32,13 @@ namespace API.Controllers
 
             try
             {
-                var url = await _storageService.UploadFileAsync(file);
+                var response = await _storageService.UploadResumeAsync(file);
                 
                 var successResponse = new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "File uploaded successfully.",
-                    Data = new { url }
+                    Data = response.Data
                 };
                 
                 return ControllerResponse.Response(successResponse);

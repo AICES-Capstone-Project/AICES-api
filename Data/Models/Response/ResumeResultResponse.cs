@@ -1,0 +1,28 @@
+using Data.Enum;
+
+namespace Data.Models.Response
+{
+    public class ResumeResultResponse
+    {
+        public ResumeStatusEnum Status { get; set; }
+        public ResumeResultData? Data { get; set; }
+    }
+
+    public class ResumeResultData
+    {
+        public int ResumeId { get; set; }
+        public decimal TotalResumeScore { get; set; }
+        public string? AIExplanation { get; set; }
+        public List<AIScoreDetailResponse> AIScoreDetails { get; set; } = new();
+    }
+
+    public class AIScoreDetailResponse
+    {
+        public int CriteriaId { get; set; }
+        public string CriteriaName { get; set; } = string.Empty;
+        public bool Matched { get; set; }
+        public decimal Score { get; set; }
+        public string? AINote { get; set; }
+    }
+}
+

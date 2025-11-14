@@ -4,6 +4,7 @@ using BusinessObjectLayer.Services.Auth;
 using DataAccessLayer;
 using DataAccessLayer.IRepositories;
 using DataAccessLayer.Repositories;
+using BusinessObjectLayer.IServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -150,6 +151,34 @@ else
 }
 
 // ------------------------
+// ?? REDIS CONFIGURATION
+// ------------------------
+var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST");
+if (!string.IsNullOrEmpty(redisHost))
+{
+    try
+    {
+        var config = ConfigurationOptions.Parse(redisHost);
+        config.AbortOnConnectFail = false;
+        config.Ssl = false;
+        
+        var redis = ConnectionMultiplexer.Connect(config);
+        builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+        builder.Services.AddScoped<BusinessObjectLayer.Common.RedisHelper>();
+        
+        Console.WriteLine($"✅ Redis configured successfully");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠️ Redis configuration failed: {ex.Message}");
+    }
+}
+else
+{
+    Console.WriteLine("⚠️ Redis configuration missing in .env file.");
+}
+
+// ------------------------
 // ?? REGISTER REPOSITORIES & SERVICES
 // ------------------------
 
@@ -175,6 +204,10 @@ builder.Services.AddScoped<IBannerConfigRepository, BannerConfigRepository>();
 builder.Services.AddScoped<ISkillRepository, SkillRepository>();
 builder.Services.AddScoped<IJobSkillRepository, JobSkillRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<IParsedResumeRepository, ParsedResumeRepository>();
+builder.Services.AddScoped<IParsedCandidateRepository, ParsedCandidateRepository>();
+builder.Services.AddScoped<IAIScoreRepository, AIScoreRepository>();
+builder.Services.AddScoped<IAIScoreDetailRepository, AIScoreDetailRepository>();
 
 // Services
 builder.Services.AddScoped<IProfileService, ProfileService>();
@@ -194,6 +227,7 @@ builder.Services.AddScoped<IJobSkillService, JobSkillService>();
 builder.Services.AddScoped<ICriteriaService, CriteriaService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IResumeService, ResumeService>();
 
 //  Auth Services
 builder.Services.AddScoped<ITokenService, TokenService>();
