@@ -170,6 +170,7 @@ builder.Services.AddScoped<ISpecializationRepository, SpecializationRepository>(
 builder.Services.AddScoped<IJobEmploymentTypeRepository, JobEmploymentTypeRepository>();
 builder.Services.AddScoped<ICriteriaRepository, CriteriaRepository>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+builder.Services.AddScoped<ICompanySubscriptionRepository, CompanySubscriptionRepository>();
 builder.Services.AddScoped<IBannerConfigRepository, BannerConfigRepository>();
 builder.Services.AddScoped<ISkillRepository, SkillRepository>();
 builder.Services.AddScoped<IJobSkillRepository, JobSkillRepository>();
@@ -186,6 +187,7 @@ builder.Services.AddScoped<ISpecializationService, SpecializationService>();
 builder.Services.AddScoped<IEmploymentTypeService, EmploymentTypeService>();
 builder.Services.AddScoped<IJobService, JobService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<ICompanySubscriptionService, CompanySubscriptionService>();
 builder.Services.AddScoped<IBannerConfigService, BannerConfigService>();
 builder.Services.AddScoped<ISkillService, SkillService>();
 builder.Services.AddScoped<IJobSkillService, JobSkillService>();
@@ -331,7 +333,7 @@ builder.Services.AddAuthentication(options =>
 // ------------------------
 builder.Services.AddCors(p => p.AddPolicy("Cors", policy =>
 {
-    policy.WithOrigins("http://localhost:5173", "https://localhost:7220", "https://aices-api-632140981337.asia-east1.run.app", "null")
+    policy.WithOrigins("http://localhost:5173", "http://localhost:7220", "https://localhost:7220", "https://aices-api-632140981337.asia-east1.run.app", "null")
           .AllowAnyHeader()
           .AllowAnyMethod()
           .AllowCredentials();
@@ -389,6 +391,10 @@ app.MapGet("/api/redis-test", async () =>
     try
     {
         var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST");
+        var config = ConfigurationOptions.Parse(redisHost);
+        config.AbortOnConnectFail = false;
+        config.Ssl = false;   // <-- QUAN TRỌNG
+
         if (string.IsNullOrEmpty(redisHost))
         {
             return Results.Json(

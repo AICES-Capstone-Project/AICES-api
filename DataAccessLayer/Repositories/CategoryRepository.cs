@@ -26,6 +26,38 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<Category>> GetCategoriesAsync(int page, int pageSize, string? search = null)
+        {
+            var query = _context.Categories
+                .Where(c => c.IsActive)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(c => c.Name.Contains(search));
+            }
+
+            return await query
+                .OrderByDescending(c => c.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        public async Task<int> GetTotalCategoriesAsync(string? search = null)
+        {
+            var query = _context.Categories
+                .Where(c => c.IsActive)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(c => c.Name.Contains(search));
+            }
+
+            return await query.CountAsync();
+        }
+
         public async Task<Category?> GetByIdAsync(int id)
         {
             return await _context.Categories.FirstOrDefaultAsync(c => c.CategoryId == id);

@@ -18,25 +18,11 @@ namespace API.Controllers
             _subscriptionService = subscriptionService;
         }
 
-        [HttpGet("public")]
-        public async Task<IActionResult> GetAll()
+        [HttpGet] 
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
         {
-            var response = await _subscriptionService.GetAllAsync();
-            return ControllerResponse.Response(response);
-        }
-
-        [HttpGet]
-        
-        public async Task<IActionResult> GetAllIncludeInactive()
-        {
-            var response = await _subscriptionService.GetAllByAdminAsync();
-            return ControllerResponse.Response(response);
-        }
-
-        [HttpGet("public/{id}")]
-        public async Task<IActionResult> GetById(int id)
-        {
-            var response = await _subscriptionService.GetByIdAsync(id);
+            var response = await _subscriptionService.GetAllByAdminAsync(page, pageSize, search);
             return ControllerResponse.Response(response);
         }
 

@@ -20,36 +20,40 @@ namespace DataAccessLayer.Repositories
 
         public async Task<IEnumerable<Subscription>> GetAllAsync()
         {
-            return await _context.Subscriptions
-                .Where(s => s.IsActive)
+            var query = _context.Subscriptions.AsQueryable().Where(s => s.IsActive);
+            return await query.ToListAsync();
+        }
+        public async Task<List<Subscription>> GetSubscriptionsAsync(int page, int pageSize, string? search = null)
+        {
+            var query = _context.Subscriptions.AsQueryable().Where(s => s.IsActive);
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(s => s.Name.Contains(search) ||
+                                       (s.Description != null && s.Description.Contains(search)));
+            }
+
+            return await query
                 .OrderByDescending(s => s.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<Subscription>> GetAllAsync(bool includeInactive = false)
+        public async Task<int> GetTotalSubscriptionsAsync(string? search = null)
         {
-            var query = _context.Subscriptions.AsQueryable();
+            var query = _context.Subscriptions.AsQueryable().Where(s => s.IsActive);
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(s => s.Name.Contains(search) ||
+                                       (s.Description != null && s.Description.Contains(search)));
+            }
 
-            if (!includeInactive)
-                query = query.Where(s => s.IsActive); 
-
-            return await query.ToListAsync();
+            return await query.CountAsync();
         }
-
-
 
         public async Task<Subscription?> GetByIdAsync(int id)
         {
-            return await _context.Subscriptions.FirstOrDefaultAsync(s => s.SubscriptionId == id && s.IsActive);
-        }
-
-        public async Task<Subscription?> GetByIdAsync(int id, bool includeInactive)
-        {
-            var query = _context.Subscriptions.AsQueryable();
-
-            if (!includeInactive)
-                query = query.Where(s => s.IsActive);
-
+            var query = _context.Subscriptions.AsQueryable().Where(s => s.IsActive);
             return await query.FirstOrDefaultAsync(s => s.SubscriptionId == id);
         }
 

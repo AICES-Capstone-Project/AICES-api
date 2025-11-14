@@ -23,29 +23,15 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null)
         {
-            var categories = await _categoryRepository.GetAllAsync();
+            var categories = await _categoryRepository.GetCategoriesAsync(page, pageSize, search);
+            var total = await _categoryRepository.GetTotalCategoriesAsync(search);
 
-            if (!string.IsNullOrEmpty(search))
+            var pagedData = categories.Select(c => new CategoryResponse
             {
-                categories = categories
-                    .Where(c => c.Name.Contains(search, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-            }
-
-            var total = categories.Count();
-
-            var pagedData = categories
-                .OrderByDescending(c => c.CreatedAt)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(c => new CategoryResponse
-                {
-                    CategoryId = c.CategoryId,
-                    Name = c.Name,
-                    IsActive = c.IsActive,
-                    CreatedAt = c.CreatedAt ?? DateTime.UtcNow
-                })
-                .ToList();
+                CategoryId = c.CategoryId,
+                Name = c.Name,
+                CreatedAt = c.CreatedAt ?? DateTime.UtcNow
+            }).ToList();
 
             var responseData = new
             {
@@ -83,7 +69,6 @@ namespace BusinessObjectLayer.Services
                 {
                     CategoryId = category.CategoryId,
                     Name = category.Name,
-                    IsActive = category.IsActive,
                     CreatedAt = category.CreatedAt ?? DateTime.UtcNow
                 }
             };

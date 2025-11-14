@@ -21,11 +21,12 @@ namespace BusinessObjectLayer.Services
             _subscriptionRepository = subscriptionRepository;
         }
 
-        public async Task<ServiceResponse> GetAllAsync()
+        public async Task<ServiceResponse> GetAllByAdminAsync(int page = 1, int pageSize = 10, string? search = null)
         {
-            var subscriptions = await _subscriptionRepository.GetAllAsync();
+            var subscriptions = await _subscriptionRepository.GetSubscriptionsAsync(page, pageSize, search);
+            var total = await _subscriptionRepository.GetTotalSubscriptionsAsync(search);
 
-            var result = subscriptions.Select(s => new SubscriptionResponse
+            var pagedData = subscriptions.Select(s => new SubscriptionResponse
             {
                 SubscriptionId = s.SubscriptionId,
                 Name = s.Name,
@@ -33,77 +34,28 @@ namespace BusinessObjectLayer.Services
                 Price = s.Price,
                 DurationDays = s.DurationDays,
                 Limit = s.Limit,
-                IsActive = s.IsActive,
                 CreatedAt = (DateTime)s.CreatedAt
             }).ToList();
+
+            var responseData = new
+            {
+                Subscriptions = pagedData,
+                TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                CurrentPage = page,
+                PageSize = pageSize
+            };
 
             return new ServiceResponse
             {
                 Status = SRStatus.Success,
                 Message = "Subscriptions retrieved successfully.",
-                Data = result
-            };
-        }
-
-        public async Task<ServiceResponse> GetAllByAdminAsync()
-        {
-            var subscriptions = await _subscriptionRepository.GetAllAsync(includeInactive: true);
-
-            var result = subscriptions.Select(s => new SubscriptionResponse
-            {
-                SubscriptionId = s.SubscriptionId,
-                Name = s.Name,
-                Description = s.Description,
-                Price = s.Price,
-                DurationDays = s.DurationDays,
-                Limit = s.Limit,
-                IsActive = s.IsActive,
-                CreatedAt = (DateTime)s.CreatedAt
-            }).ToList();
-
-            return new ServiceResponse
-            {
-                Status = SRStatus.Success,
-                Message = "All subscriptions (including inactive) retrieved successfully.",
-                Data = result
-            };
-        }
-
-
-
-        public async Task<ServiceResponse> GetByIdAsync(int id)
-        {
-            var subscription = await _subscriptionRepository.GetByIdAsync(id);
-            if (subscription == null)
-            {
-                return new ServiceResponse
-                {
-                    Status = SRStatus.NotFound,
-                    Message = "Subscription not found."
-                };
-            }
-
-            return new ServiceResponse
-            {
-                Status = SRStatus.Success,
-                Message = "Subscription retrieved successfully.",
-                Data = new SubscriptionResponse
-                {
-                    SubscriptionId = subscription.SubscriptionId,
-                    Name = subscription.Name,
-                    Description = subscription.Description,
-                    Price = subscription.Price,
-                    DurationDays = subscription.DurationDays,
-                    Limit = subscription.Limit,
-                    IsActive = subscription.IsActive,
-                    CreatedAt = (DateTime)subscription.CreatedAt
-                }
+                Data = responseData
             };
         }
 
         public async Task<ServiceResponse> GetByIdForAdminAsync(int id)
         {
-            var subscription = await _subscriptionRepository.GetByIdAsync(id, includeInactive: true);
+            var subscription = await _subscriptionRepository.GetByIdAsync(id);
             if (subscription == null)
             {
                 return new ServiceResponse
@@ -121,7 +73,6 @@ namespace BusinessObjectLayer.Services
                 Price = subscription.Price,
                 DurationDays = subscription.DurationDays,
                 Limit = subscription.Limit,
-                IsActive = subscription.IsActive,
                 CreatedAt = (DateTime)subscription.CreatedAt
             };
 
@@ -152,8 +103,6 @@ namespace BusinessObjectLayer.Services
                 Price = request.Price,
                 DurationDays = request.DurationDays,
                 Limit = request.Limit,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
             };
 
             await _subscriptionRepository.AddAsync(subscription);

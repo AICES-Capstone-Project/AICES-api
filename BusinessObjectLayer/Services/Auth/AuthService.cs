@@ -165,7 +165,12 @@ namespace BusinessObjectLayer.Services.Auth
         public async Task<ServiceResponse> LoginAsync(string email, string password)
         {
             var user = await _authRepository.GetByEmailAsync(email);
-            
+
+            // Validate user status
+            var validation = ValidateUserStatus(user);
+            if (validation != null)
+                return validation;
+
             // Check password first (for security, don't reveal if user exists)
             if (!BCrypt.Net.BCrypt.Verify(password, user.Password))
             {
@@ -175,11 +180,6 @@ namespace BusinessObjectLayer.Services.Auth
                     Message = "Invalid password"
                 };
             }
-
-            // Validate user status
-            var validation = ValidateUserStatus(user);
-            if (validation != null)
-                return validation;
 
             // Revoke all existing refresh tokens on new login (security: invalidate old sessions)
             await _tokenRepository.RevokeAllRefreshTokensAsync(user.UserId);

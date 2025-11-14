@@ -10,9 +10,7 @@ namespace BusinessObjectLayer.IServices
 {
     public interface ISubscriptionService
     {
-        Task<ServiceResponse> GetAllAsync();
-        Task<ServiceResponse> GetAllByAdminAsync();
-        Task<ServiceResponse> GetByIdAsync(int id);
+        Task<ServiceResponse> GetAllByAdminAsync(int page = 1, int pageSize = 10, string? search = null);
         Task<ServiceResponse> GetByIdForAdminAsync(int id);
         Task<ServiceResponse> CreateAsync(SubscriptionRequest request);
         Task<ServiceResponse> UpdateAsync(int id, SubscriptionRequest request);
