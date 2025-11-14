@@ -153,30 +153,30 @@ else
 // ------------------------
 // ?? REDIS CONFIGURATION
 // ------------------------
-var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST");
-if (!string.IsNullOrEmpty(redisHost))
-{
-    try
-    {
-        var config = ConfigurationOptions.Parse(redisHost);
-        config.AbortOnConnectFail = false;
-        config.Ssl = false;
+// var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST");
+// if (!string.IsNullOrEmpty(redisHost))
+// {
+//     try
+//     {
+//         var config = ConfigurationOptions.Parse(redisHost);
+//         config.AbortOnConnectFail = false;
+//         config.Ssl = false;
         
-        var redis = ConnectionMultiplexer.Connect(config);
-        builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
-        builder.Services.AddScoped<BusinessObjectLayer.Common.RedisHelper>();
+//         var redis = ConnectionMultiplexer.Connect(config);
+//         builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+//         builder.Services.AddScoped<BusinessObjectLayer.Common.RedisHelper>();
         
-        Console.WriteLine($"✅ Redis configured successfully");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"⚠️ Redis configuration failed: {ex.Message}");
-    }
-}
-else
-{
-    Console.WriteLine("⚠️ Redis configuration missing in .env file.");
-}
+//         Console.WriteLine($"✅ Redis configured successfully");
+//     }
+//     catch (Exception ex)
+//     {
+//         Console.WriteLine($"⚠️ Redis configuration failed: {ex.Message}");
+//     }
+// }
+// else
+// {
+//     Console.WriteLine("⚠️ Redis configuration missing in .env file.");
+// }
 
 // ------------------------
 // ?? REGISTER REPOSITORIES & SERVICES
