@@ -91,17 +91,25 @@ namespace BusinessObjectLayer.Services
                     return uploadResult;
                 }
 
-                // Extract URL from upload result
-                var uploadData = uploadResult.Data;
-                dynamic dynamicData = uploadData;
-                var fileUrl = dynamicData?.Url as string;
+                // Extract signed URL from upload result
+                string? fileUrl = null;
+                if (uploadResult.Data != null)
+                {
+                    // Use reflection or JSON deserialization to extract URL
+                    var dataType = uploadResult.Data.GetType();
+                    var urlProperty = dataType.GetProperty("Url");
+                    if (urlProperty != null)
+                    {
+                        fileUrl = urlProperty.GetValue(uploadResult.Data) as string;
+                    }
+                }
 
                 if (string.IsNullOrEmpty(fileUrl))
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.Error,
-                        Message = "Failed to get file URL from upload."
+                        Message = "Failed to get signed URL from upload."
                     };
                 }
 

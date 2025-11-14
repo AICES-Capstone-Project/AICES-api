@@ -1,6 +1,6 @@
-using CloudinaryDotNet;
 using Data.Enum;
 using Data.Models.Response;
+using Google.Apis.Auth.OAuth2;
 using Google.Cloud.Storage.V1;
 using Microsoft.AspNetCore.Http;
 using System;
@@ -14,11 +14,19 @@ namespace BusinessObjectLayer.Common
     {
         private readonly StorageClient _storageClient;
         private readonly string _bucketName;
+        private readonly UrlSigner _urlSigner;
 
-        public GoogleCloudStorageHelper(StorageClient storageClient, string bucketName)
+        public GoogleCloudStorageHelper(string bucketName, string credentialPath)
         {
-            _storageClient = storageClient ?? throw new ArgumentNullException(nameof(storageClient));
             _bucketName = bucketName ?? throw new ArgumentNullException(nameof(bucketName));
+
+            if (string.IsNullOrEmpty(credentialPath))
+                throw new ArgumentNullException(nameof(credentialPath), "Credential path is required.");
+
+            var credential = GoogleCredential.FromFile(credentialPath);
+
+            _storageClient = StorageClient.Create(credential);
+            _urlSigner = UrlSigner.FromCredential(credential);
         }
 
         /// <summary>
@@ -77,12 +85,17 @@ namespace BusinessObjectLayer.Common
 
                 await _storageClient.UploadObjectAsync(_bucketName, objectName, null, stream);
                 
-                var url = $"https://storage.googleapis.com/{_bucketName}/{objectName}";
+                var signedUrl = _urlSigner.Sign(
+                    _bucketName,
+                    objectName,
+                    TimeSpan.FromHours(1) // valid 1 hour
+                );
+                
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "Resume uploaded successfully.",
-                    Data = new { Url = url }
+                    Data = new { Url = signedUrl, ObjectName = objectName }
                 };
             }
             catch (Exception ex)

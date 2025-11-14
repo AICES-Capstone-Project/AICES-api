@@ -4,6 +4,7 @@ using Data.Models.Response;
 using Google.Cloud.Storage.V1;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using System.IO;
 
 namespace BusinessObjectLayer.Services
 {
@@ -19,17 +20,30 @@ namespace BusinessObjectLayer.Services
                          Environment.GetEnvironmentVariable("GCP__BUCKET_NAME") ?? 
                          throw new ArgumentNullException(nameof(_bucketName), "GCP Bucket Name is not configured");
 
-            string? credentialPath = configuration["GCP:CREDENTIAL_PATH"] ?? 
-                                    Environment.GetEnvironmentVariable("GCP__CREDENTIAL_PATH");
-
-            if (string.IsNullOrEmpty(credentialPath))
+            // Check if service-account.json exists in the current directory first
+            var serviceAccountPath = Path.Combine(Directory.GetCurrentDirectory(), "service-account.json");
+            string? credentialPath;
+            
+            if (File.Exists(serviceAccountPath))
             {
-                throw new ArgumentNullException(nameof(credentialPath), "GCP Credential Path is not configured");
+                // Use service-account.json if it exists in current directory
+                credentialPath = serviceAccountPath;
+            }
+            else
+            {
+                // Fall back to configured credential path
+                credentialPath = configuration["GCP:CREDENTIAL_PATH"] ?? 
+                                Environment.GetEnvironmentVariable("GCP__CREDENTIAL_PATH");
+                
+                if (string.IsNullOrEmpty(credentialPath))
+                {
+                    throw new ArgumentNullException(nameof(credentialPath), "GCP Credential Path is not configured and service-account.json not found");
+                }
             }
 
             Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialPath);
             _storageClient = StorageClient.Create();
-            _helper = new GoogleCloudStorageHelper(_storageClient, _bucketName);
+            _helper = new GoogleCloudStorageHelper( _bucketName, credentialPath);
         }
 
         public async Task<string> UploadFileAsync(IFormFile file)

@@ -41,34 +41,34 @@ namespace API.Controllers
         /// <summary>
         /// Receive AI processing result callback from Python service
         /// </summary>
-        // [HttpPost("result")]
-        // public async Task<IActionResult> ProcessAIResult([FromBody] AIResultRequest request)
-        // {
-        //     if (!ModelState.IsValid)
-        //     {
-        //         var errorResponse = new Data.Models.Response.ServiceResponse
-        //         {
-        //             Status = Data.Enum.SRStatus.Validation,
-        //             Message = "Validation failed.",
-        //             Data = ModelState
-        //         };
-        //         return ControllerResponse.Response(errorResponse);
-        //     }
+         [HttpPost("result")]
+        public async Task<IActionResult> ProcessAIResult([FromBody] AIResultRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errorResponse = new Data.Models.Response.ServiceResponse
+                {
+                    Status = Data.Enum.SRStatus.Validation,
+                    Message = "Validation failed.",
+                    Data = ModelState
+                };
+                return ControllerResponse.Response(errorResponse);
+            }
 
-        //     var serviceResponse = await _resumeService.ProcessAIResultAsync(request);
-        //     return ControllerResponse.Response(serviceResponse);
-        // }
+            var serviceResponse = await _resumeService.ProcessAIResultAsync(request);
+            return ControllerResponse.Response(serviceResponse);
+        }
 
         /// <summary>
         /// Get resume processing result by resume ID
         /// </summary>
-        // [HttpGet("result/{resumeId}")]
-        // [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        // public async Task<IActionResult> GetResumeResult(int resumeId)
-        // {
-        //     var serviceResponse = await _resumeService.GetResumeResultAsync(resumeId);
-        //     return ControllerResponse.Response(serviceResponse);
-        // }
+         [HttpGet("result/{resumeId}")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> GetResumeResult(int resumeId)
+        {
+            var serviceResponse = await _resumeService.GetResumeResultAsync(resumeId);
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
 
