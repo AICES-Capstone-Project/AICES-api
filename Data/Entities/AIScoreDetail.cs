@@ -21,7 +21,8 @@ namespace Data.Entities
         [ForeignKey("AIScores")]
         public int ScoreId { get; set; }
 
-        public bool Matched { get; set; } // Whether the candidate matched this criterion
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal Matched { get; set; } // Percentage of resume match with this criterion (0-100)
 
         [Column(TypeName = "decimal(5,2)")]
         public decimal Score { get; set; } // Score for this specific criterion

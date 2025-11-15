@@ -26,7 +26,7 @@ namespace Data.Entities
 
         // Navigation
         public Job Job { get; set; } = null!;
-        public ICollection<AIScoreDetail>? AIScoreDetails { get; set; }
+        public AIScoreDetail? AIScoreDetail { get; set; }
     }
 }
 

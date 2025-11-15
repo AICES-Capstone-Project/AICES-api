@@ -265,11 +265,11 @@ namespace DataAccessLayer
                 .HasForeignKey(sd => sd.ScoreId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Criteria - AIScoreDetail
+            // Criteria - AIScoreDetail (one-to-one)
             modelBuilder.Entity<Criteria>()
-                .HasMany(c => c.AIScoreDetails)
+                .HasOne(c => c.AIScoreDetail)
                 .WithOne(sd => sd.Criteria)
-                .HasForeignKey(sd => sd.CriteriaId)
+                .HasForeignKey<AIScoreDetail>(sd => sd.CriteriaId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             // Job - RankingResults

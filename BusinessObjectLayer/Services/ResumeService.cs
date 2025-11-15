@@ -7,6 +7,7 @@ using Data.Models.Response;
 using DataAccessLayer.IRepositories;
 using Microsoft.AspNetCore.Http;
 using System.Text.Json;
+using System.Linq;
 
 namespace BusinessObjectLayer.Services
 {
@@ -130,13 +131,23 @@ namespace BusinessObjectLayer.Services
 
                 var createdResume = await _parsedResumeRepository.CreateAsync(parsedResume);
 
-                // Push job to Redis queue
-                var jobData = new
+                // Prepare criteria data for queue
+                var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
+                {
+                    CriteriaId = c.CriteriaId,
+                    Name = c.Name,
+                    Weight = c.Weight
+                }).ToList() ?? new List<CriteriaQueueResponse>();
+
+                // Push job to Redis queue with requirements and criteria
+                var jobData = new ResumeQueueJobResponse
                 {
                     resumeId = createdResume.ResumeId,
                     queueJobId = queueJobId,
                     jobId = jobId,
-                    fileUrl = fileUrl
+                    fileUrl = fileUrl,
+                    requirements = job.Requirements,
+                    criteria = criteriaData
                 };
 
                 var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
@@ -197,14 +208,33 @@ namespace BusinessObjectLayer.Services
 
                 // Update ParsedResume status and data
                 parsedResume.ResumeStatus = ResumeStatusEnum.Completed;
-                parsedResume.Data = request.RawJson != null ? JsonSerializer.Serialize(request.RawJson) : null;
+                // Handle rawJson: if it's already a string, use it; otherwise serialize once
+                if (request.RawJson != null)
+                {
+                    parsedResume.Data = request.RawJson is string rawJsonString 
+                        ? rawJsonString 
+                        : JsonSerializer.Serialize(request.RawJson);
+                }
+                else
+                {
+                    parsedResume.Data = null;
+                }
                 await _parsedResumeRepository.UpdateAsync(parsedResume);
 
                 // Create AIScores record
+                // Serialize AIExplanation object to string for storage
+                string? aiExplanationString = null;
+                if (request.AIExplanation != null)
+                {
+                    aiExplanationString = request.AIExplanation is string explanationString
+                        ? explanationString
+                        : JsonSerializer.Serialize(request.AIExplanation);
+                }
+
                 var aiScore = new AIScores
                 {
                     TotalResumeScore = request.TotalResumeScore,
-                    AIExplanation = request.AIExplanation,
+                    AIExplanation = aiExplanationString,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 };

@@ -20,7 +20,7 @@ namespace Data.Models.Response
     {
         public int CriteriaId { get; set; }
         public string CriteriaName { get; set; } = string.Empty;
-        public bool Matched { get; set; }
+        public decimal Matched { get; set; } // Percentage of resume match with this criterion (0-100)
         public decimal Score { get; set; }
         public string? AINote { get; set; }
     }
