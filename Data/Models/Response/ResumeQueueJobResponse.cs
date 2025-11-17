@@ -18,9 +18,9 @@ namespace Data.Models.Response
     /// </summary>
     public class CriteriaQueueResponse
     {
-        public int CriteriaId { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public decimal Weight { get; set; }
+        public int criteriaId { get; set; }
+        public string name { get; set; } = string.Empty;
+        public decimal weight { get; set; }
     }
 }
 

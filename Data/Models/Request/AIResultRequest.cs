@@ -29,6 +29,9 @@ namespace Data.Models.Request
 
         [JsonPropertyName("rawJson")]
         public object? RawJson { get; set; }
+
+        [JsonPropertyName("candidateInfo")]
+        public CandidateInfoRequest? CandidateInfo { get; set; }
     }
 
     public class AIScoreDetailRequest
@@ -42,6 +45,18 @@ namespace Data.Models.Request
         public decimal Score { get; set; }
 
         public string? AINote { get; set; }
+    }
+
+    public class CandidateInfoRequest
+    {
+        [JsonPropertyName("fullName")]
+        public string? FullName { get; set; }
+
+        [JsonPropertyName("email")]
+        public string? Email { get; set; }
+
+        [JsonPropertyName("phoneNumber")]
+        public string? PhoneNumber { get; set; }
     }
 }
 

@@ -134,9 +134,9 @@ namespace BusinessObjectLayer.Services
                 // Prepare criteria data for queue
                 var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
                 {
-                    CriteriaId = c.CriteriaId,
-                    Name = c.Name,
-                    Weight = c.Weight
+                    criteriaId = c.CriteriaId,
+                    name = c.Name,
+                    weight = c.Weight
                 }).ToList() ?? new List<CriteriaQueueResponse>();
 
                 // Push job to Redis queue with requirements and criteria
@@ -185,7 +185,7 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                // Find ParsedResume by queueJobId
+                // 1. Find resume
                 var parsedResume = await _parsedResumeRepository.GetByQueueJobIdAsync(request.QueueJobId);
                 if (parsedResume == null)
                 {
@@ -196,7 +196,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Verify resumeId matches
+                // 2. Validate resumeId
                 if (parsedResume.ResumeId != request.ResumeId)
                 {
                     return new ServiceResponse
@@ -206,30 +206,26 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Update ParsedResume status and data
+                // 3. Update parsed resume (JSON + Completed)
                 parsedResume.ResumeStatus = ResumeStatusEnum.Completed;
-                // Handle rawJson: if it's already a string, use it; otherwise serialize once
+
                 if (request.RawJson != null)
                 {
-                    parsedResume.Data = request.RawJson is string rawJsonString 
-                        ? rawJsonString 
-                        : JsonSerializer.Serialize(request.RawJson);
+                    parsedResume.Data = request.RawJson is string rawJsonString
+                        ? rawJsonString
+                        : JsonSerializer.Serialize(request.RawJson, new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                            WriteIndented = false
+                        });
                 }
-                else
-                {
-                    parsedResume.Data = null;
-                }
+
                 await _parsedResumeRepository.UpdateAsync(parsedResume);
 
-                // Create AIScores record
-                // Serialize AIExplanation object to string for storage
-                string? aiExplanationString = null;
-                if (request.AIExplanation != null)
-                {
-                    aiExplanationString = request.AIExplanation is string explanationString
-                        ? explanationString
-                        : JsonSerializer.Serialize(request.AIExplanation);
-                }
+                // 4. Save AI Score
+                string? aiExplanationString = request.AIExplanation is string s
+                    ? s
+                    : JsonSerializer.Serialize(request.AIExplanation);
 
                 var aiScore = new AIScores
                 {
@@ -241,32 +237,40 @@ namespace BusinessObjectLayer.Services
 
                 var createdScore = await _aiScoreRepository.CreateAsync(aiScore);
 
-                // Create ParsedCandidate record (if not exists)
+                // 5. Create/Update ParsedCandidate
                 var existingCandidate = await _parsedCandidateRepository.GetByResumeIdAsync(parsedResume.ResumeId);
+
+                var fullName = request.CandidateInfo?.FullName ?? "Unknown";
+                var email = request.CandidateInfo?.Email ?? "unknown@example.com";
+                var phone = request.CandidateInfo?.PhoneNumber;
+
                 if (existingCandidate == null)
                 {
-                    // Note: In a real scenario, you might extract candidate info from the parsed data
-                    // For now, we'll create a placeholder
                     var parsedCandidate = new ParsedCandidates
                     {
                         ResumeId = parsedResume.ResumeId,
                         JobId = parsedResume.JobId,
                         ScoreId = createdScore.ScoreId,
-                        FullName = "Unknown", // Should be extracted from parsed data
-                        Email = "unknown@example.com", // Should be extracted from parsed data
+                        FullName = fullName,
+                        Email = email,
+                        PhoneNumber = phone,
                         IsActive = true,
                         CreatedAt = DateTime.UtcNow
                     };
+
                     await _parsedCandidateRepository.CreateAsync(parsedCandidate);
                 }
                 else
                 {
-                    // Update existing candidate with score ID
                     existingCandidate.ScoreId = createdScore.ScoreId;
+                    existingCandidate.FullName = fullName;
+                    existingCandidate.Email = email;
+                    existingCandidate.PhoneNumber = phone;
+
                     await _parsedCandidateRepository.UpdateAsync(existingCandidate);
                 }
 
-                // Create AIScoreDetail records
+                // 6. Save AIScoreDetail
                 var scoreDetails = request.AIScoreDetail.Select(detail => new AIScoreDetail
                 {
                     CriteriaId = detail.CriteriaId,
@@ -280,6 +284,7 @@ namespace BusinessObjectLayer.Services
 
                 await _aiScoreDetailRepository.CreateRangeAsync(scoreDetails);
 
+                // 7. Response
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
@@ -290,7 +295,7 @@ namespace BusinessObjectLayer.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error processing AI result: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                Console.WriteLine(ex.StackTrace);
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
@@ -298,6 +303,7 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
 
         public async Task<ServiceResponse> GetResumeResultAsync(int resumeId)
         {
