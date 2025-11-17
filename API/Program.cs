@@ -153,29 +153,31 @@ else
 // ------------------------
 // ?? REDIS CONFIGURATION
 // ------------------------
- var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST");
-if (!string.IsNullOrEmpty(redisHost))
+var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST");
+if (string.IsNullOrEmpty(redisHost))
+    throw new Exception("❌ REDIS_HOST must not be empty (Memorystore required).");
+
+try
 {
-    try
+    var options = new ConfigurationOptions()
     {
-        var config = ConfigurationOptions.Parse(redisHost);
-        config.AbortOnConnectFail = false;
-        config.Ssl = false;
+        EndPoints = { redisHost },
+        Ssl = false,
+        AbortOnConnectFail = false,
+        ConnectTimeout = 5000,
+        SyncTimeout = 5000
+    };
 
-        var redis = ConnectionMultiplexer.Connect(config);
-        builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
-        builder.Services.AddScoped<BusinessObjectLayer.Common.RedisHelper>();
+    var redis = ConnectionMultiplexer.Connect(options);
+    builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+    builder.Services.AddScoped<BusinessObjectLayer.Common.RedisHelper>();
 
-        Console.WriteLine($"✅ Redis configured successfully");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"⚠️ Redis configuration failed: {ex.Message}");
-    }
+    Console.WriteLine($"✅ Connected to Memorystore Redis at {redisHost}");
 }
-else
+catch (Exception ex)
 {
-    Console.WriteLine("⚠️ Redis configuration missing in .env file.");
+    Console.WriteLine($"❌ Redis connection failed: {ex.Message}");
+    throw; // Vì bắt buộc cần redis, throw để tránh chạy sai
 }
 
 // ------------------------
