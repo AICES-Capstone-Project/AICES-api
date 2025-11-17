@@ -959,7 +959,7 @@ namespace BusinessObjectLayer.Services
                         {
                             await _notificationService.CreateAsync(
                                 creatorUserId.Value,
-                                NotificationTypeEnum.Company,
+                                NotificationTypeEnum.CompanyApproved,
                                 $"Your company '{company.Name}' has been approved ✅",
                                 "Congratulations! Your company has been approved by the system manager."
                             );
@@ -990,7 +990,7 @@ namespace BusinessObjectLayer.Services
                         {
                             await _notificationService.CreateAsync(
                                 creatorUserId.Value,
-                                NotificationTypeEnum.Company,
+                                NotificationTypeEnum.CompanyRejected,
                                 $"Your company '{company.Name}' has been rejected ❌",
                                 $"Reason: {rejectionReason ?? "No reason provided."}"
                             );
@@ -1010,7 +1010,7 @@ namespace BusinessObjectLayer.Services
                         {
                             await _notificationService.CreateAsync(
                                 creatorUserId.Value,
-                                NotificationTypeEnum.Company,
+                                NotificationTypeEnum.CompanySuspended,
                                 $"Your company '{company.Name}' has been suspended ⚠️",
                                 "Your company has been temporarily suspended. Please contact support for more details."
                             );

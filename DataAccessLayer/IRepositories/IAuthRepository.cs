@@ -18,5 +18,6 @@ namespace DataAccessLayer.IRepositories
         Task<User> GetByProviderAsync(AuthProviderEnum provider, string providerId);
         Task<LoginProvider> AddLoginProviderAsync(LoginProvider loginProvider);
         Task<LoginProvider?> GetLoginProviderAsync(int userId, AuthProviderEnum provider);
+        Task<IEnumerable<User>> GetUsersByRoleAsync(string roleName);
     }
 }
