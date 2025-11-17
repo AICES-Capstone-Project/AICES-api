@@ -177,7 +177,7 @@ try
 catch (Exception ex)
 {
     Console.WriteLine($"❌ Redis connection failed: {ex.Message}");
-    throw; // Vì bắt buộc cần redis, throw để tránh chạy sai
+    throw; // Vì bắt buộc cần redis, throw để tránh chạy sai//
 }
 
 // ------------------------
