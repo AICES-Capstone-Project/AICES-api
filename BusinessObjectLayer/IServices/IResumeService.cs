@@ -9,6 +9,8 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> UploadResumeAsync(int jobId, IFormFile file);
         Task<ServiceResponse> ProcessAIResultAsync(AIResultRequest request);
         Task<ServiceResponse> GetResumeResultAsync(int resumeId);
+        Task<ServiceResponse> GetJobResumesAsync(int jobId);
+        Task<ServiceResponse> GetJobResumeDetailAsync(int jobId, int resumeId);
     }
 }
 

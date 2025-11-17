@@ -16,17 +16,39 @@ namespace BusinessObjectLayer.Common
         private readonly string _bucketName;
         private readonly UrlSigner _urlSigner;
 
-        public GoogleCloudStorageHelper(string bucketName, string credentialPath)
+        public GoogleCloudStorageHelper(string bucketName, string? credentialPath)
         {
             _bucketName = bucketName ?? throw new ArgumentNullException(nameof(bucketName));
 
-            if (string.IsNullOrEmpty(credentialPath))
-                throw new ArgumentNullException(nameof(credentialPath), "Credential path is required.");
-
-            var credential = GoogleCredential.FromFile(credentialPath);
+            GoogleCredential credential;
+            
+            if (!string.IsNullOrEmpty(credentialPath) && File.Exists(credentialPath))
+            {
+                // Use explicit credential file
+                credential = GoogleCredential.FromFile(credentialPath);
+                Console.WriteLine($"📁 GoogleCloudStorageHelper using credential file: {credentialPath}");
+            }
+            else
+            {
+                // Use Application Default Credentials (Workload Identity, metadata server, etc.)
+                credential = GoogleCredential.GetApplicationDefault();
+                Console.WriteLine("🔐 GoogleCloudStorageHelper using Application Default Credentials");
+            }
 
             _storageClient = StorageClient.Create(credential);
-            _urlSigner = UrlSigner.FromCredential(credential);
+            
+            // UrlSigner requires service account credentials
+            // For ADC in production, you might need to handle this differently
+            try
+            {
+                _urlSigner = UrlSigner.FromCredential(credential);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ Could not create UrlSigner: {ex.Message}");
+                // UrlSigner might not work with ADC, but basic operations will still work
+                _urlSigner = null!;
+            }
         }
 
         /// <summary>

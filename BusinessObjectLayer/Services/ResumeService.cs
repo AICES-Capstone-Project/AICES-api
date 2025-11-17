@@ -171,12 +171,21 @@ namespace BusinessObjectLayer.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error uploading resume: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                Console.WriteLine($"❌ Error uploading resume: {ex.Message}");
+                Console.WriteLine($"📋 Exception Type: {ex.GetType().Name}");
+                Console.WriteLine($"🔍 Stack trace: {ex.StackTrace}");
+                
+                // Log inner exception if exists
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"💥 Inner Exception: {ex.InnerException.Message}");
+                    Console.WriteLine($"🔍 Inner Stack trace: {ex.InnerException.StackTrace}");
+                }
+                
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
-                    Message = "An error occurred while uploading the resume."
+                    Message = $"An error occurred while uploading the resume: {ex.Message}"
                 };
             }
         }
@@ -393,6 +402,191 @@ namespace BusinessObjectLayer.Services
                 {
                     Status = SRStatus.Error,
                     Message = "An error occurred while retrieving the resume result."
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> GetJobResumesAsync(int jobId)
+        {
+            try
+            {
+                // Get current user and company
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                
+                if (companyUser == null || companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company not found for user."
+                    };
+                }
+
+                // Validate job exists and belongs to company
+                var job = await _jobRepository.GetJobByIdAsync(jobId);
+                if (job == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Job not found."
+                    };
+                }
+
+                if (job.CompanyId != companyUser.CompanyId.Value)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You do not have permission to view resumes for this job."
+                    };
+                }
+
+                // Get all resumes for this job
+                var resumes = await _parsedResumeRepository.GetByJobIdAsync(jobId);
+
+                var resumeList = resumes.Select(resume => new JobResumeListResponse
+                {
+                    ResumeId = resume.ResumeId,
+                    Status = resume.ResumeStatus,
+                    FullName = resume.ParsedCandidates?.FullName ?? "Unknown",
+                    TotalResumeScore = resume.ParsedCandidates?.AIScores?.TotalResumeScore
+                }).ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Job resumes retrieved successfully.",
+                    Data = resumeList
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error getting job resumes: {ex.Message}");
+                Console.WriteLine($"🔍 Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving job resumes."
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> GetJobResumeDetailAsync(int jobId, int resumeId)
+        {
+            try
+            {
+                // Get current user and company
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                
+                if (companyUser == null || companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company not found for user."
+                    };
+                }
+
+                // Validate job exists and belongs to company
+                var job = await _jobRepository.GetJobByIdAsync(jobId);
+                if (job == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Job not found."
+                    };
+                }
+
+                if (job.CompanyId != companyUser.CompanyId.Value)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You do not have permission to view this resume."
+                    };
+                }
+
+                // Get resume with full details
+                var resume = await _parsedResumeRepository.GetByJobIdAndResumeIdAsync(jobId, resumeId);
+                if (resume == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Resume not found."
+                    };
+                }
+
+                var candidate = resume.ParsedCandidates;
+                var aiScore = candidate?.AIScores;
+
+                var scoreDetails = aiScore?.AIScoreDetails?.Select(detail => new ResumeScoreDetailResponse
+                {
+                    CriteriaId = detail.CriteriaId,
+                    CriteriaName = detail.Criteria?.Name ?? "",
+                    Matched = detail.Matched,
+                    Score = detail.Score,
+                    AINote = detail.AINote
+                }).ToList() ?? new List<ResumeScoreDetailResponse>();
+
+                var response = new JobResumeDetailResponse
+                {
+                    ResumeId = resume.ResumeId,
+                    QueueJobId = resume.QueueJobId ?? string.Empty,
+                    FileUrl = resume.FileUrl ?? string.Empty,
+                    Status = resume.ResumeStatus,
+                    CreatedAt = resume.CreatedAt ?? DateTime.UtcNow,
+                    FullName = candidate?.FullName ?? "Unknown",
+                    Email = candidate?.Email ?? "N/A",
+                    PhoneNumber = candidate?.PhoneNumber,
+                    TotalResumeScore = aiScore?.TotalResumeScore,
+                    AIExplanation = aiScore?.AIExplanation,
+                    ScoreDetails = scoreDetails
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Resume detail retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error getting job resume detail: {ex.Message}");
+                Console.WriteLine($"🔍 Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving resume detail."
                 };
             }
         }

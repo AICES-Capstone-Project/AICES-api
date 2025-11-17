@@ -69,6 +69,32 @@ namespace API.Controllers
             var serviceResponse = await _resumeService.GetResumeResultAsync(resumeId);
             return ControllerResponse.Response(serviceResponse);
         }
+
+        /// <summary>
+        /// GET /api/resume/jobs/{jobId}
+        /// Get list of resumes for a specific job (company self)
+        /// Returns: resumeId, status, fullName, totalResumeScore
+        /// </summary>
+        [HttpGet("jobs/{jobId}")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> GetJobResumes(int jobId)
+        {
+            var serviceResponse = await _resumeService.GetJobResumesAsync(jobId);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        /// <summary>
+        /// GET /api/resume/jobs/{jobId}/{resumeId}
+        /// Get detailed information about a specific resume
+        /// Returns: resume details, candidate info, AI scores, and score details
+        /// </summary>
+        [HttpGet("jobs/{jobId}/{resumeId}")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> GetJobResumeDetail(int jobId, int resumeId)
+        {
+            var serviceResponse = await _resumeService.GetJobResumeDetailAsync(jobId, resumeId);
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
 

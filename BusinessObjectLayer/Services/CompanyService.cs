@@ -991,7 +991,7 @@ namespace BusinessObjectLayer.Services
                             await _notificationService.CreateAsync(
                                 creatorUserId.Value,
                                 NotificationTypeEnum.Company,
-                                $"Your company '{company.Name}' has been rejected ❌",
+                                $"Your company '{company.Name}' has been rejected",
                                 $"Reason: {rejectionReason ?? "No reason provided."}"
                             );
                         }

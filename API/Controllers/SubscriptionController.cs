@@ -19,7 +19,6 @@ namespace API.Controllers
         }
 
         [HttpGet] 
-        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
         public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
         {
             var response = await _subscriptionService.GetAllByAdminAsync(page, pageSize, search);

@@ -22,28 +22,58 @@ namespace BusinessObjectLayer.Services
 
             // Check if service-account.json exists in the current directory first
             var serviceAccountPath = Path.Combine(Directory.GetCurrentDirectory(), "service-account.json");
-            string? credentialPath;
+            string? credentialPath = null;
             
             if (File.Exists(serviceAccountPath))
             {
                 // Use service-account.json if it exists in current directory
                 credentialPath = serviceAccountPath;
+                Console.WriteLine($"✅ Using service account file: {credentialPath}");
             }
             else
             {
-                // Fall back to configured credential path
+                // Try to get configured credential path
                 credentialPath = configuration["GCP:CREDENTIAL_PATH"] ?? 
                                 Environment.GetEnvironmentVariable("GCP__CREDENTIAL_PATH");
                 
-                if (string.IsNullOrEmpty(credentialPath))
+                if (!string.IsNullOrEmpty(credentialPath))
                 {
-                    throw new ArgumentNullException(nameof(credentialPath), "GCP Credential Path is not configured and service-account.json not found");
+                    if (File.Exists(credentialPath))
+                    {
+                        Console.WriteLine($"✅ Using configured credential path: {credentialPath}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"⚠️ Configured credential path not found: {credentialPath}");
+                        credentialPath = null;
+                    }
                 }
             }
 
-            Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialPath);
-            _storageClient = StorageClient.Create();
-            _helper = new GoogleCloudStorageHelper( _bucketName, credentialPath);
+            // Try to create StorageClient with credentials or use Application Default Credentials
+            try
+            {
+                if (!string.IsNullOrEmpty(credentialPath) && File.Exists(credentialPath))
+                {
+                    Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialPath);
+                    _storageClient = StorageClient.Create();
+                    _helper = new GoogleCloudStorageHelper(_bucketName, credentialPath);
+                    Console.WriteLine("✅ Google Cloud Storage initialized with service account file");
+                }
+                else
+                {
+                    // Use Application Default Credentials (works with Workload Identity on GCP)
+                    _storageClient = StorageClient.Create();
+                    _helper = new GoogleCloudStorageHelper(_bucketName, null); // null means use ADC
+                    Console.WriteLine("✅ Google Cloud Storage initialized with Application Default Credentials");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Failed to initialize Google Cloud Storage: {ex.Message}");
+                throw new InvalidOperationException(
+                    "Failed to initialize Google Cloud Storage. Make sure credentials are configured correctly.", ex);
+            }
         }
 
         public async Task<string> UploadFileAsync(IFormFile file)

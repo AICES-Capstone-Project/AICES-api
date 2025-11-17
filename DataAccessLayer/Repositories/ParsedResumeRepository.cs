@@ -36,8 +36,8 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.ParsedResumes
                 .Include(pr => pr.ParsedCandidates)
-                    .ThenInclude(pc => pc.AIScores)
-                        .ThenInclude(ais => ais.AIScoreDetails)
+                    .ThenInclude(pc => pc!.AIScores)
+                        .ThenInclude(ais => ais!.AIScoreDetails)
                             .ThenInclude(aisd => aisd.Criteria)
                 .FirstOrDefaultAsync(pr => pr.ResumeId == resumeId);
         }
@@ -46,6 +46,27 @@ namespace DataAccessLayer.Repositories
         {
             _context.ParsedResumes.Update(parsedResume);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<List<ParsedResumes>> GetByJobIdAsync(int jobId)
+        {
+            return await _context.ParsedResumes
+                .Include(pr => pr.ParsedCandidates)
+                    .ThenInclude(pc => pc!.AIScores)
+                .Where(pr => pr.JobId == jobId && pr.IsActive)
+                .OrderByDescending(pr => pr.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<ParsedResumes?> GetByJobIdAndResumeIdAsync(int jobId, int resumeId)
+        {
+            return await _context.ParsedResumes
+                .Include(pr => pr.ParsedCandidates)
+                    .ThenInclude(pc => pc!.AIScores)
+                        .ThenInclude(ais => ais!.AIScoreDetails)
+                            .ThenInclude(aisd => aisd.Criteria)
+                .Where(pr => pr.JobId == jobId && pr.ResumeId == resumeId && pr.IsActive)
+                .FirstOrDefaultAsync();
         }
     }
 }
