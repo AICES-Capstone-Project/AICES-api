@@ -8,7 +8,7 @@ namespace Data.Enum
 {
     public enum TransactionGatewayEnum
     {
-        VNPay,
+        StripePayment,
         VietQR,
         BankTransfer
     }

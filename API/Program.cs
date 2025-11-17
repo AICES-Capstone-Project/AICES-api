@@ -1,29 +1,34 @@
+using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using BusinessObjectLayer.IServices.Auth;
 using BusinessObjectLayer.Services;
 using BusinessObjectLayer.Services.Auth;
+using CloudinaryDotNet;
+using Data.Enum;
+using Data.Models.Response;
+using CloudinaryDotNet;
+using Data.Settings;
+using Data.Settings.Data.Settings;
 using DataAccessLayer;
 using DataAccessLayer.IRepositories;
 using DataAccessLayer.Repositories;
-using BusinessObjectLayer.IServices;
+using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using StackExchange.Redis;
+using Stripe;
 using System.Text;
 using System.Text.Json;
-using DotNetEnv;
-using CloudinaryDotNet;
-using BusinessObjectLayer.IServices;
-using Microsoft.AspNetCore.Mvc;
-using Data.Models.Response;
-using Data.Enum;
-using StackExchange.Redis;
+
 
 // ------------------------
 // ?? LOAD ENVIRONMENT FILE
 // ------------------------
 var envPath = Path.Combine(Directory.GetCurrentDirectory(), "..", ".env");
-if (File.Exists(envPath))
+if (System.IO.File.Exists(envPath))
 {
     Env.Load(envPath);
     Console.WriteLine($".env file loaded from: {envPath}");
@@ -109,7 +114,7 @@ var apiSecret = Environment.GetEnvironmentVariable("CLOUDINARY__APISECRET");
 
 if (!string.IsNullOrEmpty(cloudName) && !string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(apiSecret))
 {
-    var account = new Account(cloudName, apiKey, apiSecret);
+    var account = new CloudinaryDotNet.Account(cloudName, apiKey, apiSecret);
     var cloudinary = new Cloudinary(account) { Api = { Secure = true } };
     builder.Services.AddSingleton(cloudinary);
     
@@ -181,6 +186,22 @@ catch (Exception ex)
 }
 
 // ------------------------
+// STRIPE CONFIG
+// ------------------------
+builder.Services.Configure<StripeSettings>(options =>
+{
+    options.SecretKey = Environment.GetEnvironmentVariable("STRIPE__SECRETKEY") ?? "";
+    options.PublishableKey = Environment.GetEnvironmentVariable("STRIPE__PUBLISHABLEKEY") ?? "";
+    options.WebhookSecret = Environment.GetEnvironmentVariable("STRIPE__WEBHOOKSECRET") ?? "";
+    options.VndToUsdRate = decimal.Parse(Environment.GetEnvironmentVariable("STRIPE__VND_TO_USD_RATE") ?? "0.000041");
+});
+
+StripeConfiguration.ApiKey = Environment.GetEnvironmentVariable("STRIPE__SECRETKEY");
+
+
+
+
+// ------------------------
 // ?? REGISTER REPOSITORIES & SERVICES
 // ------------------------
 
@@ -196,6 +217,8 @@ builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IEmploymentTypeRepository, EmploymentTypeRepository>();
 builder.Services.AddScoped<IJobRepository, JobRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 // Removed JobCategoryRepository after replacing with Specialization
 builder.Services.AddScoped<ISpecializationRepository, SpecializationRepository>();
 builder.Services.AddScoped<IJobEmploymentTypeRepository, JobEmploymentTypeRepository>();
@@ -221,7 +244,7 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ISpecializationService, SpecializationService>();
 builder.Services.AddScoped<IEmploymentTypeService, EmploymentTypeService>();
 builder.Services.AddScoped<IJobService, JobService>();
-builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<ISubscriptionService, BusinessObjectLayer.Services.SubscriptionService>();
 builder.Services.AddScoped<ICompanySubscriptionService, CompanySubscriptionService>();
 builder.Services.AddScoped<IBannerConfigService, BannerConfigService>();
 builder.Services.AddScoped<ISkillService, SkillService>();
@@ -230,9 +253,11 @@ builder.Services.AddScoped<ICriteriaService, CriteriaService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IResumeService, ResumeService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+
 
 //  Auth Services
-builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<ITokenService, BusinessObjectLayer.Services.Auth.TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
