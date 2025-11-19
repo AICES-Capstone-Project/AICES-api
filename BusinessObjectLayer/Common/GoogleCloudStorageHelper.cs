@@ -1,11 +1,12 @@
 using Data.Enum;
 using Data.Models.Response;
 using Google.Apis.Auth.OAuth2;
+using Google.Cloud.Iam.Credentials.V1;
 using Google.Cloud.Storage.V1;
+using Google.Protobuf;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace BusinessObjectLayer.Common
@@ -15,93 +16,29 @@ namespace BusinessObjectLayer.Common
         private readonly StorageClient _storageClient;
         private readonly string _bucketName;
 
-        public GoogleCloudStorageHelper(string bucketName)
+        // Email service account used for signing
+        private readonly string _serviceAccountEmail;
+
+        public GoogleCloudStorageHelper(string bucketName, string serviceAccountEmail)
         {
             _bucketName = bucketName ?? throw new ArgumentNullException(nameof(bucketName));
+            _serviceAccountEmail = serviceAccountEmail ?? throw new ArgumentNullException(nameof(serviceAccountEmail));
 
             var credential = GoogleCredential.GetApplicationDefault();
-            Console.WriteLine("🔐 Using Google ADC (Workload Identity / Cloud Run SA)");
             _storageClient = StorageClient.Create(credential);
         }
 
-        /// <summary>
-        /// Upload a resume file (PDF or DOCX) to Google Cloud Storage
-        /// </summary>
-        public async Task<ServiceResponse> UploadResumeAsync(
-            IFormFile file,
-            string? folder = "resumes",
-            string? publicId = null)
+        // ----------------------------
+        // Upload Resume (you need this method back)
+        // ----------------------------
+        public async Task<ServiceResponse> UploadResumeAsync(IFormFile file)
         {
-            try
-            {
-                if (file == null || file.Length == 0)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = "File is empty or null."
-                    };
-                }
-
-                // Validate file extension - only PDF and DOCX allowed for resumes
-                var allowedExtensions = new[] { ".pdf", ".docx" };
-                var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-                
-                if (!allowedExtensions.Contains(extension))
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = "Invalid file type. Only PDF and DOCX files are allowed for resumes."
-                    };
-                }
-
-                // Validate file size (10MB limit for resumes)
-                const int maxFileSize = 10 * 1024 * 1024;
-                if (file.Length > maxFileSize)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = "File size exceeds 10MB limit."
-                    };
-                }
-
-                using var stream = file.OpenReadStream();
-                
-                // Generate object name
-                var objectName = publicId ?? $"{Guid.NewGuid()}{extension}";
-                
-                // Add folder prefix if specified
-                if (!string.IsNullOrEmpty(folder))
-                {
-                    objectName = $"{folder.TrimEnd('/')}/{objectName}";
-                }
-
-                await _storageClient.UploadObjectAsync(_bucketName, objectName, null, stream);
-                
-                var url = $"gs://{_bucketName}/{objectName}";
-                
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Success,
-                    Message = "Resume uploaded successfully.",
-                    Data = new { Url = url }
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = $"Failed to upload resume: {ex.Message}"
-                };
-            }
+            return await UploadFileAsync(file, "resumes");
         }
 
-        /// <summary>
-        /// Upload any file to Google Cloud Storage with optional folder
-        /// </summary>
+        // ----------------------------
+        // Upload File
+        // ----------------------------
         public async Task<ServiceResponse> UploadFileAsync(
             IFormFile file,
             string? folder = null,
@@ -110,45 +47,40 @@ namespace BusinessObjectLayer.Common
             try
             {
                 if (file == null || file.Length == 0)
-                {
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = "File is empty or null."
+                        Message = "File is empty."
                     };
-                }
-
-                // Validate file size (20MB limit for general files)
-                const int maxFileSize = 20 * 1024 * 1024;
-                if (file.Length > maxFileSize)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = "File size exceeds 20MB limit."
-                    };
-                }
 
                 using var stream = file.OpenReadStream();
-                
-                // Generate object name
+
                 var extension = Path.GetExtension(file.FileName);
                 var objectName = publicId ?? $"{Guid.NewGuid()}{extension}";
-                
-                // Add folder prefix if specified
-                if (!string.IsNullOrEmpty(folder))
-                {
-                    objectName = $"{folder.TrimEnd('/')}/{objectName}";
-                }
 
-                await _storageClient.UploadObjectAsync(_bucketName, objectName, null, stream);
-                
-                var url = $"gs://{_bucketName}/{objectName}";
+                if (!string.IsNullOrEmpty(folder))
+                    objectName = $"{folder.TrimEnd('/')}/{objectName}";
+
+                await _storageClient.UploadObjectAsync(
+                    bucket: _bucketName,
+                    objectName: objectName,
+                    contentType: file.ContentType,
+                    source: stream
+                );
+
+                // SIGNED URL
+                var signedUrl = await GenerateSignedUrlAsync(objectName);
+
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "File uploaded successfully.",
-                    Data = new { Url = url }
+                    Data = new
+                    {
+                        Url = signedUrl,
+                        ObjectName = objectName,
+                        BucketName = _bucketName
+                    }
                 };
             }
             catch (Exception ex)
@@ -156,22 +88,59 @@ namespace BusinessObjectLayer.Common
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
-                    Message = $"Failed to upload file: {ex.Message}"
+                    Message = $"Upload failed: {ex.Message}"
                 };
             }
         }
 
-        /// <summary>
-        /// Upload resume with specific settings (to resumes folder, with user ID prefix)
-        /// </summary>
-        public async Task<ServiceResponse> UploadUserResumeAsync(
-            int userId,
-            IFormFile file)
+        // ----------------------------
+        // Generate Signed URL
+        // ----------------------------
+        public async Task<string> GenerateSignedUrlAsync(string objectName, TimeSpan? expiration = null)
         {
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            var publicId = $"resumes/{userId}_{DateTime.UtcNow.Ticks}{extension}";
-            return await UploadResumeAsync(file, null, publicId);
+            var expires = expiration ?? TimeSpan.FromHours(1);
+            var expireTime = DateTime.UtcNow.Add(expires);
+            long expireTimestamp = expireTime.ToUnixSeconds();   // fixed
+
+            string stringToSign =
+                $"GET\n" +
+                $"\n" +   // MD5
+                $"\n" +   // Content-Type
+                $"{expireTimestamp}\n" +
+                $"/{_bucketName}/{objectName}";
+
+            var iamClient = await IAMCredentialsClient.CreateAsync();
+
+            var saResource = $"projects/-/serviceAccounts/{_serviceAccountEmail}";
+
+            var request = new SignBlobRequest
+            {
+                Name = saResource,
+                Payload = ByteString.CopyFromUtf8(stringToSign)
+            };
+
+            var response = await iamClient.SignBlobAsync(request);
+
+            string signature = Convert.ToBase64String(response.SignedBlob.ToByteArray());
+
+            string signedUrl =
+                $"https://storage.googleapis.com/{_bucketName}/{objectName}" +
+                $"?GoogleAccessId={_serviceAccountEmail}" +
+                $"&Expires={expireTimestamp}" +
+                $"&Signature={Uri.EscapeDataString(signature)}";
+
+            return signedUrl;
         }
     }
 }
 
+// ----------------------------
+// Extension MUST be OUTSIDE any class
+// ----------------------------
+public static class DateTimeExtensions
+{
+    public static long ToUnixSeconds(this DateTime dt)
+    {
+        return (long)Math.Floor((dt - DateTime.UnixEpoch).TotalSeconds);
+    }
+}

@@ -6,8 +6,9 @@ using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
 using Microsoft.AspNetCore.Http;
-using System.Text.Json;
+using System.ComponentModel.Design;
 using System.Linq;
+using System.Text.Json;
 
 namespace BusinessObjectLayer.Services
 {
@@ -84,9 +85,16 @@ namespace BusinessObjectLayer.Services
                         Message = "Company not found for user."
                     };
                 }
+                int companyId = companyUser.CompanyId.Value;
+
+                var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+                string publicId = 
+                    $"resumes/{companyId}/{jobId}/{userId}_{DateTime.UtcNow.Ticks}{extension}";
 
                 // Upload file to Google Cloud Storage
-                var uploadResult = await _storageHelper.UploadResumeAsync(file, "resumes");
+                var uploadResult = await _storageHelper.UploadFileAsync(file, "resumes", publicId);
+
                 if (uploadResult.Status != SRStatus.Success)
                 {
                     return uploadResult;

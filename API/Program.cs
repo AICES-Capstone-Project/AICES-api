@@ -132,19 +132,25 @@ else
 // ?? GOOGLE CLOUD STORAGE CONFIGURATION
 // ------------------------
 var gcpBucketName = Environment.GetEnvironmentVariable("GCS__BUCKET_NAME");
-
+var gcpEmail = Environment.GetEnvironmentVariable("GCS__SERVICE_ACCOUNT_EMAIL");
 if (!string.IsNullOrEmpty(gcpBucketName))
 {
     // Configure GCP bucket name in IConfiguration
     builder.Configuration["GCP:BUCKET_NAME"] = gcpBucketName;
-    
+
     // Register GoogleCloudStorageHelper as Singleton
     builder.Services.AddSingleton<BusinessObjectLayer.Common.GoogleCloudStorageHelper>(sp =>
     {
         var config = sp.GetRequiredService<IConfiguration>();
-        var bucketName = config["GCP:BUCKET_NAME"] ?? throw new ArgumentNullException("GCP:BUCKET_NAME", "GCP Bucket Name is not configured");
-        
-        // Set credential path if exists (for local development)
+        var bucketName = config["GCP:BUCKET_NAME"]
+            ?? throw new ArgumentNullException("GCP:BUCKET_NAME", "GCP Bucket Name is not configured");
+
+        // Lấy service account email từ env
+        var serviceAccountEmail = Environment.GetEnvironmentVariable("GCS__SERVICE_ACCOUNT_EMAIL");
+        if (string.IsNullOrEmpty(serviceAccountEmail))
+            throw new Exception("❌ Missing environment variable: GCS__SERVICE_ACCOUNT_EMAIL");
+
+        // Optional: credential path
         var credentialPath = Environment.GetEnvironmentVariable("GCS__CREDENTIAL_PATH");
         if (!string.IsNullOrEmpty(credentialPath) && System.IO.File.Exists(credentialPath))
         {
@@ -153,22 +159,16 @@ if (!string.IsNullOrEmpty(gcpBucketName))
         }
         else
         {
-            var serviceAccountPath = Path.Combine(Directory.GetCurrentDirectory(), "service-account.json");
-            if (System.IO.File.Exists(serviceAccountPath))
-            {
-                Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", serviceAccountPath);
-                Console.WriteLine($"✅ Using service-account.json from current directory");
-            }
-            else
-            {
-                Console.WriteLine("🔐 Using Application Default Credentials (ADC)");
-            }
+            Console.WriteLine("🔐 Using ADC (Application Default Credentials)");
         }
-        
-        return new BusinessObjectLayer.Common.GoogleCloudStorageHelper(bucketName);
+
+        return new BusinessObjectLayer.Common.GoogleCloudStorageHelper(
+            bucketName,
+            serviceAccountEmail
+        );
     });
-    
-    Console.WriteLine($"✅ Google Cloud Storage configured successfully: {gcpBucketName}");
+
+    Console.WriteLine($"✅ Google Cloud Storage configured successfully: {gcpBucketName}, {gcpEmail}");
 }
 else
 {

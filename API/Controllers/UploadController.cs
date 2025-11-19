@@ -59,34 +59,34 @@ namespace API.Controllers
             }
         }
 
-        [HttpPost("upload")]
-        public async Task<IActionResult> Upload(IFormFile file)
-        {
-            if (file == null || file.Length == 0)
-            {
-                var errorResponse = new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "No file uploaded or file is empty."
-                };
-                return ControllerResponse.Response(errorResponse);
-            }
+        //[HttpPost("upload")]
+        //public async Task<IActionResult> Upload(IFormFile file)
+        //{
+        //    if (file == null || file.Length == 0)
+        //    {
+        //        var errorResponse = new ServiceResponse
+        //        {
+        //            Status = SRStatus.Error,
+        //            Message = "No file uploaded or file is empty."
+        //        };
+        //        return ControllerResponse.Response(errorResponse);
+        //    }
 
-            try
-            {
-                var response = await _storageHelper.UploadResumeAsync(file, "resumes");
-                return ControllerResponse.Response(response);
-            }
-            catch (Exception ex)
-            {
-                var errorResponse = new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = $"Failed to upload file: {ex.Message}"
-                };
-                return ControllerResponse.Response(errorResponse);
-            }
-        }
+        //    try
+        //    {
+        //        var response = await _storageHelper.UploadResumeAsync(file, "resumes");
+        //        return ControllerResponse.Response(response);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        var errorResponse = new ServiceResponse
+        //        {
+        //            Status = SRStatus.Error,
+        //            Message = $"Failed to upload file: {ex.Message}"
+        //        };
+        //        return ControllerResponse.Response(errorResponse);
+        //    }
+        //}
     }
 }
 
