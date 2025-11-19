@@ -27,6 +27,8 @@ namespace BusinessObjectLayer.Services
         private readonly IJobSkillRepository _jobSkillRepository;
         private readonly ICriteriaService _criteriaService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly INotificationService _notificationService;
+
 
         public JobService(
             IJobRepository jobRepository, 
@@ -38,7 +40,8 @@ namespace BusinessObjectLayer.Services
             ISkillRepository skillRepository,
             IJobSkillRepository jobSkillRepository,
             ICriteriaService criteriaService,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            INotificationService notificationService)
         {
             _jobRepository = jobRepository;
             _authRepository = authRepository;
@@ -50,6 +53,7 @@ namespace BusinessObjectLayer.Services
             _jobSkillRepository = jobSkillRepository;
             _criteriaService = criteriaService;
             _httpContextAccessor = httpContextAccessor;
+            _notificationService = notificationService;
         }
 
         public async Task<ServiceResponse> GetJobByIdAsync(int jobId)
@@ -174,8 +178,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 // Get user email from claims
-             var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
-
+                var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
                 if (string.IsNullOrEmpty(emailClaim))
                 {
                     return new ServiceResponse
@@ -207,7 +210,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                //Check if user has joined a company
+                // Check if user has joined a company
                 if (companyUser.CompanyId == null)
                 {
                     return new ServiceResponse
@@ -232,15 +235,15 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Determine JobStatus based on user role
-                var jobStatus = user.Role?.RoleName == "HR_Manager" 
-                    ? JobStatusEnum.Published 
+                var jobStatus = user.Role?.RoleName == "HR_Manager"
+                    ? JobStatusEnum.Published
                     : JobStatusEnum.Pending;
 
                 // Create job entity
                 var job = new Job
                 {
                     ComUserId = companyUser.ComUserId,
-                    CompanyId = companyUser.CompanyId.Value,  // Safe because we checked above
+                    CompanyId = companyUser.CompanyId.Value,
                     Title = request.Title ?? string.Empty,
                     Description = request.Description,
                     Slug = GenerateSlug(request.Title ?? string.Empty),
@@ -252,6 +255,28 @@ namespace BusinessObjectLayer.Services
 
                 // Save job
                 var createdJob = await _jobRepository.CreateJobAsync(job);
+
+                // ? G?I THÔNG BÁO SAU KHI JOB ???C T?O
+                if (createdJob != null)
+                {
+                    try
+                    {
+                        var admins = await _authRepository.GetUsersByRoleAsync("System_Admin");
+                        foreach (var admin in admins)
+                        {
+                            await _notificationService.CreateAsync(
+                                admin.UserId,
+                                NotificationTypeEnum.JobCreated,
+                                $"A new job has been created: {createdJob.Title}"
+                            );
+                        }
+                        Console.WriteLine($"?? Sent notification for new job: {createdJob.Title}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"? Error sending notification: {ex.Message}");
+                    }
+                }
 
                 // Validate specialization
                 if (request.SpecializationId == null)
@@ -283,7 +308,6 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Validate that all employment type IDs exist
                 foreach (var employTypeId in request.EmploymentTypeIds)
                 {
                     var employmentTypeExists = await _employmentTypeRepository.ExistsAsync(employTypeId);
@@ -308,7 +332,6 @@ namespace BusinessObjectLayer.Services
                 // Add job skills if provided
                 if (request.SkillIds != null && request.SkillIds.Count > 0)
                 {
-                    // validate skills
                     var invalidSkillId = 0;
                     foreach (var skillId in request.SkillIds)
                     {
@@ -319,6 +342,7 @@ namespace BusinessObjectLayer.Services
                             break;
                         }
                     }
+
                     if (invalidSkillId != 0)
                     {
                         return new ServiceResponse
@@ -356,7 +380,6 @@ namespace BusinessObjectLayer.Services
                     return criteriaResponse;
                 }
 
-                // Get the complete job with all relationships
                 var jobWithRelations = await _jobRepository.GetJobByIdAsync(createdJob.JobId);
 
                 if (jobWithRelations == null)
@@ -371,7 +394,7 @@ namespace BusinessObjectLayer.Services
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
-                    Message = "Job created successfully.",
+                    Message = "Job created successfully."
                 };
             }
             catch (Exception ex)
@@ -385,6 +408,7 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
 
         // Get all jobs for the authenticated user's company
         public async Task<ServiceResponse> GetSelfCompanyPublishedJobsAsync(int page = 1, int pageSize = 10, string? search = null)

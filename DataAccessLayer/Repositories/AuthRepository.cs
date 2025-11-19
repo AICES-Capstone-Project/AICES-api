@@ -74,5 +74,15 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(lp => lp.UserId == userId && lp.AuthProvider == provider);
         }
 
+        public async Task<IEnumerable<User>> GetUsersByRoleAsync(string roleName)
+        {
+            return await _context.Users
+                .Include(u => u.Role)
+                .Include(u => u.Profile)
+                .Where(u => u.Role.RoleName == roleName && u.IsActive)
+                .ToListAsync();
+        }
+
+
     }
 }
