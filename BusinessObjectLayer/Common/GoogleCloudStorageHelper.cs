@@ -14,41 +14,14 @@ namespace BusinessObjectLayer.Common
     {
         private readonly StorageClient _storageClient;
         private readonly string _bucketName;
-        private readonly UrlSigner _urlSigner;
 
-        public GoogleCloudStorageHelper(string bucketName, string? credentialPath)
+        public GoogleCloudStorageHelper(string bucketName)
         {
             _bucketName = bucketName ?? throw new ArgumentNullException(nameof(bucketName));
 
-            GoogleCredential credential;
-            
-            if (!string.IsNullOrEmpty(credentialPath) && File.Exists(credentialPath))
-            {
-                // Use explicit credential file
-                credential = GoogleCredential.FromFile(credentialPath);
-                Console.WriteLine($"📁 GoogleCloudStorageHelper using credential file: {credentialPath}");
-            }
-            else
-            {
-                // Use Application Default Credentials (Workload Identity, metadata server, etc.)
-                credential = GoogleCredential.GetApplicationDefault();
-                Console.WriteLine("🔐 GoogleCloudStorageHelper using Application Default Credentials");
-            }
-
+            var credential = GoogleCredential.GetApplicationDefault();
+            Console.WriteLine("🔐 Using Google ADC (Workload Identity / Cloud Run SA)");
             _storageClient = StorageClient.Create(credential);
-            
-            // UrlSigner requires service account credentials
-            // For ADC in production, you might need to handle this differently
-            try
-            {
-                _urlSigner = UrlSigner.FromCredential(credential);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"⚠️ Could not create UrlSigner: {ex.Message}");
-                // UrlSigner might not work with ADC, but basic operations will still work
-                _urlSigner = null!;
-            }
         }
 
         /// <summary>
@@ -107,17 +80,13 @@ namespace BusinessObjectLayer.Common
 
                 await _storageClient.UploadObjectAsync(_bucketName, objectName, null, stream);
                 
-                var signedUrl = _urlSigner.Sign(
-                    _bucketName,
-                    objectName,
-                    TimeSpan.FromHours(1) // valid 1 hour
-                );
+                var url = $"gs://{_bucketName}/{objectName}";
                 
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "Resume uploaded successfully.",
-                    Data = new { Url = signedUrl, ObjectName = objectName }
+                    Data = new { Url = url }
                 };
             }
             catch (Exception ex)
@@ -174,7 +143,7 @@ namespace BusinessObjectLayer.Common
 
                 await _storageClient.UploadObjectAsync(_bucketName, objectName, null, stream);
                 
-                var url = $"https://storage.googleapis.com/{_bucketName}/{objectName}";
+                var url = $"gs://{_bucketName}/{objectName}";
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,

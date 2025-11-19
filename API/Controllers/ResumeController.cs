@@ -75,7 +75,7 @@ namespace API.Controllers
         /// Get list of resumes for a specific job (company self)
         /// Returns: resumeId, status, fullName, totalResumeScore
         /// </summary>
-        [HttpGet("jobs/{jobId}")]
+        [HttpGet("/company/self/jobs/{jobId}/resumes")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetJobResumes(int jobId)
         {
@@ -88,7 +88,7 @@ namespace API.Controllers
         /// Get detailed information about a specific resume
         /// Returns: resume details, candidate info, AI scores, and score details
         /// </summary>
-        [HttpGet("jobs/{jobId}/{resumeId}")]
+        [HttpGet("/company/self/jobs/{jobId}/resumes/{resumeId}")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetJobResumeDetail(int jobId, int resumeId)
         {

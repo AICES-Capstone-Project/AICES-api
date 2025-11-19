@@ -19,7 +19,7 @@ namespace BusinessObjectLayer.Services
         private readonly IAIScoreDetailRepository _aiScoreDetailRepository;
         private readonly IJobRepository _jobRepository;
         private readonly ICompanyUserRepository _companyUserRepository;
-        private readonly IGoogleCloudStorageService _storageService;
+        private readonly GoogleCloudStorageHelper _storageHelper;
         private readonly RedisHelper _redisHelper;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
@@ -30,7 +30,7 @@ namespace BusinessObjectLayer.Services
             IAIScoreDetailRepository aiScoreDetailRepository,
             IJobRepository jobRepository,
             ICompanyUserRepository companyUserRepository,
-            IGoogleCloudStorageService storageService,
+            GoogleCloudStorageHelper storageHelper,
             RedisHelper redisHelper,
             IHttpContextAccessor httpContextAccessor)
         {
@@ -40,7 +40,7 @@ namespace BusinessObjectLayer.Services
             _aiScoreDetailRepository = aiScoreDetailRepository;
             _jobRepository = jobRepository;
             _companyUserRepository = companyUserRepository;
-            _storageService = storageService;
+            _storageHelper = storageHelper;
             _redisHelper = redisHelper;
             _httpContextAccessor = httpContextAccessor;
         }
@@ -86,22 +86,32 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Upload file to Google Cloud Storage
-                var uploadResult = await _storageService.UploadResumeAsync(file, "resumes");
+                var uploadResult = await _storageHelper.UploadResumeAsync(file, "resumes");
                 if (uploadResult.Status != SRStatus.Success)
                 {
                     return uploadResult;
                 }
 
-                // Extract signed URL from upload result
+                // Extract URL from upload result
                 string? fileUrl = null;
                 if (uploadResult.Data != null)
                 {
-                    // Use reflection or JSON deserialization to extract URL
+                    // Use reflection to extract URL (property name is "Url" with capital U)
                     var dataType = uploadResult.Data.GetType();
                     var urlProperty = dataType.GetProperty("Url");
                     if (urlProperty != null)
                     {
                         fileUrl = urlProperty.GetValue(uploadResult.Data) as string;
+                    }
+                    
+                    // If not found, try with lowercase "url"
+                    if (string.IsNullOrEmpty(fileUrl))
+                    {
+                        urlProperty = dataType.GetProperty("url");
+                        if (urlProperty != null)
+                        {
+                            fileUrl = urlProperty.GetValue(uploadResult.Data) as string;
+                        }
                     }
                 }
 
@@ -110,7 +120,7 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse
                     {
                         Status = SRStatus.Error,
-                        Message = "Failed to get signed URL from upload."
+                        Message = "Failed to get URL from upload result."
                     };
                 }
 

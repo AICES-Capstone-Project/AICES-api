@@ -1,5 +1,5 @@
 using API.Common;
-using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.Common;
 using Data.Enum;
 using Data.Models.Response;
 using Microsoft.AspNetCore.Mvc;
@@ -10,11 +10,11 @@ namespace API.Controllers
     [ApiController]
     public class UploadController : ControllerBase
     {
-        private readonly IGoogleCloudStorageService _storageService;
+        private readonly GoogleCloudStorageHelper _storageHelper;
 
-        public UploadController(IGoogleCloudStorageService storageService)
+        public UploadController(GoogleCloudStorageHelper storageHelper)
         {
-            _storageService = storageService;
+            _storageHelper = storageHelper;
         }
 
         /// <summary>
@@ -74,16 +74,8 @@ namespace API.Controllers
 
             try
             {
-                var response = await _storageService.UploadResumeAsync(file);
-                
-                var successResponse = new ServiceResponse
-                {
-                    Status = SRStatus.Success,
-                    Message = "File uploaded successfully.",
-                    Data = response.Data
-                };
-                
-                return ControllerResponse.Response(successResponse);
+                var response = await _storageHelper.UploadResumeAsync(file, "resumes");
+                return ControllerResponse.Response(response);
             }
             catch (Exception ex)
             {

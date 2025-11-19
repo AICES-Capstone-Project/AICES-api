@@ -131,22 +131,42 @@ else
 // ------------------------
 // ?? GOOGLE CLOUD STORAGE CONFIGURATION
 // ------------------------
-var gcpProjectId = Environment.GetEnvironmentVariable("GCS__PROJECT_ID");
 var gcpBucketName = Environment.GetEnvironmentVariable("GCS__BUCKET_NAME");
-var gcpCredentialPath = Environment.GetEnvironmentVariable("GCS__CREDENTIAL_PATH");
 
-if (!string.IsNullOrEmpty(gcpBucketName) && !string.IsNullOrEmpty(gcpCredentialPath))
+if (!string.IsNullOrEmpty(gcpBucketName))
 {
-    // Configure GCP settings in IConfiguration
+    // Configure GCP bucket name in IConfiguration
     builder.Configuration["GCP:BUCKET_NAME"] = gcpBucketName;
-    builder.Configuration["GCP:CREDENTIAL_PATH"] = gcpCredentialPath;
-    if (!string.IsNullOrEmpty(gcpProjectId))
-    {
-        builder.Configuration["GCP:PROJECT_ID"] = gcpProjectId;
-    }
     
-    // Register GoogleCloudStorageService
-    builder.Services.AddSingleton<IGoogleCloudStorageService, GoogleCloudStorageService>();
+    // Register GoogleCloudStorageHelper as Singleton
+    builder.Services.AddSingleton<BusinessObjectLayer.Common.GoogleCloudStorageHelper>(sp =>
+    {
+        var config = sp.GetRequiredService<IConfiguration>();
+        var bucketName = config["GCP:BUCKET_NAME"] ?? throw new ArgumentNullException("GCP:BUCKET_NAME", "GCP Bucket Name is not configured");
+        
+        // Set credential path if exists (for local development)
+        var credentialPath = Environment.GetEnvironmentVariable("GCS__CREDENTIAL_PATH");
+        if (!string.IsNullOrEmpty(credentialPath) && System.IO.File.Exists(credentialPath))
+        {
+            Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialPath);
+            Console.WriteLine($"✅ Using GCP credential file: {credentialPath}");
+        }
+        else
+        {
+            var serviceAccountPath = Path.Combine(Directory.GetCurrentDirectory(), "service-account.json");
+            if (System.IO.File.Exists(serviceAccountPath))
+            {
+                Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", serviceAccountPath);
+                Console.WriteLine($"✅ Using service-account.json from current directory");
+            }
+            else
+            {
+                Console.WriteLine("🔐 Using Application Default Credentials (ADC)");
+            }
+        }
+        
+        return new BusinessObjectLayer.Common.GoogleCloudStorageHelper(bucketName);
+    });
     
     Console.WriteLine($"✅ Google Cloud Storage configured successfully: {gcpBucketName}");
 }
