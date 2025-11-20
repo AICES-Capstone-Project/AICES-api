@@ -36,6 +36,29 @@ namespace DataAccessLayer.Repositories
             _context.Payments.Update(payment);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<List<Payment>> GetPaymentHistoryByCompanyAsync(int companyId, int page, int pageSize)
+        {
+            return await _context.Payments
+                .Where(p => p.CompanyId == companyId && p.IsActive)
+                .Include(p => p.Transactions)
+                .Include(p => p.Company)
+                    .ThenInclude(c => c.CompanySubscriptions)
+                        .ThenInclude(cs => cs.Subscription)
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+
+        public async Task<int> GetTotalPaymentsByCompanyAsync(int companyId)
+        {
+            return await _context.Payments
+                .Where(p => p.CompanyId == companyId && p.IsActive)
+                .CountAsync();
+        }
+
     }
 
 
