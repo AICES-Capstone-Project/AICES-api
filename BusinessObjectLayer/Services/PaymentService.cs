@@ -30,6 +30,8 @@ namespace BusinessObjectLayer.Services
         private readonly ITransactionRepository _transactionRepo;
         private readonly ICompanyUserRepository _companyUserRepo;
         private readonly StripeSettings _settings;
+        private readonly IAuthRepository _authRepo;
+        private readonly INotificationService _notificationService;
 
         public PaymentService(
             IPaymentRepository paymentRepo,
@@ -37,6 +39,8 @@ namespace BusinessObjectLayer.Services
             ICompanySubscriptionRepository companySubRepo,
             ITransactionRepository transactionRepo,
             ICompanyUserRepository companyUserRepo,
+            IAuthRepository authRepo,
+            INotificationService notificationService,
             IOptions<StripeSettings> settings)
         {
             _paymentRepo = paymentRepo;
@@ -44,6 +48,8 @@ namespace BusinessObjectLayer.Services
             _companySubRepo = companySubRepo;
             _transactionRepo = transactionRepo;
             _companyUserRepo = companyUserRepo;
+            _authRepo = authRepo;
+            _notificationService = notificationService;
             _settings = settings.Value;
         }
 
@@ -240,6 +246,20 @@ namespace BusinessObjectLayer.Services
                     IsActive = true
                 });
 
+                // ===== SEND NOTIFICATION TO ADMINS =====
+                var admins = await _authRepo.GetUsersByRoleAsync("System_Admin");
+
+                foreach (var admin in admins)
+                {
+                    await _notificationService.CreateAsync(
+                        admin.UserId,
+                        NotificationTypeEnum.Subscription,
+                        $"A company subscribed to a package",
+                        $"Company ID {companyId} has successfully subscribed to '{subscription.Name}'."
+                    );
+                }
+
+
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
@@ -254,6 +274,65 @@ namespace BusinessObjectLayer.Services
                 Message = "Event ignored."
             };
         }
+
+        public async Task<ServiceResponse> GetPaymentHistoryAsync(ClaimsPrincipal userClaims, int page, int pageSize)
+        {
+            var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
+            if (userIdClaim == null)
+                return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
+
+            int userId = int.Parse(userIdClaim);
+
+            var companyUser = await _companyUserRepo.GetByUserIdAsync(userId);
+            if (companyUser == null || companyUser.CompanyId == null)
+                return new ServiceResponse { Status = SRStatus.Error, Message = "User is not associated with any company." };
+
+            int companyId = companyUser.CompanyId.Value;
+
+            var payments = await _paymentRepo.GetPaymentHistoryByCompanyAsync(companyId, page, pageSize);
+            var total = await _paymentRepo.GetTotalPaymentsByCompanyAsync(companyId);
+
+            var responseList = payments.Select(p => new PaymentHistoryResponse
+            {
+                PaymentId = p.PaymentId,
+                Status = p.PaymentStatus,
+                CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+                TotalAmount = p.Transactions?.Sum(t => t.Amount) ?? 0,
+
+                SubscriptionName = p.Company?.CompanySubscriptions?
+                    .OrderByDescending(cs => cs.CreatedAt)
+                    .FirstOrDefault()?.Subscription?.Name ?? "",
+
+                DurationDays = p.Company?.CompanySubscriptions?
+                    .OrderByDescending(cs => cs.CreatedAt)
+                    .FirstOrDefault()?.Subscription?.DurationDays ?? 0,
+
+                Transactions = p.Transactions?.Select(t => new TransactionItem
+                {
+                    TransactionId = t.TransactionId,
+                    Amount = t.Amount,
+                    Gateway = t.Gateway,
+                    ResponseCode = t.ResponseCode,
+                    ResponseMessage = t.ResponseMessage,
+                    TransactionTime = t.TransactionTime
+                }).ToList() ?? new List<TransactionItem>()
+            })
+            .ToList();
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "Payment history retrieved successfully.",
+                Data = new
+                {
+                    TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                    CurrentPage = page,
+                    PageSize = pageSize,
+                    Payments = responseList
+                }
+            };
+        }
+
 
     }
 }
