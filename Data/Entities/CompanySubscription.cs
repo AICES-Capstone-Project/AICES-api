@@ -28,6 +28,9 @@ namespace Data.Entities
 
         public SubscriptionStatusEnum SubscriptionStatus { get; set; }
 
+        [MaxLength(255)]
+        public string? StripeSubscriptionId { get; set; }
+
         // Navigation
         public Company Company { get; set; } = null!;
         public Subscription Subscription { get; set; } = null!;

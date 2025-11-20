@@ -39,6 +39,9 @@ namespace Data.Entities
         [MaxLength(255)]
         public string? RejectReason { get; set; }
 
+        [MaxLength(255)]
+        public string? StripeCustomerId { get; set; }
+
         // Navigation
         public ICollection<CompanyUser>? CompanyUsers { get; set; }
         public ICollection<Job>? Jobs { get; set; }
