@@ -14,6 +14,7 @@ namespace DataAccessLayer.IRepositories
         Task UpdateAsync(Payment payment);
         Task<List<Payment>> GetPaymentHistoryByCompanyAsync(int companyId, int page, int pageSize);
         Task<int> GetTotalPaymentsByCompanyAsync(int companyId);
+        Task<Payment?> GetLatestPendingByCompanyAsync(int companyId);
 
     }
 

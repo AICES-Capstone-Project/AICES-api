@@ -31,6 +31,7 @@ namespace BusinessObjectLayer.Services
         private readonly ICompanyUserRepository _companyUserRepo;
         private readonly StripeSettings _settings;
         private readonly IAuthRepository _authRepo;
+        private readonly ICompanyRepository _companyRepo;
         private readonly INotificationService _notificationService;
 
         public PaymentService(
@@ -41,6 +42,7 @@ namespace BusinessObjectLayer.Services
             ICompanyUserRepository companyUserRepo,
             IAuthRepository authRepo,
             INotificationService notificationService,
+            ICompanyRepository companyRepo,
             IOptions<StripeSettings> settings)
         {
             _paymentRepo = paymentRepo;
@@ -50,12 +52,15 @@ namespace BusinessObjectLayer.Services
             _companyUserRepo = companyUserRepo;
             _authRepo = authRepo;
             _notificationService = notificationService;
+            _companyRepo = companyRepo;
             _settings = settings.Value;
         }
 
         // ===================================================
         // 1. CREATE CHECKOUT SESSION 
         // ===================================================
+        // using Stripe.Checkout; using Stripe; (ở đầu file)
+
         public async Task<ServiceResponse> CreateCheckoutSessionAsync(CheckoutRequest request, ClaimsPrincipal userClaims)
         {
             var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
@@ -74,12 +79,48 @@ namespace BusinessObjectLayer.Services
             if (subscription == null)
                 return new ServiceResponse { Status = SRStatus.NotFound, Message = "Subscription not found" };
 
-            // Check existing active subscription
-            var activeSub = await _companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
-            if (activeSub != null)
-                return new ServiceResponse { Status = SRStatus.Validation, Message = "Your company already has an active subscription." };
+            var existingCompanySubscription = await _companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            if (existingCompanySubscription != null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Validation,
+                    Message = "Your company already has an active subscription. Please cancel or wait for it to expire before purchasing another plan."
+                };
+            }
 
-            // Create a new pending payment
+            // Lấy priceId: ưu tiên lưu trong Subscription.StripePriceId, nếu null -> dùng env STRIPE__PRICE_DEFAULT
+            string stripePriceId = subscription?.GetType().GetProperty("StripePriceId")?.GetValue(subscription)?.ToString()
+                                   ?? Environment.GetEnvironmentVariable("STRIPE__PRICE_DEFAULT")
+                                   ?? throw new Exception("Stripe price id not configured.");
+
+            // Ensure company has Stripe customer
+            var company = await _companyRepo.GetByIdAsync(companyId);
+            if (company == null)
+                return new ServiceResponse { Status = SRStatus.NotFound, Message = "Company not found" };
+
+            var customerId = company.StripeCustomerId;
+            var customerService = new CustomerService();
+
+            if (string.IsNullOrEmpty(customerId))
+            {
+                // Try to set an email from user profile (falls back to null)
+                var companyUserEntity = await _companyUserRepo.GetCompanyUserByUserIdAsync(userId);
+                string email = companyUserEntity?.User?.Email ?? null;
+
+                var cust = await customerService.CreateAsync(new CustomerCreateOptions
+                {
+                    Email = email,
+                    Metadata = new Dictionary<string, string> { { "companyId", companyId.ToString() } }
+                });
+                company.StripeCustomerId = cust.Id;
+                await _companyRepo.UpdateAsync(company);
+                customerId = cust.Id;
+            }
+
+            string domain = Environment.GetEnvironmentVariable("APPURL__CLIENTURL") ?? "http://localhost:5173";
+
+            // Create a pending payment record before redirecting user to Stripe
             var payment = new Payment
             {
                 CompanyId = companyId,
@@ -89,45 +130,38 @@ namespace BusinessObjectLayer.Services
             };
             await _paymentRepo.AddAsync(payment);
 
-            // Convert VND to USD
-            decimal usdPrice = Math.Round(subscription.Price * _settings.VndToUsdRate, 2);
-            long stripeAmount = (long)(usdPrice * 100);
-
-            string domain = Environment.GetEnvironmentVariable("APPURL__CLIENTURL") ?? "http://localhost:5173";
+            var metadata = new Dictionary<string, string>
+            {
+                { "companyId", companyId.ToString() },
+                { "subscriptionId", subscription.SubscriptionId.ToString() },
+                { "paymentId", payment.PaymentId.ToString() }
+            };
 
             var options = new SessionCreateOptions
             {
-                Mode = "payment",
-                PaymentMethodTypes = new List<string> { "card" },
+                Mode = "subscription",
+                Customer = customerId,
                 SuccessUrl = $"{domain}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
                 CancelUrl = $"{domain}/payment/cancel",
-                Metadata = new Dictionary<string, string>
+                Metadata = metadata,
+                SubscriptionData = new SessionSubscriptionDataOptions
                 {
-                    { "paymentId", payment.PaymentId.ToString() },
-                    { "companyId", companyId.ToString() },
-                    { "subscriptionId", request.SubscriptionId.ToString() }
+                    Metadata = new Dictionary<string, string>(metadata)
                 },
                 LineItems = new List<SessionLineItemOptions>
-                {
-                    new SessionLineItemOptions
-                    {
-                        Quantity = 1,
-                        PriceData = new SessionLineItemPriceDataOptions
-                        {
-                            Currency = "usd",
-                            UnitAmount = stripeAmount,
-                            ProductData = new SessionLineItemPriceDataProductDataOptions
-                            {
-                                Name = subscription.Name,
-                                Description = subscription.Description
-                            }
-                        }
-                    }
-                }
+        {
+            new SessionLineItemOptions
+            {
+                Price = stripePriceId,
+                Quantity = 1
+            }
+        }
             };
 
             var sessionService = new SessionService();
             var session = await sessionService.CreateAsync(options);
+
+            // We can add paymentId into session metadata? Stripe session metadata is already set; we could store mapping in our DB if needed.
 
             return new ServiceResponse
             {
@@ -137,143 +171,306 @@ namespace BusinessObjectLayer.Services
             };
         }
 
+
         // ===================================================
         // 2. HANDLE STRIPE WEBHOOK
         // ===================================================
         public async Task<ServiceResponse> HandleWebhookAsync(string json, string signature)
         {
             Event stripeEvent;
-
             try
             {
-                stripeEvent = EventUtility.ConstructEvent(
-                    json,
-                    signature,
-                    _settings.WebhookSecret
-                );
+                stripeEvent = EventUtility.ConstructEvent(json, signature, _settings.WebhookSecret);
             }
-            catch
+            catch (Exception ex)
             {
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
-                    Message = "Invalid Stripe signature"
+                    Message = $"Invalid Stripe signature: {ex.Message}"
                 };
             }
 
-            // ĐÚNG TÊN EVENT CHECKOUT SESSION COMPLETED
+            // ============================================================
+            // 1) checkout.session.completed
+            // ============================================================
             if (stripeEvent.Type == "checkout.session.completed")
             {
-                var session = stripeEvent.Data.Object as Session;
-
+                var session = stripeEvent.Data.Object as Stripe.Checkout.Session;
                 if (session == null)
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "Session object missing." };
+
+                int.TryParse(session.Metadata?.GetValueOrDefault("companyId") ?? "0", out int companyId);
+                int.TryParse(session.Metadata?.GetValueOrDefault("subscriptionId") ?? "0", out int subscriptionId);
+
+                // FIX ĐÚNG — Stripe.Subscription → lấy Id
+                string stripeSubscriptionId = session.Subscription?.Id;
+
+                if (string.IsNullOrEmpty(stripeSubscriptionId))
                 {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Error,
-                        Message = "Invalid session object"
-                    };
+                    return new ServiceResponse { Status = SRStatus.Success, Message = "Session has no subscription id; ignored." };
                 }
 
-                // ====== CHECK METADATA TỪ SESSION THẬT ====
-                // Stripe CLI trigger không có metadata → tránh null exception
-                if (session.Metadata == null ||
-                    !session.Metadata.ContainsKey("paymentId") ||
-                    !session.Metadata.ContainsKey("companyId") ||
-                    !session.Metadata.ContainsKey("subscriptionId"))
+                var existing = await _companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubscriptionId);
+                if (existing != null)
                 {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Success,
-                        Message = "Test event received (missing metadata), ignored."
-                    };
+                    return new ServiceResponse { Status = SRStatus.Success, Message = "Subscription already processed." };
                 }
 
-                // ===== PARSE SAFE =====
-                if (!int.TryParse(session.Metadata["paymentId"], out int paymentId) ||
-                    !int.TryParse(session.Metadata["companyId"], out int companyId) ||
-                    !int.TryParse(session.Metadata["subscriptionId"], out int subscriptionId))
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Error,
-                        Message = "Invalid metadata format."
-                    };
-                }
-
-                // ====== BEGIN BUSINESS LOGIC ======
-
-                var payment = await _paymentRepo.GetByIdAsync(paymentId);
-                if (payment == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Payment record not found."
-                    };
-                }
-
-                // Update payment to paid
-                payment.PaymentStatus = PaymentStatusEnum.Paid;
-                payment.InvoiceUrl = session.Url;
-                await _paymentRepo.UpdateAsync(payment);
-
-                // Save transaction
-                await _transactionRepo.AddAsync(new Transaction
-                {
-                    PaymentId = paymentId,
-                    Amount = (session.AmountTotal ?? 0) / 100m,
-                    Gateway = TransactionGatewayEnum.StripePayment,
-                    ResponseCode = "SUCCESS",
-                    ResponseMessage = "Stripe checkout completed",
-                    TransactionTime = DateTime.UtcNow,
-                    CreatedAt = DateTime.UtcNow,
-                    IsActive = true
-                });
-
-                // Active subscription
-                var subscription = await _subscriptionRepo.GetByIdAsync(subscriptionId);
+                var subscriptionEntity = await _subscriptionRepo.GetByIdAsync(subscriptionId);
                 var now = DateTime.UtcNow;
 
-                await _companySubRepo.AddAsync(new CompanySubscription
+                var companySubscription = new CompanySubscription
                 {
                     CompanyId = companyId,
                     SubscriptionId = subscriptionId,
                     StartDate = now,
-                    EndDate = now.AddDays(subscription.DurationDays),
+                    EndDate = now.AddDays(subscriptionEntity?.DurationDays ?? 30),
                     SubscriptionStatus = SubscriptionStatusEnum.Active,
+                    StripeSubscriptionId = stripeSubscriptionId,
                     CreatedAt = now,
                     IsActive = true
-                });
+                };
 
-                // ===== SEND NOTIFICATION TO ADMINS =====
+                await _companySubRepo.AddAsync(companySubscription);
+
                 var admins = await _authRepo.GetUsersByRoleAsync("System_Admin");
-
                 foreach (var admin in admins)
                 {
                     await _notificationService.CreateAsync(
                         admin.UserId,
                         NotificationTypeEnum.Subscription,
-                        $"A company subscribed to a package",
-                        $"Company ID {companyId} has successfully subscribed to '{subscription.Name}'."
+                        "A company subscribed",
+                        $"Company {companyId} subscribed to {subscriptionEntity?.Name} (stripeSub: {stripeSubscriptionId})"
                     );
                 }
 
-
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Success,
-                    Message = "Subscription activated successfully."
-                };
+                return new ServiceResponse { Status = SRStatus.Success, Message = "checkout.session.completed handled." };
             }
 
-            // Nếu event không phải checkout.session.completed → bỏ qua
-            return new ServiceResponse
+            // ============================================================
+            // 2) invoice.payment_succeeded
+            // ============================================================
+            if (stripeEvent.Type == "invoice.payment_succeeded")
             {
-                Status = SRStatus.Success,
-                Message = "Event ignored."
-            };
+                var invoice = stripeEvent.Data.Object as Stripe.Invoice;
+                if (invoice == null)
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "Invoice missing." };
+
+                // Dùng reflection để tương thích với nhiều phiên bản Stripe.Net khác nhau.
+                var stripeSubId = GetInvoiceSubscriptionId(invoice);
+                if (string.IsNullOrEmpty(stripeSubId))
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "Invoice missing subscription id." };
+
+                long amountPaidCents = invoice.AmountPaid;
+                decimal amountPaid = amountPaidCents / 100m;
+
+                var companySub = await _companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubId);
+
+                if (companySub != null)
+                {
+                    var metadataSnapshot = ExtractInvoiceMetadata(invoice);
+                    var payment = await GetPaymentFromInvoiceMetadataAsync(metadataSnapshot, companySub.CompanyId);
+
+                    var invoiceUrl = await GetInvoiceUrlAsync(invoice);
+
+                    if (payment != null)
+                    {
+                        payment.PaymentStatus = PaymentStatusEnum.Paid;
+                        payment.InvoiceUrl = invoiceUrl;
+                        await _paymentRepo.UpdateAsync(payment);
+                    }
+                    else
+                    {
+                        payment = new Payment
+                        {
+                            CompanyId = companySub.CompanyId,
+                            PaymentStatus = PaymentStatusEnum.Paid,
+                            CreatedAt = DateTime.UtcNow,
+                            IsActive = true,
+                            InvoiceUrl = invoiceUrl
+                        };
+                        await _paymentRepo.AddAsync(payment);
+                    }
+
+                    await _transactionRepo.AddAsync(new Transaction
+                    {
+                        PaymentId = payment.PaymentId,
+                        Amount = amountPaid,
+                        Gateway = TransactionGatewayEnum.StripePayment,
+                        ResponseCode = "SUCCESS",
+                        ResponseMessage = $"Invoice {invoice.Id} paid",
+                        TransactionTime = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true
+                    });
+
+                    var subDef = await _subscriptionRepo.GetByIdAsync(companySub.SubscriptionId);
+                    var extendFrom = companySub.EndDate > DateTime.UtcNow ? companySub.EndDate : DateTime.UtcNow;
+
+                    companySub.EndDate = extendFrom.AddDays(subDef?.DurationDays ?? 30);
+                    companySub.SubscriptionStatus = SubscriptionStatusEnum.Renewed;
+                    await _companySubRepo.UpdateAsync(companySub);
+                }
+
+                return new ServiceResponse { Status = SRStatus.Success, Message = "invoice.payment_succeeded handled." };
+            }
+
+            // ============================================================
+            // 3) invoice.payment_failed
+            // ============================================================
+            if (stripeEvent.Type == "invoice.payment_failed")
+            {
+                var invoice = stripeEvent.Data.Object as Stripe.Invoice;
+                if (invoice != null)
+                {
+                    var stripeSubId = GetInvoiceSubscriptionId(invoice);
+                    if (string.IsNullOrEmpty(stripeSubId))
+                    {
+                        return new ServiceResponse { Status = SRStatus.Error, Message = "Invoice missing subscription id." };
+                    }
+
+                    var companySub = await _companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubId);
+                    if (companySub != null)
+                    {
+                        companySub.SubscriptionStatus = SubscriptionStatusEnum.Pending;
+                        await _companySubRepo.UpdateAsync(companySub);
+                    }
+
+                    var metadataSnapshot = ExtractInvoiceMetadata(invoice);
+                    var payment = await GetPaymentFromInvoiceMetadataAsync(metadataSnapshot, companySub?.CompanyId);
+                    if (payment != null)
+                    {
+                        payment.PaymentStatus = PaymentStatusEnum.Failed;
+                        await _paymentRepo.UpdateAsync(payment);
+                    }
+                }
+
+                return new ServiceResponse { Status = SRStatus.Success, Message = "invoice.payment_failed handled." };
+            }
+
+            // ============================================================
+            // 4) customer.subscription.deleted
+            // ============================================================
+            if (stripeEvent.Type == "customer.subscription.deleted")
+            {
+                var stripeSub = stripeEvent.Data.Object as Stripe.Subscription;
+                if (stripeSub != null)
+                {
+                    string stripeId = stripeSub.Id;
+
+                    var cs = await _companySubRepo.GetByStripeSubscriptionIdAsync(stripeId);
+                    if (cs != null)
+                    {
+                        cs.SubscriptionStatus = SubscriptionStatusEnum.Canceled;
+                        cs.IsActive = false;
+                        await _companySubRepo.UpdateAsync(cs);
+                    }
+                }
+
+                return new ServiceResponse { Status = SRStatus.Success, Message = "customer.subscription.deleted handled." };
+            }
+
+            return new ServiceResponse { Status = SRStatus.Success, Message = "Event ignored." };
         }
+
+        private static string? GetInvoiceSubscriptionId(Stripe.Invoice invoice)
+        {
+            if (!string.IsNullOrEmpty(invoice.Parent?.SubscriptionDetails?.SubscriptionId))
+            {
+                return invoice.Parent.SubscriptionDetails.SubscriptionId;
+            }
+
+            var lineSub = invoice.Lines?.Data?.FirstOrDefault()?.Parent?.SubscriptionItemDetails?.Subscription;
+            if (!string.IsNullOrEmpty(lineSub))
+            {
+                return lineSub;
+            }
+
+            return null;
+        }
+
+        private static IDictionary<string, string>? ExtractInvoiceMetadata(Stripe.Invoice invoice)
+        {
+            if (invoice.Metadata != null && invoice.Metadata.Count > 0)
+            {
+                return invoice.Metadata;
+            }
+
+            if (invoice.Parent?.SubscriptionDetails?.Metadata != null &&
+                invoice.Parent.SubscriptionDetails.Metadata.Count > 0)
+            {
+                return invoice.Parent.SubscriptionDetails.Metadata;
+            }
+
+            var lineMetadata = invoice.Lines?.Data?.FirstOrDefault()?.Metadata;
+            if (lineMetadata != null && lineMetadata.Count > 0)
+            {
+                return lineMetadata;
+            }
+
+            return null;
+        }
+
+        private async Task<Payment?> GetPaymentFromInvoiceMetadataAsync(IDictionary<string, string>? metadata, int? fallbackCompanyId)
+        {
+            int paymentId = GetPaymentIdFromMetadata(metadata);
+            Payment? payment = null;
+
+            if (paymentId > 0)
+            {
+                payment = await _paymentRepo.GetByIdAsync(paymentId);
+            }
+
+            if (payment == null && fallbackCompanyId.HasValue)
+            {
+                payment = await _paymentRepo.GetLatestPendingByCompanyAsync(fallbackCompanyId.Value);
+            }
+
+            return payment;
+        }
+
+        private static int GetPaymentIdFromMetadata(IDictionary<string, string>? metadata)
+        {
+            if (metadata != null && metadata.TryGetValue("paymentId", out var raw))
+            {
+                if (int.TryParse(raw, out var paymentId))
+                {
+                    return paymentId;
+                }
+            }
+
+            return 0;
+        }
+
+        private static async Task<string?> GetInvoiceUrlAsync(Stripe.Invoice invoice)
+        {
+            if (!string.IsNullOrEmpty(invoice.HostedInvoiceUrl))
+                return invoice.HostedInvoiceUrl;
+
+            if (!string.IsNullOrEmpty(invoice.InvoicePdf))
+                return invoice.InvoicePdf;
+
+            var cachedMetadataUrl = invoice.Lines?.Data?.FirstOrDefault()?.Metadata?.GetValueOrDefault("invoiceUrl");
+            if (!string.IsNullOrEmpty(cachedMetadataUrl))
+                return cachedMetadataUrl;
+
+            if (!string.IsNullOrEmpty(invoice.Id))
+            {
+                var invoiceService = new InvoiceService();
+                var refreshed = await invoiceService.GetAsync(invoice.Id);
+                if (!string.IsNullOrEmpty(refreshed?.HostedInvoiceUrl))
+                    return refreshed.HostedInvoiceUrl;
+                if (!string.IsNullOrEmpty(refreshed?.InvoicePdf))
+                    return refreshed.InvoicePdf;
+            }
+
+            return null;
+        }
+
+
+
+
 
         public async Task<ServiceResponse> GetPaymentHistoryAsync(ClaimsPrincipal userClaims, int page, int pageSize)
         {

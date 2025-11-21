@@ -109,6 +109,16 @@ namespace DataAccessLayer.Repositories
             _context.CompanySubscriptions.Update(companySubscription);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<CompanySubscription?> GetByStripeSubscriptionIdAsync(string stripeSubscriptionId)
+        {
+            return await _context.CompanySubscriptions
+                .Include(cs => cs.Company)
+                .Include(cs => cs.Subscription)
+                .Where(cs => cs.IsActive && cs.StripeSubscriptionId == stripeSubscriptionId)
+                .FirstOrDefaultAsync();
+        }
+
     }
 }
 
