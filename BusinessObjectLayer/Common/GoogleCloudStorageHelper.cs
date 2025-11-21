@@ -16,24 +16,12 @@ namespace BusinessObjectLayer.Common
         private readonly StorageClient _storageClient;
         private readonly string _bucketName;
 
-        // Email service account used for signing
-        private readonly string _serviceAccountEmail;
-
         public GoogleCloudStorageHelper(string bucketName, string serviceAccountEmail)
         {
             _bucketName = bucketName ?? throw new ArgumentNullException(nameof(bucketName));
-            _serviceAccountEmail = serviceAccountEmail ?? throw new ArgumentNullException(nameof(serviceAccountEmail));
 
             var credential = GoogleCredential.GetApplicationDefault();
             _storageClient = StorageClient.Create(credential);
-        }
-
-        // ----------------------------
-        // Upload Resume (you need this method back)
-        // ----------------------------
-        public async Task<ServiceResponse> UploadResumeAsync(IFormFile file)
-        {
-            return await UploadFileAsync(file, "resumes");
         }
 
         // ----------------------------
@@ -69,7 +57,7 @@ namespace BusinessObjectLayer.Common
                 );
 
                 // SIGNED URL
-                var signedUrl = await GenerateSignedUrlAsync(objectName);
+                var publicUrl = $"https://storage.googleapis.com/{_bucketName}/{objectName}";
 
                 return new ServiceResponse
                 {
@@ -77,7 +65,7 @@ namespace BusinessObjectLayer.Common
                     Message = "File uploaded successfully.",
                     Data = new
                     {
-                        Url = signedUrl,
+                        Url = publicUrl,
                         ObjectName = objectName,
                         BucketName = _bucketName
                     }
@@ -92,55 +80,5 @@ namespace BusinessObjectLayer.Common
                 };
             }
         }
-
-        // ----------------------------
-        // Generate Signed URL
-        // ----------------------------
-        public async Task<string> GenerateSignedUrlAsync(string objectName, TimeSpan? expiration = null)
-        {
-            var expires = expiration ?? TimeSpan.FromHours(1);
-            var expireTime = DateTime.UtcNow.Add(expires);
-            long expireTimestamp = expireTime.ToUnixSeconds();   // fixed
-
-            string stringToSign =
-                $"GET\n" +
-                $"\n" +   // MD5
-                $"\n" +   // Content-Type
-                $"{expireTimestamp}\n" +
-                $"/{_bucketName}/{objectName}";
-
-            var iamClient = await IAMCredentialsClient.CreateAsync();
-
-            var saResource = $"projects/-/serviceAccounts/{_serviceAccountEmail}";
-
-            var request = new SignBlobRequest
-            {
-                Name = saResource,
-                Payload = ByteString.CopyFromUtf8(stringToSign)
-            };
-
-            var response = await iamClient.SignBlobAsync(request);
-
-            string signature = Convert.ToBase64String(response.SignedBlob.ToByteArray());
-
-            string signedUrl =
-                $"https://storage.googleapis.com/{_bucketName}/{objectName}" +
-                $"?GoogleAccessId={_serviceAccountEmail}" +
-                $"&Expires={expireTimestamp}" +
-                $"&Signature={Uri.EscapeDataString(signature)}";
-
-            return signedUrl;
-        }
-    }
-}
-
-// ----------------------------
-// Extension MUST be OUTSIDE any class
-// ----------------------------
-public static class DateTimeExtensions
-{
-    public static long ToUnixSeconds(this DateTime dt)
-    {
-        return (long)Math.Floor((dt - DateTime.UnixEpoch).TotalSeconds);
     }
 }

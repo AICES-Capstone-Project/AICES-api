@@ -6,6 +6,7 @@ using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.Design;
 using System.Linq;
 using System.Text.Json;
@@ -100,26 +101,16 @@ namespace BusinessObjectLayer.Services
                     return uploadResult;
                 }
 
-                // Extract URL from upload result
+                // Extract objName from upload result
                 string? fileUrl = null;
                 if (uploadResult.Data != null)
                 {
                     // Use reflection to extract URL (property name is "Url" with capital U)
                     var dataType = uploadResult.Data.GetType();
-                    var urlProperty = dataType.GetProperty("Url");
-                    if (urlProperty != null)
+                    var urlProp = dataType.GetProperty("Url");
+                    if (urlProp != null)
                     {
-                        fileUrl = urlProperty.GetValue(uploadResult.Data) as string;
-                    }
-                    
-                    // If not found, try with lowercase "url"
-                    if (string.IsNullOrEmpty(fileUrl))
-                    {
-                        urlProperty = dataType.GetProperty("url");
-                        if (urlProperty != null)
-                        {
-                            fileUrl = urlProperty.GetValue(uploadResult.Data) as string;
-                        }
+                        fileUrl = urlProp.GetValue(uploadResult.Data) as string;
                     }
                 }
 
@@ -199,12 +190,16 @@ namespace BusinessObjectLayer.Services
                     Console.WriteLine($"💥 Inner Exception: {ex.InnerException.Message}");
                     Console.WriteLine($"🔍 Inner Stack trace: {ex.InnerException.StackTrace}");
                 }
-                
+
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
-                    Message = $"An error occurred while uploading the resume: {ex.Message}"
-                };
+                    Message = $"An error occurred while uploading the resume: {ex.Message}",
+                    Data = new ResumeUploadResponse
+                    {
+                        Status = ResumeStatusEnum.Failed
+                    }
+                };;
             }
         }
 
