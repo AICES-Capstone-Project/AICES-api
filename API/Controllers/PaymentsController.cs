@@ -33,6 +33,14 @@ namespace API.Controllers
             var result = await _paymentService.GetPaymentHistoryAsync(User, page, pageSize);
             return ControllerResponse.Response(result);
         }
+
+        [HttpPost("subscription/cancel")]
+        [Authorize(Roles = "HR_Manager")]
+        public async Task<IActionResult> CancelSubscription()
+        {
+            var result = await _paymentService.CancelSubscriptionAsync(User);
+            return ControllerResponse.Response(result);
+        }
     }
 
 

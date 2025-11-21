@@ -15,7 +15,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> CreateCheckoutSessionAsync(CheckoutRequest request, ClaimsPrincipal userClaims);
         Task<ServiceResponse> HandleWebhookAsync(string json, string signature);
         Task<ServiceResponse> GetPaymentHistoryAsync(ClaimsPrincipal user, int page, int pageSize);
-
+        Task<ServiceResponse> CancelSubscriptionAsync(ClaimsPrincipal userClaims);
     }
 
 }

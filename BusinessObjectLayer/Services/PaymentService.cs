@@ -606,6 +606,100 @@ namespace BusinessObjectLayer.Services
             };
         }
 
+        // ===================================================
+        // 3. CANCEL SUBSCRIPTION
+        // ===================================================
+        public async Task<ServiceResponse> CancelSubscriptionAsync(ClaimsPrincipal userClaims)
+        {
+            var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
+            if (userIdClaim == null)
+                return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
+
+            var userId = int.Parse(userIdClaim);
+
+            var companyUser = await _companyUserRepo.GetByUserIdAsync(userId);
+            if (companyUser == null || companyUser.CompanyId == null)
+                return new ServiceResponse { Status = SRStatus.Error, Message = "You must join a company before canceling a subscription." };
+
+            int companyId = companyUser.CompanyId.Value;
+
+            // Tìm active subscription của company
+            var companySubscription = await _companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            if (companySubscription == null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "No active subscription found for your company."
+                };
+            }
+
+            // Kiểm tra subscription đã bị cancel chưa
+            if (companySubscription.SubscriptionStatus == SubscriptionStatusEnum.Canceled)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Validation,
+                    Message = "Subscription has already been canceled."
+                };
+            }
+
+            // Kiểm tra có Stripe Subscription ID không
+            if (string.IsNullOrWhiteSpace(companySubscription.StripeSubscriptionId))
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "Stripe subscription ID not found. Cannot cancel subscription."
+                };
+            }
+
+            try
+            {
+                // Gọi Stripe API để cancel subscription ngay lập tức
+                var subscriptionService = new Stripe.SubscriptionService();
+                var cancelOptions = new Stripe.SubscriptionCancelOptions
+                {
+                    InvoiceNow = true, // Cancel ngay lập tức, không chờ đến cuối billing period
+                    Prorate = false // Không refund phần đã dùng
+                };
+
+                var canceledSubscription = await subscriptionService.CancelAsync(
+                    companySubscription.StripeSubscriptionId,
+                    cancelOptions
+                );
+
+                // Cancel ngay lập tức: mất quyền truy cập ngay
+                companySubscription.SubscriptionStatus = SubscriptionStatusEnum.Canceled;
+                companySubscription.IsActive = false;
+                await _companySubRepo.UpdateAsync(companySubscription);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Subscription has been canceled successfully. All access has been revoked immediately."
+                };
+            }
+            catch (StripeException ex)
+            {
+                Console.WriteLine($"Stripe error canceling subscription: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Failed to cancel subscription: {ex.Message}"
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error canceling subscription: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while canceling the subscription."
+                };
+            }
+        }
+
 
     }
 }
