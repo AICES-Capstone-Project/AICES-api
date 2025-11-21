@@ -318,103 +318,21 @@ namespace BusinessObjectLayer.Services
             {
                 Console.WriteLine($"Error processing AI result: {ex.Message}");
                 Console.WriteLine(ex.StackTrace);
+                try
+                {
+                    var parsedResume = await _parsedResumeRepository.GetByQueueJobIdAsync(request.QueueJobId);
+                    if (parsedResume != null)
+                    {
+                        parsedResume.ResumeStatus = ResumeStatusEnum.Failed;
+                        await _parsedResumeRepository.UpdateAsync(parsedResume);
+                    }
+                }
+                catch { /* ignore logging errors */ }
+
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
                     Message = "An error occurred while processing the AI result."
-                };
-            }
-        }
-
-
-        public async Task<ServiceResponse> GetResumeResultAsync(int resumeId)
-        {
-            try
-            {
-                var parsedResume = await _parsedResumeRepository.GetByIdWithDetailsAsync(resumeId);
-                if (parsedResume == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Resume not found."
-                    };
-                }
-
-                // If status is Pending, return only status
-                if (parsedResume.ResumeStatus == ResumeStatusEnum.Pending)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Success,
-                        Message = "Resume is still being processed.",
-                        Data = new ResumeResultResponse
-                        {
-                            Status = ResumeStatusEnum.Pending
-                        }
-                    };
-                }
-
-                // If status is Completed, return full data
-                if (parsedResume.ResumeStatus == ResumeStatusEnum.Completed)
-                {
-                    var candidate = parsedResume.ParsedCandidates;
-                    if (candidate == null || candidate.AIScores == null)
-                    {
-                        return new ServiceResponse
-                        {
-                            Status = SRStatus.NotFound,
-                            Message = "AI score data not found for this resume."
-                        };
-                    }
-
-                    var aiScore = candidate.AIScores;
-                    var scoreDetails = aiScore.AIScoreDetails?.Select(detail => new AIScoreDetailResponse
-                    {
-                        CriteriaId = detail.CriteriaId,
-                        CriteriaName = detail.Criteria?.Name ?? "",
-                        Matched = detail.Matched,
-                        Score = detail.Score,
-                        AINote = detail.AINote
-                    }).ToList() ?? new List<AIScoreDetailResponse>();
-
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Success,
-                        Message = "Resume result retrieved successfully.",
-                        Data = new ResumeResultResponse
-                        {
-                            Status = ResumeStatusEnum.Completed,
-                            Data = new ResumeResultData
-                            {
-                                ResumeId = parsedResume.ResumeId,
-                                TotalResumeScore = aiScore.TotalResumeScore,
-                                AIExplanation = aiScore.AIExplanation,
-                                AIScoreDetails = scoreDetails
-                            }
-                        }
-                    };
-                }
-
-                // For other statuses (Failed, Cancelled)
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Success,
-                    Message = "Resume processing status retrieved.",
-                    Data = new ResumeResultResponse
-                    {
-                        Status = parsedResume.ResumeStatus
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error getting resume result: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "An error occurred while retrieving the resume result."
                 };
             }
         }
