@@ -56,6 +56,22 @@ namespace BusinessObjectLayer.Services
             _settings = settings.Value;
         }
 
+        // Helper method để lấy giờ Việt Nam (UTC+7)
+        private static DateTime GetVietnamTime()
+        {
+            var vietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"); // Windows
+            // Hoặc dùng "Asia/Ho_Chi_Minh" cho Linux/Mac
+            try
+            {
+                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, vietnamTimeZone);
+            }
+            catch
+            {
+                // Fallback: nếu không tìm thấy timezone, dùng UTC+7 manual
+                return DateTime.UtcNow.AddHours(7);
+            }
+        }
+
         // ===================================================
         // 1. CREATE CHECKOUT SESSION 
         // ===================================================
@@ -89,10 +105,11 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            // Lấy priceId: ưu tiên lưu trong Subscription.StripePriceId, nếu null -> dùng env STRIPE__PRICE_DEFAULT
-            string stripePriceId = subscription?.GetType().GetProperty("StripePriceId")?.GetValue(subscription)?.ToString()
-                                   ?? Environment.GetEnvironmentVariable("STRIPE__PRICE_DEFAULT")
-                                   ?? throw new Exception("Stripe price id not configured.");
+            // Lấy priceId: ưu tiên lưu trong Subscription.StripePriceId, nếu null/empty -> dùng env STRIPE__PRICE_DEFAULT
+            string stripePriceId = !string.IsNullOrWhiteSpace(subscription.StripePriceId) 
+                ? subscription.StripePriceId
+                : Environment.GetEnvironmentVariable("STRIPE__PRICE_DEFAULT")
+                  ?? throw new Exception($"Stripe price id not configured for subscription '{subscription.Name}' (ID: {subscription.SubscriptionId}). Please set StripePriceId in database or configure STRIPE__PRICE_DEFAULT in environment variables.");
 
             // Ensure company has Stripe customer
             var company = await _companyRepo.GetByIdAsync(companyId);
@@ -125,7 +142,7 @@ namespace BusinessObjectLayer.Services
             {
                 CompanyId = companyId,
                 PaymentStatus = PaymentStatusEnum.Pending,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = GetVietnamTime(),
                 IsActive = true
             };
             await _paymentRepo.AddAsync(payment);
@@ -266,7 +283,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var subscriptionEntity = await _subscriptionRepo.GetByIdAsync(subscriptionId);
-                var now = DateTime.UtcNow;
+                var now = GetVietnamTime();
 
                 var companySubscription = new CompanySubscription
                 {
@@ -346,7 +363,7 @@ namespace BusinessObjectLayer.Services
                         {
                             CompanyId = companyIdToUse.Value,
                             PaymentStatus = PaymentStatusEnum.Paid,
-                            CreatedAt = DateTime.UtcNow,
+                            CreatedAt = GetVietnamTime(),
                             IsActive = true,
                             InvoiceUrl = invoiceUrl
                         };
@@ -360,8 +377,8 @@ namespace BusinessObjectLayer.Services
                         Gateway = TransactionGatewayEnum.StripePayment,
                         ResponseCode = "SUCCESS",
                         ResponseMessage = $"Invoice {invoice.Id} paid",
-                        TransactionTime = DateTime.UtcNow,
-                        CreatedAt = DateTime.UtcNow,
+                        TransactionTime = GetVietnamTime(),
+                        CreatedAt = GetVietnamTime(),
                         IsActive = true
                     });
                 }
@@ -370,7 +387,8 @@ namespace BusinessObjectLayer.Services
                 if (companySub != null)
                 {
                     var subDef = await _subscriptionRepo.GetByIdAsync(companySub.SubscriptionId);
-                    var extendFrom = companySub.EndDate > DateTime.UtcNow ? companySub.EndDate : DateTime.UtcNow;
+                    var now = GetVietnamTime();
+                    var extendFrom = companySub.EndDate > now ? companySub.EndDate : now;
 
                     companySub.EndDate = extendFrom.AddDays(subDef?.DurationDays ?? 30);
                     companySub.SubscriptionStatus = SubscriptionStatusEnum.Renewed;
@@ -557,7 +575,7 @@ namespace BusinessObjectLayer.Services
             {
                 PaymentId = p.PaymentId,
                 Status = p.PaymentStatus,
-                CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+                CreatedAt = p.CreatedAt ?? GetVietnamTime(),
                 TotalAmount = p.Transactions?.Sum(t => t.Amount) ?? 0,
 
                 SubscriptionName = p.Company?.CompanySubscriptions?
