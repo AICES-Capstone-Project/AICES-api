@@ -1,4 +1,5 @@
 ﻿using Data.Entities;
+using Data.Enum;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -57,6 +58,14 @@ namespace DataAccessLayer.Repositories
             return await _context.Payments
                 .Where(p => p.CompanyId == companyId && p.IsActive)
                 .CountAsync();
+        }
+
+        public async Task<Payment?> GetLatestPendingByCompanyAsync(int companyId)
+        {
+            return await _context.Payments
+                .Where(p => p.CompanyId == companyId && p.PaymentStatus == PaymentStatusEnum.Pending && p.IsActive)
+                .OrderByDescending(p => p.CreatedAt)
+                .FirstOrDefaultAsync();
         }
 
     }
