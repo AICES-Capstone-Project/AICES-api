@@ -56,20 +56,14 @@ namespace BusinessObjectLayer.Services
             _settings = settings.Value;
         }
 
-        // Helper method để lấy giờ Việt Nam (UTC+7)
+        // Helper method để lấy giờ Việt Nam (UTC+7) nhưng trả về UTC để lưu vào database
+        // PostgreSQL yêu cầu DateTime.Kind = UTC cho timestamp with time zone
+        // Giờ Việt Nam sẽ được lưu dưới dạng UTC, khi query ra sẽ convert sang VN time nếu cần
         private static DateTime GetVietnamTime()
         {
-            var vietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"); // Windows
-            // Hoặc dùng "Asia/Ho_Chi_Minh" cho Linux/Mac
-            try
-            {
-                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, vietnamTimeZone);
-            }
-            catch
-            {
-                // Fallback: nếu không tìm thấy timezone, dùng UTC+7 manual
-                return DateTime.UtcNow.AddHours(7);
-            }
+            // Lưu UTC vào database (PostgreSQL sẽ tự động handle timezone)
+            // Khi cần hiển thị, convert sang giờ Việt Nam ở frontend hoặc khi query
+            return DateTime.UtcNow;
         }
 
         // ===================================================
