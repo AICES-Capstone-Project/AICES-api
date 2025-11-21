@@ -203,12 +203,60 @@ namespace BusinessObjectLayer.Services
                 int.TryParse(session.Metadata?.GetValueOrDefault("companyId") ?? "0", out int companyId);
                 int.TryParse(session.Metadata?.GetValueOrDefault("subscriptionId") ?? "0", out int subscriptionId);
 
-                // FIX ĐÚNG — Stripe.Subscription → lấy Id
-                string stripeSubscriptionId = session.Subscription?.Id;
+                // Lấy subscription ID từ session
+                // Trong Stripe.NET, session.Subscription có thể là string ID hoặc Subscription object
+                string stripeSubscriptionId = null;
+                
+                if (session.Subscription != null)
+                {
+                    // Kiểm tra type và lấy ID
+                    if (session.Subscription is Stripe.Subscription subObject)
+                    {
+                        stripeSubscriptionId = subObject.Id;
+                    }
+                    else
+                    {
+                        // Nếu là string, convert sang string
+                        stripeSubscriptionId = session.Subscription.ToString();
+                    }
+                }
+
+                // Nếu vẫn không có, thử retrieve session với expand
+                if (string.IsNullOrEmpty(stripeSubscriptionId))
+                {
+                    try
+                    {
+                        var sessionService = new SessionService();
+                        var expandedSession = await sessionService.GetAsync(session.Id, new SessionGetOptions
+                        {
+                            Expand = new List<string> { "subscription" }
+                        });
+                        
+                        if (expandedSession.Subscription != null)
+                        {
+                            if (expandedSession.Subscription is Stripe.Subscription sub)
+                            {
+                                stripeSubscriptionId = sub.Id;
+                            }
+                            else
+                            {
+                                stripeSubscriptionId = expandedSession.Subscription.ToString();
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error nhưng không throw
+                        Console.WriteLine($"Error retrieving session with expand: {ex.Message}");
+                    }
+                }
 
                 if (string.IsNullOrEmpty(stripeSubscriptionId))
                 {
-                    return new ServiceResponse { Status = SRStatus.Success, Message = "Session has no subscription id; ignored." };
+                    // Trả về Error để Stripe biết có vấn đề và có thể retry
+                    // Hoặc log để debug vì đây là trường hợp không bình thường
+                    Console.WriteLine($"[Webhook Error] checkout.session.completed - Session {session.Id} has no subscription ID. Session mode: {session.Mode}");
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "Session has no subscription id. Cannot process payment." };
                 }
 
                 var existing = await _companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubscriptionId);
@@ -267,10 +315,22 @@ namespace BusinessObjectLayer.Services
 
                 var companySub = await _companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubId);
 
-                if (companySub != null)
+                // Lấy metadata để xử lý payment ngay cả khi companySub chưa tồn tại
+                var metadataSnapshot = ExtractInvoiceMetadata(invoice);
+                int? companyIdFromMetadata = null;
+                if (metadataSnapshot != null && metadataSnapshot.TryGetValue("companyId", out var companyIdStr))
                 {
-                    var metadataSnapshot = ExtractInvoiceMetadata(invoice);
-                    var payment = await GetPaymentFromInvoiceMetadataAsync(metadataSnapshot, companySub.CompanyId);
+                    if (int.TryParse(companyIdStr, out var companyId))
+                    {
+                        companyIdFromMetadata = companyId;
+                    }
+                }
+
+                var companyIdToUse = companySub?.CompanyId ?? companyIdFromMetadata;
+
+                if (companyIdToUse.HasValue)
+                {
+                    var payment = await GetPaymentFromInvoiceMetadataAsync(metadataSnapshot, companyIdToUse);
 
                     var invoiceUrl = await GetInvoiceUrlAsync(invoice);
 
@@ -284,7 +344,7 @@ namespace BusinessObjectLayer.Services
                     {
                         payment = new Payment
                         {
-                            CompanyId = companySub.CompanyId,
+                            CompanyId = companyIdToUse.Value,
                             PaymentStatus = PaymentStatusEnum.Paid,
                             CreatedAt = DateTime.UtcNow,
                             IsActive = true,
@@ -304,7 +364,11 @@ namespace BusinessObjectLayer.Services
                         CreatedAt = DateTime.UtcNow,
                         IsActive = true
                     });
+                }
 
+                // Update companySub nếu tồn tại (cho renewal)
+                if (companySub != null)
+                {
                     var subDef = await _subscriptionRepo.GetByIdAsync(companySub.SubscriptionId);
                     var extendFrom = companySub.EndDate > DateTime.UtcNow ? companySub.EndDate : DateTime.UtcNow;
 
