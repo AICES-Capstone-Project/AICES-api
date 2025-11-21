@@ -11,6 +11,7 @@ namespace DataAccessLayer.IRepositories
         Task UpdateAsync(ParsedResumes parsedResume);
         Task<List<ParsedResumes>> GetByJobIdAsync(int jobId);
         Task<ParsedResumes?> GetByJobIdAndResumeIdAsync(int jobId, int resumeId);
+        Task<List<ParsedResumes>> GetPendingBeforeAsync(DateTime cutoff);
     }
 }
 

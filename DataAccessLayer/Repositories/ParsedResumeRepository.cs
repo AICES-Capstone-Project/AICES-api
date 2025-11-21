@@ -1,4 +1,5 @@
 using Data.Entities;
+using Data.Enum;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 
@@ -67,6 +68,15 @@ namespace DataAccessLayer.Repositories
                             .ThenInclude(aisd => aisd.Criteria)
                 .Where(pr => pr.JobId == jobId && pr.ResumeId == resumeId && pr.IsActive)
                 .FirstOrDefaultAsync();
+        }
+
+        public async Task<List<ParsedResumes>> GetPendingBeforeAsync(DateTime cutoff)
+        {
+            return await _context.ParsedResumes
+                .Where(x => x.ResumeStatus == ResumeStatusEnum.Pending 
+                         && x.CreatedAt < cutoff
+                         && x.IsActive)
+                .ToListAsync();
         }
     }
 }
