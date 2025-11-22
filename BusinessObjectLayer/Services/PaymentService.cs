@@ -56,15 +56,6 @@ namespace BusinessObjectLayer.Services
             _settings = settings.Value;
         }
 
-        // Helper method để lấy giờ Việt Nam (UTC+7) nhưng trả về UTC để lưu vào database
-        // PostgreSQL yêu cầu DateTime.Kind = UTC cho timestamp with time zone
-        // Giờ Việt Nam sẽ được lưu dưới dạng UTC, khi query ra sẽ convert sang VN time nếu cần
-        private static DateTime GetVietnamTime()
-        {
-            // Lưu UTC vào database (PostgreSQL sẽ tự động handle timezone)
-            // Khi cần hiển thị, convert sang giờ Việt Nam ở frontend hoặc khi query
-            return DateTime.UtcNow;
-        }
 
         // ===================================================
         // 1. CREATE CHECKOUT SESSION 
@@ -136,7 +127,7 @@ namespace BusinessObjectLayer.Services
             {
                 CompanyId = companyId,
                 PaymentStatus = PaymentStatusEnum.Pending,
-                CreatedAt = GetVietnamTime(),
+                CreatedAt = DateTime.UtcNow,
                 IsActive = true
             };
             await _paymentRepo.AddAsync(payment);
@@ -277,7 +268,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var subscriptionEntity = await _subscriptionRepo.GetByIdAsync(subscriptionId);
-                var now = GetVietnamTime();
+                var now = DateTime.UtcNow;
 
                 var companySubscription = new CompanySubscription
                 {
@@ -357,7 +348,7 @@ namespace BusinessObjectLayer.Services
                         {
                             CompanyId = companyIdToUse.Value,
                             PaymentStatus = PaymentStatusEnum.Paid,
-                            CreatedAt = GetVietnamTime(),
+                            CreatedAt = DateTime.UtcNow,
                             IsActive = true,
                             InvoiceUrl = invoiceUrl
                         };
@@ -371,8 +362,8 @@ namespace BusinessObjectLayer.Services
                         Gateway = TransactionGatewayEnum.StripePayment,
                         ResponseCode = "SUCCESS",
                         ResponseMessage = $"Invoice {invoice.Id} paid",
-                        TransactionTime = GetVietnamTime(),
-                        CreatedAt = GetVietnamTime(),
+                        TransactionTime = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
                         IsActive = true
                     });
                 }
@@ -381,11 +372,11 @@ namespace BusinessObjectLayer.Services
                 if (companySub != null)
                 {
                     var subDef = await _subscriptionRepo.GetByIdAsync(companySub.SubscriptionId);
-                    var now = GetVietnamTime();
+                    var now = DateTime.UtcNow;
                     var extendFrom = companySub.EndDate > now ? companySub.EndDate : now;
 
                     companySub.EndDate = extendFrom.AddDays(subDef?.DurationDays ?? 30);
-                    companySub.SubscriptionStatus = SubscriptionStatusEnum.Renewed;
+                    companySub.SubscriptionStatus = SubscriptionStatusEnum.Active;
                     await _companySubRepo.UpdateAsync(companySub);
                 }
 
@@ -569,7 +560,7 @@ namespace BusinessObjectLayer.Services
             {
                 PaymentId = p.PaymentId,
                 Status = p.PaymentStatus,
-                CreatedAt = p.CreatedAt ?? GetVietnamTime(),
+                CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
                 TotalAmount = p.Transactions?.Sum(t => t.Amount) ?? 0,
 
                 SubscriptionName = p.Company?.CompanySubscriptions?
