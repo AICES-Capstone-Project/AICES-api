@@ -18,8 +18,7 @@ namespace Data.Models.Response
         public string? Slug { get; set; }
         public string? Requirements { get; set; }
         public JobStatusEnum JobStatus { get; set; }
-        public bool IsActive { get; set; }
-        public DateTime CreatedAt { get; set; }
+        public DateTime? CreatedAt { get; set; }
         public string? CategoryName { get; set; }
         public string? SpecializationName { get; set; }
         public List<string>? EmploymentTypes { get; set; }

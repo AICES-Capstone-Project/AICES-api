@@ -30,9 +30,7 @@ namespace BusinessObjectLayer.Services
                 UserId = userId,
                 Type = type,
                 Message = message,
-                Detail = detail,
-                CreatedAt = DateTime.UtcNow,
-                IsActive = true
+                Detail = detail
             };
 
             await _notificationRepository.AddAsync(notif);

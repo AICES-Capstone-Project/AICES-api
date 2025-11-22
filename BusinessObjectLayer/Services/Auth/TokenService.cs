@@ -93,8 +93,7 @@ namespace BusinessObjectLayer.Services.Auth
             {
                 UserId = user.UserId,
                 Token = refreshTokenString,
-                ExpiryDate = DateTime.UtcNow.AddDays(7), // 7 days
-                IsActive = true
+                ExpiryDate = DateTime.UtcNow.AddDays(7) // 7 days
             };
 
             await _tokenRepository.AddRefreshTokenAsync(refreshToken);

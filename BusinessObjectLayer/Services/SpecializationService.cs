@@ -39,8 +39,7 @@ namespace BusinessObjectLayer.Services
                         Name = s.Name,
                         CategoryId = s.CategoryId,
                         CategoryName = s.Category?.Name,
-                        IsActive = s.IsActive,
-                        CreatedAt = s.CreatedAt ?? DateTime.UtcNow
+                        CreatedAt = s.CreatedAt,
                     })
                     .ToList();
 
@@ -94,8 +93,7 @@ namespace BusinessObjectLayer.Services
                         Name = specialization.Name,
                         CategoryId = specialization.CategoryId,
                         CategoryName = specialization.Category?.Name,
-                        IsActive = specialization.IsActive,
-                        CreatedAt = specialization.CreatedAt ?? DateTime.UtcNow
+                        CreatedAt = specialization.CreatedAt
                     }
                 };
             }
@@ -134,8 +132,7 @@ namespace BusinessObjectLayer.Services
                         Name = s.Name,
                         CategoryId = s.CategoryId,
                         CategoryName = s.Category?.Name,
-                        IsActive = s.IsActive,
-                        CreatedAt = s.CreatedAt ?? DateTime.UtcNow
+                        CreatedAt = s.CreatedAt
                     })
                     .ToList();
 
@@ -185,9 +182,7 @@ namespace BusinessObjectLayer.Services
                 var specialization = new Specialization
                 {
                     Name = request.Name,
-                    CategoryId = request.CategoryId,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
+                    CategoryId = request.CategoryId
                 };
 
                 await _specializationRepository.AddAsync(specialization);

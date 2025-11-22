@@ -20,8 +20,6 @@ namespace DataAccessLayer.Repositories
 
         public async Task<Profile> AddAsync(Profile profile)
         {
-            profile.IsActive = true;
-            profile.CreatedAt = DateTime.UtcNow;
             _context.Profiles.Add(profile);
             await _context.SaveChangesAsync();
             return profile;

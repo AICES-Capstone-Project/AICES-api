@@ -10,7 +10,6 @@ namespace Data.Models.Response
     {
         public int EmployTypeId { get; set; }
         public string Name { get; set; } = string.Empty;
-        public bool IsActive { get; set; }
-        public DateTime CreatedAt { get; set; }
+        public DateTime? CreatedAt { get; set; }
     }
 }

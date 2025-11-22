@@ -82,8 +82,7 @@ namespace BusinessObjectLayer.Services
                     Slug = job.Slug,
                     Requirements = job.Requirements,
                     JobStatus = job.JobStatus,
-                    IsActive = job.IsActive,
-                    CreatedAt = job.CreatedAt ?? DateTime.MinValue,
+                    CreatedAt = job.CreatedAt,
                     CategoryName = job.Specialization?.Category?.Name,
                     SpecializationName = job.Specialization?.Name,
                     EmploymentTypes = job.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
@@ -133,8 +132,7 @@ namespace BusinessObjectLayer.Services
                     Slug = j.Slug,
                     Requirements = j.Requirements,
                     JobStatus = j.JobStatus,
-                    IsActive = j.IsActive,
-                    CreatedAt = j.CreatedAt ?? DateTime.MinValue,
+                    CreatedAt = j.CreatedAt,
                     CategoryName = j.Specialization?.Category?.Name,
                     SpecializationName = j.Specialization?.Name,
                     EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
@@ -249,14 +247,13 @@ namespace BusinessObjectLayer.Services
                     Slug = GenerateSlug(request.Title ?? string.Empty),
                     Requirements = request.Requirements,
                     JobStatus = jobStatus,
-                    IsActive = true,
                     SpecializationId = request.SpecializationId
                 };
 
                 // Save job
                 var createdJob = await _jobRepository.CreateJobAsync(job);
 
-                // ? G?I THÔNG BÁO SAU KHI JOB ???C T?O
+                // ? G?I THï¿½NG Bï¿½O SAU KHI JOB ???C T?O
                 if (createdJob != null)
                 {
                     try
@@ -470,7 +467,7 @@ namespace BusinessObjectLayer.Services
                     Slug = j.Slug,
                     Requirements = j.Requirements,
                     JobStatus = j.JobStatus,
-                    CreatedAt = j.CreatedAt ?? DateTime.MinValue,
+                    CreatedAt = j.CreatedAt,
                     CategoryName = j.Specialization?.Category?.Name,
                     SpecializationName = j.Specialization?.Name,
                     EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
@@ -560,7 +557,7 @@ namespace BusinessObjectLayer.Services
                     Slug = j.Slug,
                     Requirements = j.Requirements,
                     JobStatus = j.JobStatus,
-                    CreatedAt = j.CreatedAt ?? DateTime.MinValue,
+                    CreatedAt = j.CreatedAt,
                     CategoryName = j.Specialization?.Category?.Name,
                     SpecializationName = j.Specialization?.Name,
                     EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
@@ -753,7 +750,7 @@ namespace BusinessObjectLayer.Services
                     Slug = job.Slug,
                     Requirements = job.Requirements,
                     JobStatus = job.JobStatus,
-                    CreatedAt = job.CreatedAt ?? DateTime.MinValue,
+                    CreatedAt = job.CreatedAt,
                     CategoryName = job.Specialization?.Category?.Name,
                     SpecializationName = job.Specialization?.Name,
                     EmploymentTypes = job.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
@@ -837,7 +834,7 @@ namespace BusinessObjectLayer.Services
                     Slug = j.Slug,
                     Requirements = j.Requirements,
                     JobStatus = j.JobStatus,
-                    CreatedAt = j.CreatedAt ?? DateTime.MinValue,
+                    CreatedAt = j.CreatedAt,
                     CategoryName = j.Specialization?.Category?.Name,
                     SpecializationName = j.Specialization?.Name,
                     EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),

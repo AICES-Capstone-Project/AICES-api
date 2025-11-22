@@ -39,8 +39,7 @@ namespace BusinessObjectLayer.Services
                 var companyUser = new CompanyUser
                 {
                     UserId = userId,
-                    JoinStatus = JoinStatusEnum.NotApplied,
-                    IsActive = true
+                    JoinStatus = JoinStatusEnum.NotApplied
                 };
                 
                 await _companyUserRepository.AddCompanyUserAsync(companyUser);
@@ -123,7 +122,7 @@ namespace BusinessObjectLayer.Services
                 var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
                 if (companyUser == null)
                 {
-                    companyUser = new CompanyUser { UserId = userId, IsActive = true };
+                    companyUser = new CompanyUser { UserId = userId };
                     await _companyUserRepository.AddCompanyUserAsync(companyUser);
                 }
 

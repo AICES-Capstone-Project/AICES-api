@@ -135,9 +135,7 @@ namespace BusinessObjectLayer.Services
             var payment = new Payment
             {
                 CompanyId = companyId,
-                PaymentStatus = PaymentStatusEnum.Pending,
-                CreatedAt = GetVietnamTime(),
-                IsActive = true
+                PaymentStatus = PaymentStatusEnum.Pending
             };
             await _paymentRepo.AddAsync(payment);
 
@@ -286,9 +284,7 @@ namespace BusinessObjectLayer.Services
                     StartDate = now,
                     EndDate = now.AddDays(subscriptionEntity?.DurationDays ?? 30),
                     SubscriptionStatus = SubscriptionStatusEnum.Active,
-                    StripeSubscriptionId = stripeSubscriptionId,
-                    CreatedAt = now,
-                    IsActive = true
+                    StripeSubscriptionId = stripeSubscriptionId
                 };
 
                 await _companySubRepo.AddAsync(companySubscription);
@@ -357,8 +353,6 @@ namespace BusinessObjectLayer.Services
                         {
                             CompanyId = companyIdToUse.Value,
                             PaymentStatus = PaymentStatusEnum.Paid,
-                            CreatedAt = GetVietnamTime(),
-                            IsActive = true,
                             InvoiceUrl = invoiceUrl
                         };
                         await _paymentRepo.AddAsync(payment);
@@ -371,9 +365,7 @@ namespace BusinessObjectLayer.Services
                         Gateway = TransactionGatewayEnum.StripePayment,
                         ResponseCode = "SUCCESS",
                         ResponseMessage = $"Invoice {invoice.Id} paid",
-                        TransactionTime = GetVietnamTime(),
-                        CreatedAt = GetVietnamTime(),
-                        IsActive = true
+                        TransactionTime = GetVietnamTime()
                     });
                 }
 

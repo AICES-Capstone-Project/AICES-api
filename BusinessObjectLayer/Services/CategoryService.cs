@@ -87,9 +87,7 @@ namespace BusinessObjectLayer.Services
 
             var category = new Category
             {
-                Name = request.Name,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                Name = request.Name
             };
 
             await _categoryRepository.AddAsync(category);

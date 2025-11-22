@@ -12,8 +12,7 @@ namespace Data.Models.Response
         public string Title { get; set; } = string.Empty;
         public string? ColorCode { get; set; }
         public string? Source { get; set; }
-        public bool IsActive { get; set; }
-        public DateTime CreatedAt { get; set; }
+        public DateTime? CreatedAt { get; set; }
     }
 }
 

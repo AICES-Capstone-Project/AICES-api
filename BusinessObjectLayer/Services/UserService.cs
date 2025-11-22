@@ -51,7 +51,7 @@ namespace BusinessObjectLayer.Services
                 AvatarUrl = u.Profile?.AvatarUrl ?? "",
                 PhoneNumber = u.Profile?.PhoneNumber ?? "",
                 UserStatus = u.Status.ToString(),
-                CreatedAt = u.CreatedAt ?? DateTime.UtcNow,
+                CreatedAt = u.CreatedAt,
                 LoginProviders = u.LoginProviders?.Select(lp => new LoginProviderInfo
                 {
                     AuthProvider = lp.AuthProvider,
@@ -102,7 +102,7 @@ namespace BusinessObjectLayer.Services
                     CompanyName = user.CompanyUser?.Company?.Name ?? "",
                     JoinStatus = user.CompanyUser?.JoinStatus.ToString() ?? "",
                     UserStatus = user.Status.ToString(),
-                    CreatedAt = user.CreatedAt ?? DateTime.UtcNow,
+                    CreatedAt = user.CreatedAt,
                     LoginProviders = user.LoginProviders?.Select(lp => new LoginProviderInfo
                     {
                         AuthProvider = lp.AuthProvider,
@@ -138,8 +138,7 @@ namespace BusinessObjectLayer.Services
             {
                 UserId = addedUser.UserId,
                 AuthProvider = AuthProviderEnum.Local,
-                ProviderId = "", // Không cần ProviderId cho Local
-                IsActive = true
+                ProviderId = "" // Không cần ProviderId cho Local
             };
             await _userRepository.AddLoginProviderAsync(localProvider);
 

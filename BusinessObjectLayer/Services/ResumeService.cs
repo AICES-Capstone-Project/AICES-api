@@ -133,9 +133,7 @@ namespace BusinessObjectLayer.Services
                     JobId = jobId,
                     QueueJobId = queueJobId,
                     FileUrl = fileUrl,
-                    ResumeStatus = ResumeStatusEnum.Pending,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
+                    ResumeStatus = ResumeStatusEnum.Pending
                 };
 
                 var createdResume = await _parsedResumeRepository.CreateAsync(parsedResume);
@@ -252,9 +250,7 @@ namespace BusinessObjectLayer.Services
                 var aiScore = new AIScores
                 {
                     TotalResumeScore = request.TotalResumeScore,
-                    AIExplanation = aiExplanationString,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
+                    AIExplanation = aiExplanationString
                 };
 
                 var createdScore = await _aiScoreRepository.CreateAsync(aiScore);
@@ -275,9 +271,7 @@ namespace BusinessObjectLayer.Services
                         ScoreId = createdScore.ScoreId,
                         FullName = fullName,
                         Email = email,
-                        PhoneNumber = phone,
-                        IsActive = true,
-                        CreatedAt = DateTime.UtcNow
+                        PhoneNumber = phone
                     };
 
                     await _parsedCandidateRepository.CreateAsync(parsedCandidate);
@@ -299,9 +293,7 @@ namespace BusinessObjectLayer.Services
                     ScoreId = createdScore.ScoreId,
                     Matched = detail.Matched,
                     Score = detail.Score,
-                    AINote = detail.AINote,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
+                    AINote = detail.AINote
                 }).ToList();
 
                 await _aiScoreDetailRepository.CreateRangeAsync(scoreDetails);
@@ -494,7 +486,7 @@ namespace BusinessObjectLayer.Services
                     QueueJobId = resume.QueueJobId ?? string.Empty,
                     FileUrl = resume.FileUrl ?? string.Empty,
                     Status = resume.ResumeStatus,
-                    CreatedAt = resume.CreatedAt ?? DateTime.UtcNow,
+                    CreatedAt = resume.CreatedAt,
                     FullName = candidate?.FullName ?? "Unknown",
                     Email = candidate?.Email ?? "N/A",
                     PhoneNumber = candidate?.PhoneNumber,

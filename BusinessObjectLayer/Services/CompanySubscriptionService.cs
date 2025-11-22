@@ -128,8 +128,7 @@ namespace BusinessObjectLayer.Services
                     StartDate = newStartDate,
                     EndDate = newEndDate,
                     SubscriptionStatus = SubscriptionStatusEnum.Pending,
-                    IsActive = false,
-                    CreatedAt = DateTime.UtcNow
+                    IsActive = false
                 };
 
                 await _companySubscriptionRepository.AddAsync(renewedSubscription);
@@ -162,9 +161,7 @@ namespace BusinessObjectLayer.Services
                 SubscriptionId = request.SubscriptionId,
                 StartDate = request.StartDate,
                 EndDate = endDate,
-                SubscriptionStatus = requestedStatus,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                SubscriptionStatus = requestedStatus
             };
 
             await _companySubscriptionRepository.AddAsync(companySubscription);

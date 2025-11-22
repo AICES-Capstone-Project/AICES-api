@@ -14,7 +14,6 @@ namespace Data.Models.Response
         public decimal Price { get; set; }
         public int DurationDays { get; set; }
         public string? Limit { get; set; }
-        public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }
