@@ -34,8 +34,7 @@ namespace BusinessObjectLayer.Services
             var profile = new Profile
             {
                 UserId = userId,
-                FullName = fullName,
-                IsActive = true,
+                FullName = fullName
             };
             return await _profileRepository.AddAsync(profile);
         }
@@ -46,8 +45,7 @@ namespace BusinessObjectLayer.Services
             {
                 UserId = userId,
                 FullName = fullName,
-                AvatarUrl = avatarUrl,
-                IsActive = true,
+                AvatarUrl = avatarUrl
             };
             return await _profileRepository.AddAsync(profile);
         }

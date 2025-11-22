@@ -148,7 +148,6 @@ namespace BusinessObjectLayer.Services
                     CreatedBy = c.CreatedBy,
                     ApprovalBy = c.ApprovedBy,
                     RejectionReason = c.RejectReason,
-                    IsActive = c.IsActive,
                     CreatedAt = c.CreatedAt
                 }).ToList();
 
@@ -206,7 +205,6 @@ namespace BusinessObjectLayer.Services
                     CreatedBy = company.CreatedBy,
                     ApprovalBy = company.ApprovedBy,
                     RejectionReason = company.RejectReason,
-                    IsActive = company.IsActive,
                     CreatedAt = company.CreatedAt,
                     Documents = company.CompanyDocuments?.Select(d => new CompanyDocumentResponse
                     {
@@ -305,9 +303,7 @@ namespace BusinessObjectLayer.Services
                     CompanyStatus = CompanyStatusEnum.Approved, // Automatically approved
                     CreatedBy = adminUserId, // User who owns the company
                     ApprovedBy = adminUserId, // Admin who approved/created it
-                    RejectReason = null,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
+                    RejectReason = null
                 };
 
                 // Save company first to get CompanyId
@@ -529,9 +525,7 @@ namespace BusinessObjectLayer.Services
                     CompanyStatus = CompanyStatusEnum.Pending,
                     CreatedBy = userId,
                     ApprovedBy = null,
-                    RejectReason = null,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
+                    RejectReason = null
                 };
 
                 // Save company first to get CompanyId

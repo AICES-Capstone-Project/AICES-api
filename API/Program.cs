@@ -275,6 +275,8 @@ builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IResumeService, ResumeService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
+// Hosted Services
+builder.Services.AddHostedService<ResumeTimeoutService>();
 
 //  Auth Services
 builder.Services.AddScoped<ITokenService, BusinessObjectLayer.Services.Auth.TokenService>();

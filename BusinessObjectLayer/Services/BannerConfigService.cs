@@ -39,8 +39,7 @@ namespace BusinessObjectLayer.Services
                 Title = b.Title,
                 ColorCode = b.ColorCode,
                 Source = b.Source,
-                IsActive = b.IsActive,
-                CreatedAt = b.CreatedAt ?? DateTime.UtcNow
+                CreatedAt = b.CreatedAt
             }).ToList();
 
             return new ServiceResponse
@@ -79,8 +78,7 @@ namespace BusinessObjectLayer.Services
                     Title = bannerConfig.Title,
                     ColorCode = bannerConfig.ColorCode,
                     Source = bannerConfig.Source,
-                    IsActive = bannerConfig.IsActive,
-                    CreatedAt = bannerConfig.CreatedAt ?? DateTime.UtcNow
+                    CreatedAt = bannerConfig.CreatedAt
                 }
             };
         }
@@ -115,9 +113,7 @@ namespace BusinessObjectLayer.Services
             {
                 Title = request.Title,
                 ColorCode = request.ColorCode,
-                Source = imageUrl,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                Source = imageUrl
             };
 
             await _bannerConfigRepository.AddAsync(bannerConfig);

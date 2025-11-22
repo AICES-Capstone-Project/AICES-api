@@ -21,7 +21,7 @@ namespace Data.Models.Response
         public string CompanyName { get; set; }
         public string JoinStatus { get; set; }
         public List<LoginProviderInfo> LoginProviders { get; set; } = new List<LoginProviderInfo>();
-        public DateTime CreatedAt { get; set; }
+        public DateTime? CreatedAt { get; set; }
     }
 
     public class LoginProviderInfo

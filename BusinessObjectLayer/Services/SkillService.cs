@@ -28,8 +28,7 @@ namespace BusinessObjectLayer.Services
             {
                 SkillId = s.SkillId,
                 Name = s.Name,
-                IsActive = s.IsActive,
-                CreatedAt = (DateTime)s.CreatedAt
+                CreatedAt = s.CreatedAt
             }).ToList();
 
             return new ServiceResponse
@@ -60,8 +59,7 @@ namespace BusinessObjectLayer.Services
                 {
                     SkillId = skill.SkillId,
                     Name = skill.Name,
-                    IsActive = skill.IsActive,
-                    CreatedAt = (DateTime)skill.CreatedAt
+                    CreatedAt = skill.CreatedAt
                 }
             };
         }
@@ -79,9 +77,7 @@ namespace BusinessObjectLayer.Services
 
             var skill = new Skill
             {
-                Name = request.Name,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                Name = request.Name
             };
 
             await _skillRepository.AddAsync(skill);

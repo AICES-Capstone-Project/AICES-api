@@ -19,7 +19,6 @@ namespace Data.Models.Response
         public int CreatedBy { get; set; }
         public int? ApprovalBy { get; set; }
         public string? RejectionReason { get; set; }
-        public bool IsActive { get; set; }
         public DateTime? CreatedAt { get; set; }
         public List<CompanyDocumentResponse> Documents { get; set; } = new List<CompanyDocumentResponse>();
     }

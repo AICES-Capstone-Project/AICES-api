@@ -31,8 +31,7 @@ namespace BusinessObjectLayer.Services
                 {
                     EmployTypeId = e.EmployTypeId,
                     Name = e.Name,
-                    IsActive = e.IsActive,
-                    CreatedAt = e.CreatedAt ?? DateTime.UtcNow
+                    CreatedAt = e.CreatedAt
                 }).ToList();
 
             return new ServiceResponse
@@ -62,8 +61,7 @@ namespace BusinessObjectLayer.Services
                 {
                     EmployTypeId = item.EmployTypeId,
                     Name = item.Name,
-                    IsActive = item.IsActive,
-                    CreatedAt = item.CreatedAt ?? DateTime.UtcNow
+                    CreatedAt = item.CreatedAt
                 }
             };
         }
@@ -81,9 +79,7 @@ namespace BusinessObjectLayer.Services
 
             var newItem = new EmploymentType
             {
-                Name = request.Name,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                Name = request.Name
             };
 
             await _repository.AddAsync(newItem);

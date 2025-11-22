@@ -51,9 +51,7 @@ namespace BusinessObjectLayer.Services
                     {
                         CompanyId = companyId,
                         DocumentType = documentType,
-                        FileUrl = upload.Url,
-                        IsActive = true,
-                        CreatedAt = DateTime.UtcNow
+                        FileUrl = upload.Url
                     };
 
                     documents.Add(document);

@@ -129,6 +129,8 @@ namespace BusinessObjectLayer.Services
                 PaymentStatus = PaymentStatusEnum.Pending,
                 CreatedAt = DateTime.UtcNow,
                 IsActive = true
+
+               
             };
             await _paymentRepo.AddAsync(payment);
 
@@ -277,9 +279,7 @@ namespace BusinessObjectLayer.Services
                     StartDate = now,
                     EndDate = now.AddDays(subscriptionEntity?.DurationDays ?? 30),
                     SubscriptionStatus = SubscriptionStatusEnum.Active,
-                    StripeSubscriptionId = stripeSubscriptionId,
-                    CreatedAt = now,
-                    IsActive = true
+                    StripeSubscriptionId = stripeSubscriptionId
                 };
 
                 await _companySubRepo.AddAsync(companySubscription);
@@ -348,8 +348,11 @@ namespace BusinessObjectLayer.Services
                         {
                             CompanyId = companyIdToUse.Value,
                             PaymentStatus = PaymentStatusEnum.Paid,
+
                             CreatedAt = DateTime.UtcNow,
                             IsActive = true,
+
+
                             InvoiceUrl = invoiceUrl
                         };
                         await _paymentRepo.AddAsync(payment);
@@ -365,6 +368,9 @@ namespace BusinessObjectLayer.Services
                         TransactionTime = DateTime.UtcNow,
                         CreatedAt = DateTime.UtcNow,
                         IsActive = true
+
+                       
+
                     });
                 }
 

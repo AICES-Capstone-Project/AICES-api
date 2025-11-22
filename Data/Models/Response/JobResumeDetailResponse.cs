@@ -13,7 +13,7 @@ namespace Data.Models.Response
         public string QueueJobId { get; set; } = string.Empty;
         public string FileUrl { get; set; } = string.Empty;
         public ResumeStatusEnum Status { get; set; }
-        public DateTime CreatedAt { get; set; }
+        public DateTime? CreatedAt { get; set; }
 
         // From ParsedCandidates
         public string FullName { get; set; } = "Unknown";
