@@ -27,7 +27,8 @@ namespace Data.Entities
 
         public string? Limit { get; set; } // Number of resume screenings or other limit
 
-        public string StripePriceId { get; set; } = string.Empty;
+        [MaxLength(255)]
+        public string? StripePriceId { get; set; } // Stripe Price ID (e.g., price_1234567890)
 
         // Navigation
         public ICollection<CompanySubscription>? CompanySubscriptions { get; set; }

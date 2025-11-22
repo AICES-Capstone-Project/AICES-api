@@ -12,6 +12,7 @@ namespace Data.Enum
         Active ,    // Gói đang hoạt động
         Expired ,   // Gói đã hết hạn
         Canceled ,  // Bị hủy giữa chừng (do admin hoặc công ty)
-        Renewed    // Gói được gia hạn lại (active trở lại)
+        Failed ,    // Đăng kí thất bại
+        Renewed
     }
 }
