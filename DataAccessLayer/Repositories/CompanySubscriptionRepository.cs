@@ -84,7 +84,7 @@ namespace DataAccessLayer.Repositories
             var now = DateTime.UtcNow;
             return await _context.CompanySubscriptions
                 .Where(cs => cs.CompanyId == companyId
-                    && (cs.SubscriptionStatus == SubscriptionStatusEnum.Renewed || cs.SubscriptionStatus == SubscriptionStatusEnum.Active || cs.SubscriptionStatus == SubscriptionStatusEnum.Pending)
+                    && (cs.SubscriptionStatus == SubscriptionStatusEnum.Active || cs.SubscriptionStatus == SubscriptionStatusEnum.Pending)
                     && cs.IsActive
                     && cs.EndDate > now)
                 .FirstOrDefaultAsync();

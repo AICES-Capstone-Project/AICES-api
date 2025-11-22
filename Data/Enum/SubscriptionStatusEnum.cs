@@ -13,6 +13,5 @@ namespace Data.Enum
         Expired ,   // Gói đã hết hạn
         Canceled ,  // Bị hủy giữa chừng (do admin hoặc công ty)
         Failed ,    // Đăng kí thất bại
-        Renewed
     }
 }

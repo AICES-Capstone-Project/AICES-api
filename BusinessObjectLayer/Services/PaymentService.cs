@@ -385,7 +385,7 @@ namespace BusinessObjectLayer.Services
                     var extendFrom = companySub.EndDate > now ? companySub.EndDate : now;
 
                     companySub.EndDate = extendFrom.AddDays(subDef?.DurationDays ?? 30);
-                    companySub.SubscriptionStatus = SubscriptionStatusEnum.Renewed;
+                    companySub.SubscriptionStatus = SubscriptionStatusEnum.Active;
                     await _companySubRepo.UpdateAsync(companySub);
                 }
 
