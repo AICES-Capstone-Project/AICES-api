@@ -68,6 +68,16 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<List<Payment>> GetPendingBeforeAsync(DateTime cutoff)
+        {
+            return await _context.Payments
+                .Where(p => p.PaymentStatus == PaymentStatusEnum.Pending 
+                    && p.IsActive 
+                    && p.CreatedAt.HasValue 
+                    && p.CreatedAt.Value < cutoff)
+                .ToListAsync();
+        }
+
     }
 
 

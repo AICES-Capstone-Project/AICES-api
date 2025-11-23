@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace BusinessObjectLayer.Services
+namespace BusinessObjectLayer.BackgroundJobs
 {
     public class ResumeTimeoutService : BackgroundService
     {
@@ -47,7 +47,7 @@ namespace BusinessObjectLayer.Services
             using var scope = _scopeFactory.CreateScope();
             var parsedResumeRepository = scope.ServiceProvider.GetRequiredService<IParsedResumeRepository>();
 
-            // Calculate cutoff time (5 minutes ago)
+            // Calculate cutoff time (2 minutes ago)
             var cutoff = DateTime.UtcNow.AddMinutes(-2);
 
             _logger.LogInformation($"🔍 Checking for timed-out resumes (before {cutoff:yyyy-MM-dd HH:mm:ss} UTC)");
@@ -86,4 +86,5 @@ namespace BusinessObjectLayer.Services
         }
     }
 }
+
 
