@@ -10,6 +10,8 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> ProcessAIResultAsync(AIResultRequest request);
         Task<ServiceResponse> GetJobResumesAsync(int jobId);
         Task<ServiceResponse> GetJobResumeDetailAsync(int jobId, int resumeId);
+        Task<ServiceResponse> RetryFailedResumeAsync(int resumeId);
+        Task<ServiceResponse> SoftDeleteResumeAsync(int resumeId);
     }
 }
 

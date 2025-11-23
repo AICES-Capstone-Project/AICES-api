@@ -84,6 +84,31 @@ namespace API.Controllers
             var serviceResponse = await _resumeService.GetJobResumeDetailAsync(jobId, resumeId);
             return ControllerResponse.Response(serviceResponse);
         }
+
+        /// <summary>
+        /// POST /api/resume/{resumeId}/retry
+        /// Retry a failed resume by re-pushing it to the Redis queue
+        /// Flow: Check status = Failed -> Re-push to Redis with new queueJobId -> Update status = Pending
+        /// </summary>
+        [HttpPost("{resumeId}/retry")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> RetryFailedResume(int resumeId)
+        {
+            var serviceResponse = await _resumeService.RetryFailedResumeAsync(resumeId);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        /// <summary>
+        /// DELETE /api/resume/{resumeId}
+        /// Soft delete a resume by setting IsActive = false
+        /// </summary>
+        [HttpDelete("{resumeId}")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> SoftDeleteResume(int resumeId)
+        {
+            var serviceResponse = await _resumeService.SoftDeleteResumeAsync(resumeId);
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
 

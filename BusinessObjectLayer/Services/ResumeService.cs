@@ -513,6 +513,231 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> RetryFailedResumeAsync(int resumeId)
+        {
+            try
+            {
+                // Get current user and company
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                
+                if (companyUser == null || companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company not found for user."
+                    };
+                }
+
+                // Get resume
+                var resume = await _parsedResumeRepository.GetByIdAsync(resumeId);
+                if (resume == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Resume not found."
+                    };
+                }
+
+                // Validate company ownership
+                if (resume.CompanyId != companyUser.CompanyId.Value)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You do not have permission to retry this resume."
+                    };
+                }
+
+                // Check if resume status is Failed
+                if (resume.ResumeStatus != ResumeStatusEnum.Failed)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = $"Cannot retry resume with status '{resume.ResumeStatus}'. Only 'Failed' resumes can be retried."
+                    };
+                }
+
+                // Check if resume is active
+                if (!resume.IsActive)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Cannot retry an inactive resume."
+                    };
+                }
+
+                // Get job with requirements and criteria
+                var job = await _jobRepository.GetJobByIdAsync(resume.JobId);
+                if (job == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Job not found."
+                    };
+                }
+
+                // Generate new queue job ID
+                var newQueueJobId = Guid.NewGuid().ToString();
+
+                // Prepare criteria data for queue
+                var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
+                {
+                    criteriaId = c.CriteriaId,
+                    name = c.Name,
+                    weight = c.Weight
+                }).ToList() ?? new List<CriteriaQueueResponse>();
+
+                // Push job to Redis queue with requirements and criteria
+                var jobData = new ResumeQueueJobResponse
+                {
+                    resumeId = resume.ResumeId,
+                    queueJobId = newQueueJobId,
+                    jobId = resume.JobId,
+                    fileUrl = resume.FileUrl ?? string.Empty,
+                    requirements = job.Requirements,
+                    criteria = criteriaData
+                };
+
+                var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
+                if (!pushed)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to push job to Redis queue."
+                    };
+                }
+
+                // Update resume: new queueJobId and status = Pending
+                resume.QueueJobId = newQueueJobId;
+                resume.ResumeStatus = ResumeStatusEnum.Pending;
+                await _parsedResumeRepository.UpdateAsync(resume);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Resume retry initiated successfully.",
+                    Data = new ResumeUploadResponse
+                    {
+                        ResumeId = resume.ResumeId,
+                        QueueJobId = newQueueJobId,
+                        Status = ResumeStatusEnum.Pending
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error retrying failed resume: {ex.Message}");
+                Console.WriteLine($"🔍 Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrying the resume."
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> SoftDeleteResumeAsync(int resumeId)
+        {
+            try
+            {
+                // Get current user and company
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                
+                if (companyUser == null || companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company not found for user."
+                    };
+                }
+
+                // Get resume
+                var resume = await _parsedResumeRepository.GetByIdAsync(resumeId);
+                if (resume == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Resume not found."
+                    };
+                }
+
+                // Validate company ownership
+                if (resume.CompanyId != companyUser.CompanyId.Value)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You do not have permission to delete this resume."
+                    };
+                }
+
+                // Check if already deleted
+                if (!resume.IsActive)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Resume is already deleted."
+                    };
+                }
+
+                // Soft delete: set IsActive = false
+                resume.IsActive = false;
+                await _parsedResumeRepository.UpdateAsync(resume);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Resume deleted successfully.",
+                    Data = new { resumeId = resume.ResumeId }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error deleting resume: {ex.Message}");
+                Console.WriteLine($"🔍 Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while deleting the resume."
+                };
+            }
+        }
     }
 }
 
