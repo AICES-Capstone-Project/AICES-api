@@ -15,20 +15,21 @@ namespace Data.Entities
         [Key]
         public int SubscriptionId { get; set; }
 
+        [MaxLength(255)]
+        public string? StripePriceId { get; set; }
+
         [Required, MaxLength(255)]
         public string Name { get; set; } = string.Empty;
 
         public string? Description { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal Price { get; set; }
+        public int Price { get; set; }
 
         public int DurationDays { get; set; }
-
-        public string? Limit { get; set; } // Number of resume screenings or other limit
-
-        [MaxLength(255)]
-        public string? StripePriceId { get; set; } // Stripe Price ID (e.g., price_1234567890)
+    
+        public int ResumeLimit { get; set; } 
+        
+        public int HoursLimit { get; set; }
 
         // Navigation
         public ICollection<CompanySubscription>? CompanySubscriptions { get; set; }

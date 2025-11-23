@@ -33,8 +33,9 @@ namespace BusinessObjectLayer.Services
                 Description = s.Description,
                 Price = s.Price,
                 DurationDays = s.DurationDays,
-                Limit = s.Limit,
-                CreatedAt = (DateTime)s.CreatedAt
+                ResumeLimit = s.ResumeLimit,
+                HoursLimit = s.HoursLimit,
+                CreatedAt = s.CreatedAt
             }).ToList();
 
             var responseData = new
@@ -72,8 +73,9 @@ namespace BusinessObjectLayer.Services
                 Description = subscription.Description,
                 Price = subscription.Price,
                 DurationDays = subscription.DurationDays,
-                Limit = subscription.Limit,
-                CreatedAt = (DateTime)subscription.CreatedAt
+                ResumeLimit = subscription.ResumeLimit,
+                HoursLimit = subscription.HoursLimit,
+                CreatedAt = subscription.CreatedAt
             };
 
             return new ServiceResponse
@@ -102,7 +104,9 @@ namespace BusinessObjectLayer.Services
                 Description = request.Description,
                 Price = request.Price,
                 DurationDays = request.DurationDays,
-                Limit = request.Limit,
+                ResumeLimit = request.ResumeLimit,
+                HoursLimit = request.HoursLimit,
+                StripePriceId = request.StripePriceId,
             };
 
             await _subscriptionRepository.AddAsync(subscription);
@@ -130,8 +134,10 @@ namespace BusinessObjectLayer.Services
             subscription.Description = request.Description ?? subscription.Description;
             subscription.Price = request.Price;
             subscription.DurationDays = request.DurationDays;
-            subscription.Limit = request.Limit ?? subscription.Limit;
-
+            subscription.ResumeLimit = request.ResumeLimit;
+            subscription.HoursLimit = request.HoursLimit;
+            subscription.StripePriceId = request.StripePriceId;
+            
             await _subscriptionRepository.UpdateAsync(subscription);
 
             return new ServiceResponse

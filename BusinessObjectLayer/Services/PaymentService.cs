@@ -127,8 +127,6 @@ namespace BusinessObjectLayer.Services
             {
                 CompanyId = companyId,
                 PaymentStatus = PaymentStatusEnum.Pending,
-                CreatedAt = DateTime.UtcNow,
-                IsActive = true
 
                
             };
@@ -313,7 +311,7 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.Error, Message = "Invoice missing subscription id." };
 
                 long amountPaidCents = invoice.AmountPaid;
-                decimal amountPaid = amountPaidCents / 100m;
+                int amountPaid = (int)amountPaidCents;
 
                 var companySub = await _companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubId);
 
@@ -362,15 +360,11 @@ namespace BusinessObjectLayer.Services
                     {
                         PaymentId = payment.PaymentId,
                         Amount = amountPaid,
+                        Currency = "USD",
                         Gateway = TransactionGatewayEnum.StripePayment,
                         ResponseCode = "SUCCESS",
                         ResponseMessage = $"Invoice {invoice.Id} paid",
                         TransactionTime = DateTime.UtcNow,
-                        CreatedAt = DateTime.UtcNow,
-                        IsActive = true
-
-                       
-
                     });
                 }
 
@@ -696,7 +690,5 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
-
-
     }
 }

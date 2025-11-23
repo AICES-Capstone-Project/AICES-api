@@ -724,7 +724,6 @@ namespace BusinessObjectLayer.Services
                 {
                     Status = SRStatus.Success,
                     Message = "Resume deleted successfully.",
-                    Data = new { resumeId = resume.ResumeId }
                 };
             }
             catch (Exception ex)

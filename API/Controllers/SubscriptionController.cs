@@ -26,7 +26,6 @@ namespace API.Controllers
         }
 
         [HttpGet("{id}")]
-        
         public async Task<IActionResult> GetByIdForAdmin(int id)
         {
             var response = await _subscriptionService.GetByIdForAdminAsync(id);
@@ -36,7 +35,6 @@ namespace API.Controllers
 
 
         [HttpPost]
-        
         public async Task<IActionResult> Create([FromBody] SubscriptionRequest request)
         {
             var response = await _subscriptionService.CreateAsync(request);
@@ -44,7 +42,6 @@ namespace API.Controllers
         }
 
         [HttpPatch("{id}")]
-        
         public async Task<IActionResult> Update(int id, [FromBody] SubscriptionRequest request)
         {
             var response = await _subscriptionService.UpdateAsync(id, request);
@@ -52,7 +49,6 @@ namespace API.Controllers
         }
 
         [HttpDelete("{id}")]
-        
         public async Task<IActionResult> SoftDelete(int id)
         {
             var response = await _subscriptionService.SoftDeleteAsync(id);

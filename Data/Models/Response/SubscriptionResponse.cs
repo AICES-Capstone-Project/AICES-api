@@ -11,9 +11,10 @@ namespace Data.Models.Response
         public int SubscriptionId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public decimal Price { get; set; }
+        public int Price { get; set; }
         public int DurationDays { get; set; }
-        public string? Limit { get; set; }
-        public DateTime CreatedAt { get; set; }
+        public int ResumeLimit { get; set; }
+        public int HoursLimit { get; set; }
+        public DateTime? CreatedAt { get; set; }
     }
 }

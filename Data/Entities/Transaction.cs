@@ -23,8 +23,10 @@ namespace Data.Entities
         [MaxLength(200)]
         public string? GatewayTransNo { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal Amount { get; set; }
+        public int Amount { get; set; }
+
+        [MaxLength(10)]
+        public string? Currency { get; set; }
 
         [MaxLength(100)]
         public string? ResponseCode { get; set; }
