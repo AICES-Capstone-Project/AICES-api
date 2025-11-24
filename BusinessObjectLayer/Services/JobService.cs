@@ -56,11 +56,11 @@ namespace BusinessObjectLayer.Services
             _notificationService = notificationService;
         }
 
-        public async Task<ServiceResponse> GetJobByIdAsync(int jobId)
+        public async Task<ServiceResponse> GetJobByIdAsync(int jobId, int companyId)
         {
             try
             {
-                var job = await _jobRepository.GetJobByIdAsync(jobId);
+                var job = await _jobRepository.GetAllJobByIdAndCompanyIdAsync(jobId, companyId);
 
                 if (job == null)
                 {
@@ -114,12 +114,12 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> GetJobsAsync(int page = 1, int pageSize = 10, string? search = null)
+        public async Task<ServiceResponse> GetJobsAsync(int companyId, int page = 1, int pageSize = 10, string? search = null)
         {
             try
             {
-                var jobs = await _jobRepository.GetPublishedJobsAsync(page, pageSize, search);
-                var total = await _jobRepository.GetTotalPublishedJobsAsync(search);
+                var jobs = await _jobRepository.GetAllJobsByCompanyIdAsync(companyId, page, pageSize, search);
+                var total = await _jobRepository.GetTotalAllJobsByCompanyIdAsync(companyId, search);
 
                 var jobResponses = jobs.Select(j => new JobResponse
                 {

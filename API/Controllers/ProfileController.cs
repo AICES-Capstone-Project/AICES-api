@@ -10,7 +10,7 @@ using System.Security.Claims;
 
 namespace API.Controllers
 {
-    [Route("api/profile")]
+    [Route("api/auth/profile")]
     [ApiController]
     [Authorize]
     public class ProfileController : ControllerBase
@@ -22,7 +22,7 @@ namespace API.Controllers
             _profileService = profileService;
         }
 
-        [HttpPatch("update")]
+        [HttpPatch]
         public async Task<IActionResult> UpdateProfile([FromForm] UpdateProfileRequest request)
         {
             if (!ModelState.IsValid)

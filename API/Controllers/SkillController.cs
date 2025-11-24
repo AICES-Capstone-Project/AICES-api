@@ -7,13 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-    [Route("api/skills")]
+    [Route("api/public/skills")]
     [ApiController]
-    public class SkillController : ControllerBase
+    public class PublicSkillController : ControllerBase
     {
         private readonly ISkillService _skillService;
 
-        public SkillController(ISkillService skillService)
+        public PublicSkillController(ISkillService skillService)
         {
             _skillService = skillService;
         }
@@ -30,6 +30,18 @@ namespace API.Controllers
         {
             var response = await _skillService.GetByIdAsync(id);
             return ControllerResponse.Response(response);
+        }
+    }
+
+    [Route("api/system/skills")]
+    [ApiController]
+    public class SystemSkillController : ControllerBase
+    {
+        private readonly ISkillService _skillService;
+
+        public SystemSkillController(ISkillService skillService)
+        {
+            _skillService = skillService;
         }
 
         [HttpPost]

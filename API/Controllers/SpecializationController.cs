@@ -7,13 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-    [Route("api/specializations")]
+    [Route("api/public/specializations")]
     [ApiController]
-    public class SpecializationController : ControllerBase
+    public class PublicSpecializationController : ControllerBase
     {
         private readonly ISpecializationService _specializationService;
 
-        public SpecializationController(ISpecializationService specializationService)
+        public PublicSpecializationController(ISpecializationService specializationService)
         {
             _specializationService = specializationService;
         }
@@ -30,6 +30,18 @@ namespace API.Controllers
         {
             var response = await _specializationService.GetByIdAsync(id);
             return ControllerResponse.Response(response);
+        }
+    }
+
+    [Route("api/system/specializations")]
+    [ApiController]
+    public class SystemSpecializationController : ControllerBase
+    {
+        private readonly ISpecializationService _specializationService;
+
+        public SystemSpecializationController(ISpecializationService specializationService)
+        {
+            _specializationService = specializationService;
         }
 
         [HttpPost]

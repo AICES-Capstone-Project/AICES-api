@@ -7,14 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-    [Route("api/employment-types")]
+    [Route("api/public/employment-types")]
     [ApiController]
-    
-    public class EmploymentTypeController : ControllerBase
+    public class PublicEmploymentTypeController : ControllerBase
     {
         private readonly IEmploymentTypeService _service;
 
-        public EmploymentTypeController(IEmploymentTypeService service)
+        public PublicEmploymentTypeController(IEmploymentTypeService service)
         {
             _service = service;
         }
@@ -31,6 +30,18 @@ namespace API.Controllers
         {
             var response = await _service.GetByIdAsync(id);
             return ControllerResponse.Response(response);
+        }
+    }
+
+    [Route("api/system/employment-types")]
+    [ApiController]
+    public class SystemEmploymentTypeController : ControllerBase
+    {
+        private readonly IEmploymentTypeService _service;
+
+        public SystemEmploymentTypeController(IEmploymentTypeService service)
+        {
+            _service = service;
         }
 
         [HttpPost]

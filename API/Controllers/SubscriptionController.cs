@@ -5,20 +5,21 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
+// ...using...
 namespace API.Controllers
 {
-    [Route("api/subscriptions")]
+    [Route("api/public/subscriptions")]
     [ApiController]
-    public class SubscriptionController : ControllerBase
+    public class PublicSubscriptionController : ControllerBase
     {
         private readonly ISubscriptionService _subscriptionService;
 
-        public SubscriptionController(ISubscriptionService subscriptionService)
+        public PublicSubscriptionController(ISubscriptionService subscriptionService)
         {
             _subscriptionService = subscriptionService;
         }
 
-        [HttpGet] 
+        [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
         {
             var response = await _subscriptionService.GetAllByAdminAsync(page, pageSize, search);
@@ -31,10 +32,21 @@ namespace API.Controllers
             var response = await _subscriptionService.GetByIdForAdminAsync(id);
             return ControllerResponse.Response(response);
         }
+    }
 
+    [Route("api/system/subscriptions")]
+    [ApiController]
+    public class SystemSubscriptionController : ControllerBase
+    {
+        private readonly ISubscriptionService _subscriptionService;
 
+        public SystemSubscriptionController(ISubscriptionService subscriptionService)
+        {
+            _subscriptionService = subscriptionService;
+        }
 
         [HttpPost]
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
         public async Task<IActionResult> Create([FromBody] SubscriptionRequest request)
         {
             var response = await _subscriptionService.CreateAsync(request);
@@ -42,6 +54,7 @@ namespace API.Controllers
         }
 
         [HttpPatch("{id}")]
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
         public async Task<IActionResult> Update(int id, [FromBody] SubscriptionRequest request)
         {
             var response = await _subscriptionService.UpdateAsync(id, request);
@@ -49,6 +62,7 @@ namespace API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
         public async Task<IActionResult> SoftDelete(int id)
         {
             var response = await _subscriptionService.SoftDeleteAsync(id);

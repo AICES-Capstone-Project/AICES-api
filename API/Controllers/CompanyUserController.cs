@@ -18,11 +18,11 @@ namespace API.Controllers
             _companyUserService = companyUserService;
         }
 
-        [HttpGet("{companyId}/members")]
+        [HttpGet("members")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> GetCompanyMembers(int companyId)
+        public async Task<IActionResult> GetSelfCompanyMembers()
         {
-            var response = await _companyUserService.GetMembersByCompanyIdAsync(companyId);
+            var response = await _companyUserService.GetSelfCompanyMembersAsync();
             return ControllerResponse.Response(response);
         }
 
@@ -36,7 +36,7 @@ namespace API.Controllers
         }
 
         // Manager views pending join requests
-        [HttpGet("self/join-requests")]
+        [HttpGet("join-requests")]
         [Authorize(Roles = "HR_Manager")]
         public async Task<IActionResult> GetPendingJoinRequests()
         {
@@ -45,7 +45,7 @@ namespace API.Controllers
         }
 
         // Manager approves or rejects join request
-        [HttpPut("self/join-requests/{comUserId}/status")]
+        [HttpPut("join-requests/{comUserId}/status")]
         [Authorize(Roles = "HR_Manager")]
         public async Task<IActionResult> UpdateJoinRequestStatus(int comUserId, [FromBody] UpdateJoinStatusRequest request)
         {
@@ -53,20 +53,32 @@ namespace API.Controllers
             return ControllerResponse.Response(response);
         }
 
-        [HttpGet("self/members")]
-        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> GetSelfCompanyMembers()
-        {
-            var response = await _companyUserService.GetSelfCompanyMembersAsync();
-            return ControllerResponse.Response(response);
-        }
-
         // Cancel own join request (only if status is Pending)
-        [HttpDelete("self/join-request/cancel")]
+        [HttpDelete("join-request/cancel")]
         [Authorize(Roles = "HR_Recruiter")]
         public async Task<IActionResult> CancelJoinRequest()
         {
             var response = await _companyUserService.CancelJoinRequestAsync();
+            return ControllerResponse.Response(response);
+        }
+    }
+
+    [Route("api/system/companies")]
+    [ApiController]
+    [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+    public class SystemCompanyUserController : ControllerBase
+    {
+        private readonly ICompanyUserService _companyUserService;
+
+        public SystemCompanyUserController(ICompanyUserService companyUserService)
+        {
+            _companyUserService = companyUserService;
+        }
+
+        [HttpGet("{companyId}/members")]
+        public async Task<IActionResult> GetCompanyMembers(int companyId)
+        {
+            var response = await _companyUserService.GetMembersByCompanyIdAsync(companyId);
             return ControllerResponse.Response(response);
         }
     }

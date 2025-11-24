@@ -7,14 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-    [Route("api/banner-configs")]
+    [Route("api/public/banner-configs")]
     [ApiController]
-    
-    public class BannerConfigController : ControllerBase
+    public class PublicBannerConfigController : ControllerBase
     {
         private readonly IBannerConfigService _bannerConfigService;
 
-        public BannerConfigController(IBannerConfigService bannerConfigService)
+        public PublicBannerConfigController(IBannerConfigService bannerConfigService)
         {
             _bannerConfigService = bannerConfigService;
         }
@@ -32,6 +31,18 @@ namespace API.Controllers
             var response = await _bannerConfigService.GetByIdAsync(id);
             return ControllerResponse.Response(response);
         }
+    }
+
+    [Route("api/system/banner-configs")]
+    [ApiController]
+    public class SystemBannerConfigController : ControllerBase
+    {
+        private readonly IBannerConfigService _bannerConfigService;
+
+        public SystemBannerConfigController(IBannerConfigService bannerConfigService)
+        {
+            _bannerConfigService = bannerConfigService;
+        }
 
         [HttpPost]
         [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
@@ -48,7 +59,6 @@ namespace API.Controllers
             var response = await _bannerConfigService.UpdateAsync(id, request);
             return ControllerResponse.Response(response);
         }
-
 
         [HttpDelete("{id}")]
         [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]

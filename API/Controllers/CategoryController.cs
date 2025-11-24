@@ -7,22 +7,24 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-    [Route("api/categories")]
+    [Route("api/public/categories")]
     [ApiController]
-    
-    public class CategoryController : ControllerBase
+    public class PublicCategoryController : ControllerBase
     {
         private readonly ICategoryService _categoryService;
         private readonly ISpecializationService _specializationService;
 
-        public CategoryController(ICategoryService categoryService, ISpecializationService specializationService)
+        public PublicCategoryController(ICategoryService categoryService, ISpecializationService specializationService)
         {
             _categoryService = categoryService;
             _specializationService = specializationService;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
+        public async Task<IActionResult> GetAll(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? search = null)
         {
             var response = await _categoryService.GetAllAsync(page, pageSize, search);
             return ControllerResponse.Response(response);
@@ -40,6 +42,18 @@ namespace API.Controllers
         {
             var response = await _specializationService.GetByCategoryIdAsync(categoryId);
             return ControllerResponse.Response(response);
+        }
+    }
+
+
+    [Route("api/system/categories")]
+    [ApiController]
+    public class SystemCategoryController : ControllerBase
+    {
+        private readonly ICategoryService _categoryService;
+        public SystemCategoryController(ICategoryService categoryService )
+        {
+            _categoryService = categoryService;
         }
 
         [HttpPost]

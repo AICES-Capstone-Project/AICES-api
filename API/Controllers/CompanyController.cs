@@ -8,9 +8,30 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
+    [Route("api/public/companies")]
+    [ApiController]
+    public class PublicCompanyController : ControllerBase
+    {
+        private readonly ICompanyService _companyService;
+
+        public PublicCompanyController(ICompanyService companyService)
+        {
+            _companyService = companyService;
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPublic() =>
+            ControllerResponse.Response(await _companyService.GetPublicAsync());
+
+        [HttpGet("{id}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPublicById(int id) =>
+            ControllerResponse.Response(await _companyService.GetPublicByIdAsync(id));
+    }
+
     [Route("api/companies")]
     [ApiController]
-    
     public class CompanyController : ControllerBase
     {
         private readonly ICompanyService _companyService;
@@ -20,38 +41,51 @@ namespace API.Controllers
             _companyService = companyService;
         }
 
-        [HttpGet("self")]
+        [HttpGet("profile")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetSelfCompany() =>
             ControllerResponse.Response(await _companyService.GetSelfCompanyAsync());
 
-        [HttpPatch("self/profile")]
+        [HttpPatch("profile")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         [RequestSizeLimit(10_000_000)]
         public async Task<IActionResult> UpdateProfile([FromForm] CompanyProfileUpdateRequest request) =>
             ControllerResponse.Response(await _companyService.UpdateCompanyProfileAsync(request));
 
-        [HttpPost("self")]
+        // Register new company
+        [HttpPost]
         [Authorize(Roles = "HR_Recruiter, HR_Manager")]
         [RequestSizeLimit(10_000_000)]
         public async Task<IActionResult> SelfCreate([FromForm] CompanyRequest request) =>
             ControllerResponse.Response(await _companyService.SelfCreateAsync(request));
 
-        [HttpPatch("self")]
+        // Update company to resend after rejection
+        [HttpPatch]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         [RequestSizeLimit(10_000_000)]
         public async Task<IActionResult> UpdateSelfCompany([FromForm] CompanyRequest request) =>
             ControllerResponse.Response(await _companyService.UpdateSelfCompanyAsync(request));
 
-        [HttpGet("public")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetPublic() =>
-            ControllerResponse.Response(await _companyService.GetPublicAsync());
+        // Cancel company registration
+        [HttpPut("cancel")]
+        [Authorize(Roles = "HR_Recruiter")]
+        public async Task<IActionResult> CancelCompany()
+        {
+            var response = await _companyService.CancelCompanyAsync();
+            return ControllerResponse.Response(response);
+        }
+    }
 
-        [HttpGet("public/{id}")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetPublicById(int id) =>
-            ControllerResponse.Response(await _companyService.GetPublicByIdAsync(id));
+    [Route("api/system/companies")]
+    [ApiController]
+    public class SystemCompanyController : ControllerBase
+    {
+        private readonly ICompanyService _companyService;
+
+        public SystemCompanyController(ICompanyService companyService)
+        {
+            _companyService = companyService;
+        }
 
         [HttpGet]
         [Authorize(Roles = "System_Admin, System_Manager, System_Staff")]
@@ -90,14 +124,5 @@ namespace API.Controllers
             var response = await _companyService.UpdateCompanyStatusAsync(id, request.Status, request.RejectionReason);
             return ControllerResponse.Response(response);
         }
-
-        [HttpPut("self/cancel")]
-        [Authorize(Roles = "HR_Recruiter")]
-        public async Task<IActionResult> CancelCompany()
-        {
-            var response = await _companyService.CancelCompanyAsync();
-            return ControllerResponse.Response(response);
-        }
-
     }
 }

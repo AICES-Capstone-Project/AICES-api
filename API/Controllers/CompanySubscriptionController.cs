@@ -10,9 +10,37 @@ namespace API.Controllers
     [ApiController]
     public class CompanySubscriptionController : ControllerBase
     {
+        private readonly IPaymentService _paymentService;
+
+        public CompanySubscriptionController(IPaymentService paymentService)
+        {
+            _paymentService = paymentService;
+        }
+
+        [HttpPost("cancel")]
+        [Authorize(Roles = "HR_Manager")]
+        public async Task<IActionResult> CancelSubscription()
+        {
+            var result = await _paymentService.CancelSubscriptionAsync(User);
+            return ControllerResponse.Response(result);
+        }
+
+        [HttpGet("current-subscription")]
+        [Authorize(Roles = "HR_Manager")]
+        public async Task<IActionResult> GetCurrentSubscription()
+        {
+            var result = await _paymentService.GetCurrentSubscriptionAsync(User);
+            return ControllerResponse.Response(result);
+        }
+    }
+    
+    [Route("api/system/company-subscriptions")]
+    [ApiController]
+    public class SystemCompanySubscriptionController : ControllerBase
+    {
         private readonly ICompanySubscriptionService _companySubscriptionService;
 
-        public CompanySubscriptionController(ICompanySubscriptionService companySubscriptionService)
+        public SystemCompanySubscriptionController(ICompanySubscriptionService companySubscriptionService)
         {
             _companySubscriptionService = companySubscriptionService;
         }
@@ -32,22 +60,6 @@ namespace API.Controllers
             var response = await _companySubscriptionService.GetByIdAsync(id);
             return ControllerResponse.Response(response);
         }
-
-        [HttpPost]
-        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
-        public async Task<IActionResult> Create([FromBody] CreateCompanySubscriptionRequest request)
-        {
-            var response = await _companySubscriptionService.CreateAsync(request);
-            return ControllerResponse.Response(response);
-        }
-
-        // [HttpPatch("{id}")]
-        // [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
-        // public async Task<IActionResult> Update(int id, [FromBody] CompanySubscriptionRequest request)
-        // {
-        //     var response = await _companySubscriptionService.UpdateAsync(id, request);
-        //     return ControllerResponse.Response(response);
-        // }
 
         [HttpDelete("{id}")]
         [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]

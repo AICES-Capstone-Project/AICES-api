@@ -34,21 +34,7 @@ namespace API.Controllers
             return ControllerResponse.Response(result);
         }
 
-        [HttpPost("subscription/cancel")]
-        [Authorize(Roles = "HR_Manager")]
-        public async Task<IActionResult> CancelSubscription()
-        {
-            var result = await _paymentService.CancelSubscriptionAsync(User);
-            return ControllerResponse.Response(result);
-        }
-
-        [HttpGet("current-subscription")]
-        [Authorize(Roles = "HR_Manager")]
-        public async Task<IActionResult> GetCurrentSubscription()
-        {
-            var result = await _paymentService.GetCurrentSubscriptionAsync(User);
-            return ControllerResponse.Response(result);
-        }
+        // ...removed: moved to SubscriptionController...
     }
 
 

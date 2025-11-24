@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-    [Route("api/resume")]
+    [Route("api/resumes")]
     [ApiController]
     public class ResumeController : ControllerBase
     {
@@ -41,7 +41,7 @@ namespace API.Controllers
         /// <summary>
         /// Receive AI processing result callback from Python service
         /// </summary>
-         [HttpPost("result")]
+         [HttpPost("result/ai")]
         public async Task<IActionResult> ProcessAIResult([FromBody] AIResultRequest request)
         {
             if (!ModelState.IsValid)
@@ -64,8 +64,8 @@ namespace API.Controllers
         /// Get list of resumes for a specific job (company self)
         /// Returns: resumeId, status, fullName, totalResumeScore
         /// </summary>
-        [HttpGet("/company/self/jobs/{jobId}/resumes")]
-        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        [HttpGet("/api/jobs/{jobId}/resumes")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")] 
         public async Task<IActionResult> GetJobResumes(int jobId)
         {
             var serviceResponse = await _resumeService.GetJobResumesAsync(jobId);
@@ -77,7 +77,7 @@ namespace API.Controllers
         /// Get detailed information about a specific resume
         /// Returns: resume details, candidate info, AI scores, and score details
         /// </summary>
-        [HttpGet("/company/self/jobs/{jobId}/resumes/{resumeId}")]
+        [HttpGet("/api/jobs/{jobId}/resumes/{resumeId}")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetJobResumeDetail(int jobId, int resumeId)
         {
