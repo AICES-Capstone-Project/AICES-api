@@ -16,6 +16,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> HandleWebhookAsync(string json, string signature);
         Task<ServiceResponse> GetPaymentHistoryAsync(ClaimsPrincipal user, int page, int pageSize);
         Task<ServiceResponse> CancelSubscriptionAsync(ClaimsPrincipal userClaims);
+        Task<ServiceResponse> GetCurrentSubscriptionAsync(ClaimsPrincipal userClaims);
     }
 
 }

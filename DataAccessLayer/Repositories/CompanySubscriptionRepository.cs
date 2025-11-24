@@ -83,6 +83,7 @@ namespace DataAccessLayer.Repositories
         {
             var now = DateTime.UtcNow;
             return await _context.CompanySubscriptions
+                .Include(cs => cs.Subscription)
                 .Where(cs => cs.CompanyId == companyId
                     && (cs.SubscriptionStatus == SubscriptionStatusEnum.Active || cs.SubscriptionStatus == SubscriptionStatusEnum.Pending)
                     && cs.IsActive
