@@ -79,9 +79,13 @@ namespace BusinessObjectLayer.Services
             if (!string.IsNullOrEmpty(request.Address)) 
                 profile.Address = request.Address;
             
-            if (request.DateOfBirth.HasValue) 
-                profile.DateOfBirth = request.DateOfBirth.Value.Date;
-            
+            if (request.DateOfBirth.HasValue)
+                profile.DateOfBirth = DateTime.SpecifyKind(
+                request.DateOfBirth.Value.Date,
+                DateTimeKind.Utc
+ );
+
+
             if (!string.IsNullOrEmpty(request.PhoneNumber)) 
                 profile.PhoneNumber = request.PhoneNumber;
 
