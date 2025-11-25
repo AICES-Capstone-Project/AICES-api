@@ -21,19 +21,9 @@ namespace API.Controllers
         /// Upload a resume file (PDF/DOCX) for a job
         /// </summary>
         [HttpPost("upload")]
-          [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-          public async Task<IActionResult> UploadResume([FromForm] ResumeUploadRequest request) 
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> UploadResume([FromForm] ResumeUploadRequest request) 
         {
-            if (request.File == null || request.File.Length == 0)
-            {
-                var errorResponse = new Data.Models.Response.ServiceResponse
-                {
-                    Status = Data.Enum.SRStatus.Validation,
-                    Message = "File is required."
-                };
-                return ControllerResponse.Response(errorResponse);
-            }
-
             var serviceResponse = await _resumeService.UploadResumeAsync(request.JobId, request.File);
             return ControllerResponse.Response(serviceResponse);
         }
@@ -41,20 +31,9 @@ namespace API.Controllers
         /// <summary>
         /// Receive AI processing result callback from Python service
         /// </summary>
-         [HttpPost("result/ai")]
+        [HttpPost("result/ai")]
         public async Task<IActionResult> ProcessAIResult([FromBody] AIResultRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                var errorResponse = new Data.Models.Response.ServiceResponse
-                {
-                    Status = Data.Enum.SRStatus.Validation,
-                    Message = "Validation failed.",
-                    Data = ModelState
-                };
-                return ControllerResponse.Response(errorResponse);
-            }
-
             var serviceResponse = await _resumeService.ProcessAIResultAsync(request);
             return ControllerResponse.Response(serviceResponse);
         }

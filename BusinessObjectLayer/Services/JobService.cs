@@ -872,6 +872,28 @@ namespace BusinessObjectLayer.Services
             }
         }
 
+        public async Task<ServiceResponse> GetSelfJobsByMeWithStatusStringAsync(int page = 1, int pageSize = 10, string? search = null, string? status = null)
+        {
+            JobStatusEnum? jobStatus = null;
+            if (!string.IsNullOrEmpty(status))
+            {
+                if (Enum.TryParse<JobStatusEnum>(status, true, out var parsedStatus))
+                {
+                    jobStatus = parsedStatus;
+                }
+                else
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = $"Invalid status value: {status}. Valid values are: {string.Join(", ", Enum.GetNames(typeof(JobStatusEnum)))}"
+                    };
+                }
+            }
+
+            return await GetSelfJobsByMeAsync(page, pageSize, search, jobStatus);
+        }
+
         // Update a job for the authenticated user's company (basic fields and specialization)
         public async Task<ServiceResponse> UpdateSelfCompanyJobAsync(int jobId, JobRequest request, ClaimsPrincipal userClaims)
         {

@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -105,6 +106,31 @@ namespace BusinessObjectLayer.Services
                 Status = SRStatus.Success,
                 Message = "Profile updated successfully."
             };
+        }
+
+        public async Task<ServiceResponse> UpdateProfileFromClaimsAsync(ClaimsPrincipal user, UpdateProfileRequest request)
+        {
+            var userIdClaim = Common.ClaimUtils.GetUserIdClaim(user);
+
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "User not authenticated."
+                };
+            }
+
+            if (!int.TryParse(userIdClaim, out int userId))
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "Invalid user ID format."
+                };
+            }
+
+            return await UpdateProfileAsync(userId, request);
         }
 
         private async Task<(bool Success, string? Url, string? ErrorMessage)> UploadAvatarAsync(int userId, Microsoft.AspNetCore.Http.IFormFile file)

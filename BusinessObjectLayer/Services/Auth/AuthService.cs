@@ -202,7 +202,8 @@ namespace BusinessObjectLayer.Services.Auth
                 Console.WriteLine($"Received token length: {token?.Length ?? 0}");
 
                 var principal = _tokenService.ValidateToken(token);
-                var email = principal.FindFirst(ClaimTypes.Email)?.Value;
+                var email = Common.ClaimUtils.GetEmailClaim(principal);
+                // var email = principal.FindFirst(ClaimTypes.Email)?.Value;
 
                 Console.WriteLine($"Decoded email from token: {email ?? "NULL"}");
 

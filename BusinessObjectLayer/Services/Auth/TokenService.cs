@@ -62,13 +62,13 @@ namespace BusinessObjectLayer.Services.Auth
             {
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-                new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "Candidate"),
+                new Claim(ClaimTypes.Role, user.Role?.RoleName ?? string.Empty),
                 new Claim("provider", userProvider),
-                new Claim("fullName", user.Profile?.FullName ?? ""),
-                new Claim("phoneNumber", user.Profile?.PhoneNumber ?? ""),
-                new Claim("address", user.Profile?.Address ?? ""),
-                new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? ""),
-                new Claim("avatarUrl", user.Profile?.AvatarUrl ?? ""),
+                new Claim("fullName", user.Profile?.FullName ?? string.Empty),
+                new Claim("phoneNumber", user.Profile?.PhoneNumber ?? string.Empty),
+                new Claim("address", user.Profile?.Address ?? string.Empty),
+                new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? string.Empty),
+                new Claim("avatarUrl", user.Profile?.AvatarUrl ?? string.Empty),
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));

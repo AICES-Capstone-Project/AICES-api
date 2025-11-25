@@ -49,15 +49,7 @@ namespace API.Controllers
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetSelfJobsByMe([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] string? status = null)
         {
-            JobStatusEnum? jobStatus = null;
-            if (!string.IsNullOrEmpty(status))
-            {
-                if (Enum.TryParse<JobStatusEnum>(status, true, out var parsedStatus))
-                {
-                    jobStatus = parsedStatus;
-                }
-            }
-            var serviceResponse = await _jobService.GetSelfJobsByMeAsync(page, pageSize, search, jobStatus);
+            var serviceResponse = await _jobService.GetSelfJobsByMeWithStatusStringAsync(page, pageSize, search, status);
             return ControllerResponse.Response(serviceResponse);
         }
 
@@ -93,7 +85,7 @@ namespace API.Controllers
             return ControllerResponse.Response(response);
         }
     }
-    [Route("api/system/jobs")]
+    [Route("api/system")]
     [ApiController]
     public class SystemJobController : ControllerBase
     {
@@ -104,17 +96,17 @@ namespace API.Controllers
             _jobService = jobService;
         }
 
-        [HttpGet]
+        [HttpGet("company/{companyId}/jobs")]
         [Authorize(Roles = "System_Admin, System_Manager, System_Staff")]
-        public async Task<IActionResult> GetJobs([FromQuery] int companyId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
+        public async Task<IActionResult> GetJobs(int companyId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
         {
             var serviceResponse = await _jobService.GetJobsAsync(companyId, page, pageSize, search);
             return ControllerResponse.Response(serviceResponse);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("company/{companyId}/jobs/{id}")]
         [Authorize(Roles = "System_Admin, System_Manager, System_Staff")]
-        public async Task<IActionResult> GetJobById(int id, [FromQuery] int companyId)
+        public async Task<IActionResult> GetJobById(int companyId, int id)
         {
             var serviceResponse = await _jobService.GetJobByIdAsync(id, companyId);
             return ControllerResponse.Response(serviceResponse);

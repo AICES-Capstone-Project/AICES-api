@@ -49,6 +49,15 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> UploadResumeAsync(int jobId, IFormFile file)
         {
+            if (file == null || file.Length == 0)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Validation,
+                    Message = "File is required."
+                };
+            }
+
             try
             {
                 // Validate job exists
@@ -203,6 +212,15 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> ProcessAIResultAsync(AIResultRequest request)
         {
+            if (request == null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Validation,
+                    Message = "Request is required."
+                };
+            }
+
             try
             {
                 // 1. Find resume
