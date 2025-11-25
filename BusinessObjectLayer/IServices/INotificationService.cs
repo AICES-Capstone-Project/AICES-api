@@ -3,6 +3,7 @@ using Data.Models.Response;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -12,7 +13,9 @@ namespace BusinessObjectLayer.IServices
     {
         Task<ServiceResponse> CreateAsync(int userId, NotificationTypeEnum type, string message, string? detail = null);
         Task<ServiceResponse> GetByUserIdAsync(int userId);
+        Task<ServiceResponse> GetMyNotificationsAsync(ClaimsPrincipal user);
         Task<ServiceResponse> MarkAsReadAsync(int notifId);
         Task<ServiceResponse> GetByIdAndMarkAsReadAsync(int userId, int notifId);
+        Task<ServiceResponse> GetNotificationDetailAsync(ClaimsPrincipal user, int notifId);
     }
 }

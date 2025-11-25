@@ -3,6 +3,7 @@ using BusinessObjectLayer.IServices.Auth;
 using BusinessObjectLayer.Services;
 using BusinessObjectLayer.Services.Auth;
 using BusinessObjectLayer.BackgroundJobs;
+using BusinessObjectLayer.Hubs;
 using CloudinaryDotNet;
 using Data.Enum;
 using Data.Models.Response;

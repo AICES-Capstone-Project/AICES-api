@@ -1,5 +1,6 @@
 ﻿using API.Common;
 using BusinessObjectLayer.IServices;
+using Data.Models.Request;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -21,23 +22,7 @@ namespace API.Controllers
         [HttpGet("me")]
         public async Task<IActionResult> GetMyNotifications()
         {
-            
-            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                      ?? User.FindFirst("nameidentifier")?.Value
-                      ?? User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
-
-            if (string.IsNullOrEmpty(userIdClaim))
-            {
-                return Unauthorized(new
-                {
-                    status = "Unauthorized",
-                    message = "User not authenticated."
-                });
-            }
-
-            int userId = int.Parse(userIdClaim);
-
-            var response = await _notificationService.GetByUserIdAsync(userId);
+            var response = await _notificationService.GetMyNotificationsAsync(User);
             return ControllerResponse.Response(response);
         }
 
@@ -58,24 +43,24 @@ namespace API.Controllers
         [HttpGet("detail/{notifId}")]
         public async Task<IActionResult> GetNotificationDetail(int notifId)
         {
-            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                              ?? User.FindFirst("nameidentifier")?.Value
-                              ?? User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
-
-            if (string.IsNullOrEmpty(userIdClaim))
-            {
-                return Unauthorized(new
-                {
-                    status = "Unauthorized",
-                    message = "User not authenticated."
-                });
-            }
-
-            int userId = int.Parse(userIdClaim);
-
-            var response = await _notificationService.GetByIdAndMarkAsReadAsync(userId, notifId);
+            var response = await _notificationService.GetNotificationDetailAsync(User, notifId);
             return ControllerResponse.Response(response);
         }
 
+        /// <summary>
+        /// Test endpoint: Gửi thông báo cho một userId cụ thể để test SignalR
+        /// </summary>
+        [HttpPost("test/send")]
+        // [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> SendTestNotification([FromBody] NotificationRequest request)
+        {
+            var response = await _notificationService.CreateAsync(
+                request.UserId,
+                request.Type,
+                request.Message,
+                request.Detail
+            );
+            return ControllerResponse.Response(response);
+        }
     }
 }
