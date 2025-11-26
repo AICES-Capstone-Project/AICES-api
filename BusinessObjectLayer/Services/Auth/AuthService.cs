@@ -740,6 +740,74 @@ namespace BusinessObjectLayer.Services.Auth
                 };
             }
         }
+
+        public async Task<ServiceResponse> ChangePasswordAsync(ClaimsPrincipal userClaims, string oldPassword, string newPassword)
+        {
+            try
+            {
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                
+                // Get user ID from claims
+                var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+
+                // Get user from database
+                var user = await authRepo.GetByEmailAsync(Common.ClaimUtils.GetEmailClaim(userClaims));
+                if (user == null || user.UserId != userId)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not found."
+                    };
+                }
+
+                // Validate user status
+                var validation = ValidateUserStatus(user);
+                if (validation != null)
+                    return validation;
+
+                // Verify old password
+                if (!BCrypt.Net.BCrypt.Verify(oldPassword, user.Password))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Old password is incorrect."
+                    };
+                }
+
+                // Hash and update new password
+                user.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
+                await authRepo.UpdateAsync(user);
+                await _uow.SaveChangesAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Password changed successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Change password error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while changing the password."
+                };
+            }
+        }
     }
 }
 

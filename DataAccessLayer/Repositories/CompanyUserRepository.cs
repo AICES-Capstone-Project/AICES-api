@@ -38,7 +38,6 @@ namespace DataAccessLayer.Repositories
         public async Task<CompanyUser?> GetByComUserIdAsync(int comUserId)
         {
             return await _context.CompanyUsers
-                .AsNoTracking()
                 .Include(cu => cu.User)
                     .ThenInclude(u => u.Profile)
                 .Include(cu => cu.User)

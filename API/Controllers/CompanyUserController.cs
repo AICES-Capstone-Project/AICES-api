@@ -61,6 +61,15 @@ namespace API.Controllers
             var response = await _companyUserService.CancelJoinRequestAsync();
             return ControllerResponse.Response(response);
         }
+
+        // Kick member from company (only owner or manager - service validates)
+        [HttpDelete("members/{comUserId}")]
+        [Authorize]
+        public async Task<IActionResult> KickMember(int comUserId)
+        {
+            var response = await _companyUserService.KickMemberAsync(comUserId);
+            return ControllerResponse.Response(response);
+        }
     }
 
     [Route("api/system/companies")]

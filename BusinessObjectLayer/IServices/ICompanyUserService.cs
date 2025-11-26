@@ -18,5 +18,6 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetPendingJoinRequestsSelfAsync();
         Task<ServiceResponse> UpdateJoinRequestStatusSelfAsync(int comUserId, Data.Enum.JoinStatusEnum joinStatus);
         Task<ServiceResponse> CancelJoinRequestAsync();
+        Task<ServiceResponse> KickMemberAsync(int comUserId);
     }
 }

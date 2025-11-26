@@ -162,6 +162,14 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
+        [Authorize]
+        [HttpPut("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            var serviceResponse = await _authService.ChangePasswordAsync(User, request.OldPassword, request.NewPassword);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
         private void SetRefreshTokenCookie(string refreshToken)
         {
             var cookieOptions = new CookieOptions

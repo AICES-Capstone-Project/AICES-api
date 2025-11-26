@@ -22,5 +22,6 @@ namespace BusinessObjectLayer.IServices.Auth
         Task<ServiceResponse> GetCurrentUserInfoAsync(ClaimsPrincipal userClaims);
         Task<ServiceResponse> RefreshTokenAsync(string refreshToken);
         Task<ServiceResponse> LogoutAsync(string refreshToken);
+        Task<ServiceResponse> ChangePasswordAsync(ClaimsPrincipal userClaims, string oldPassword, string newPassword);
     }
 }

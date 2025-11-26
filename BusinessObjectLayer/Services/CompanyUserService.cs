@@ -423,5 +423,135 @@ namespace BusinessObjectLayer.Services
             }
             return new ServiceResponse { Status = SRStatus.Success };
         }
+
+        public async Task<ServiceResponse> KickMemberAsync(int comUserId)
+        {
+            try
+            {
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated." };
+                }
+
+                int currentUserId = int.Parse(userIdClaim);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                var userRepo = _uow.GetRepository<IUserRepository>();
+
+                // Get the company user to be kicked
+                var targetCompanyUser = await companyUserRepo.GetByComUserIdAsync(comUserId);
+                if (targetCompanyUser == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company member not found."
+                    };
+                }
+
+                if (targetCompanyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "This user is not associated with any company."
+                    };
+                }
+
+                int companyId = targetCompanyUser.CompanyId.Value;
+
+                // Get current user's company user record
+                var currentCompanyUser = await companyUserRepo.GetByUserIdAsync(currentUserId);
+                if (currentCompanyUser == null || currentCompanyUser.CompanyId != companyId)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You are not a member of this company."
+                    };
+                }
+
+                // Get company to check if current user is owner
+                var company = await companyRepo.GetByIdAsync(companyId);
+                if (company == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company not found."
+                    };
+                }
+
+                // Check if current user is company owner (CreatedBy is ComUserId)
+                bool isOwner = company.CreatedBy == currentCompanyUser.ComUserId;
+
+                // Check if current user is HR_Manager
+                var currentUser = await userRepo.GetByIdAsync(currentUserId);
+                bool isManager = currentUser != null && currentUser.Role?.RoleName == "HR_Manager";
+
+                // Only owner or manager can kick members
+                if (!isOwner && !isManager)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Only company owner or manager can remove members."
+                    };
+                }
+
+                // Prevent kicking yourself
+                if (targetCompanyUser.ComUserId == currentCompanyUser.ComUserId)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "You cannot remove yourself from the company."
+                    };
+                }
+
+                // Prevent manager from kicking owner
+                if (isManager && !isOwner && company.CreatedBy == targetCompanyUser.ComUserId)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Managers cannot remove the company owner."
+                    };
+                }
+
+                await _uow.BeginTransactionAsync();
+                try
+                {
+                    // Remove companyId and set joinStatus to NotApplied
+                    targetCompanyUser.CompanyId = null;
+                    targetCompanyUser.JoinStatus = JoinStatusEnum.NotApplied;
+                    await companyUserRepo.UpdateAsync(targetCompanyUser);
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Member removed successfully."
+                    };
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Kick member error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while removing the member."
+                };
+            }
+        }
     }
 }
