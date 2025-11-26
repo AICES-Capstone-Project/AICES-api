@@ -13,6 +13,7 @@ using Data.Settings.Data.Settings;
 using DataAccessLayer;
 using DataAccessLayer.IRepositories;
 using DataAccessLayer.Repositories;
+using DataAccessLayer.UnitOfWork;
 using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
@@ -105,6 +106,11 @@ if (string.IsNullOrEmpty(connectionString))
 }
 builder.Services.AddDbContext<AICESDbContext>(options =>
     options.UseNpgsql(connectionString));
+
+// ------------------------
+// ?? UNIT OF WORK CONFIGURATION
+// ------------------------
+builder.Services.AddScoped<IUnitOfWork, DataAccessLayer.UnitOfWork.UnitOfWork>();
 
 // ------------------------
 // ?? CLOUDINARY CONFIGURATION
