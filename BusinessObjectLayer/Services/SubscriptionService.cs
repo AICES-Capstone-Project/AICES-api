@@ -4,6 +4,7 @@ using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,17 +15,18 @@ namespace BusinessObjectLayer.Services
 {
     public class SubscriptionService : ISubscriptionService
     {
-        private readonly ISubscriptionRepository _subscriptionRepository;
+        private readonly IUnitOfWork _uow;
 
-        public SubscriptionService(ISubscriptionRepository subscriptionRepository)
+        public SubscriptionService(IUnitOfWork uow)
         {
-            _subscriptionRepository = subscriptionRepository;
+            _uow = uow;
         }
 
         public async Task<ServiceResponse> GetAllByAdminAsync(int page = 1, int pageSize = 10, string? search = null)
         {
-            var subscriptions = await _subscriptionRepository.GetSubscriptionsAsync(page, pageSize, search);
-            var total = await _subscriptionRepository.GetTotalSubscriptionsAsync(search);
+            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+            var subscriptions = await subscriptionRepo.GetSubscriptionsAsync(page, pageSize, search);
+            var total = await subscriptionRepo.GetTotalSubscriptionsAsync(search);
 
             var pagedData = subscriptions.Select(s => new SubscriptionResponse
             {
@@ -56,7 +58,8 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetByIdForAdminAsync(int id)
         {
-            var subscription = await _subscriptionRepository.GetByIdAsync(id);
+            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+            var subscription = await subscriptionRepo.GetByIdAsync(id);
             if (subscription == null)
             {
                 return new ServiceResponse
@@ -89,7 +92,9 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> CreateAsync(SubscriptionRequest request)
         {
-            if (await _subscriptionRepository.ExistsByNameAsync(request.Name))
+            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+            
+            if (await subscriptionRepo.ExistsByNameAsync(request.Name))
             {
                 return new ServiceResponse
                 {
@@ -98,29 +103,41 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var subscription = new Subscription
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Name = request.Name,
-                Description = request.Description,
-                Price = request.Price,
-                DurationDays = request.DurationDays,
-                ResumeLimit = request.ResumeLimit,
-                HoursLimit = request.HoursLimit,
-                StripePriceId = request.StripePriceId,
-            };
+                var subscription = new Subscription
+                {
+                    Name = request.Name,
+                    Description = request.Description,
+                    Price = request.Price,
+                    DurationDays = request.DurationDays,
+                    ResumeLimit = request.ResumeLimit,
+                    HoursLimit = request.HoursLimit,
+                    StripePriceId = request.StripePriceId,
+                };
 
-            await _subscriptionRepository.AddAsync(subscription);
+                await subscriptionRepo.AddAsync(subscription);
+                await _uow.SaveChangesAsync();
+                await _uow.CommitTransactionAsync();
 
-            return new ServiceResponse
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Subscription created successfully."
+                };
+            }
+            catch
             {
-                Status = SRStatus.Success,
-                Message = "Subscription created successfully."
-            };
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         public async Task<ServiceResponse> UpdateAsync(int id, SubscriptionRequest request)
         {
-            var subscription = await _subscriptionRepository.GetByIdAsync(id);
+            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+            var subscription = await subscriptionRepo.GetByIdAsync(id);
             if (subscription == null)
             {
                 return new ServiceResponse
@@ -138,18 +155,29 @@ namespace BusinessObjectLayer.Services
             subscription.HoursLimit = request.HoursLimit;
             subscription.StripePriceId = request.StripePriceId;
             
-            await _subscriptionRepository.UpdateAsync(subscription);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Subscription updated successfully."
-            };
+                await subscriptionRepo.UpdateAsync(subscription);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Subscription updated successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
-            var subscription = await _subscriptionRepository.GetByIdAsync(id);
+            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+            var subscription = await subscriptionRepo.GetByIdAsync(id);
             if (subscription == null)
             {
                 return new ServiceResponse
@@ -159,13 +187,23 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            await _subscriptionRepository.SoftDeleteAsync(subscription);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Subscription deleted successfully."
-            };
+                await subscriptionRepo.SoftDeleteAsync(subscription);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Subscription deleted successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
     }
 }

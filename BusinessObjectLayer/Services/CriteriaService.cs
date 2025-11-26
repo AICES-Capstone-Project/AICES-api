@@ -4,6 +4,7 @@ using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,11 +14,11 @@ namespace BusinessObjectLayer.Services
 {
     public class CriteriaService : ICriteriaService
     {
-        private readonly ICriteriaRepository _criteriaRepository;
+        private readonly IUnitOfWork _uow;
 
-        public CriteriaService(ICriteriaRepository criteriaRepository)
+        public CriteriaService(IUnitOfWork uow)
         {
-            _criteriaRepository = criteriaRepository;
+            _uow = uow;
         }
 
         public async Task<ServiceResponse> CreateCriteriaForJobAsync(int jobId, List<CriteriaRequest> criteriaRequests)
@@ -57,7 +58,9 @@ namespace BusinessObjectLayer.Services
                 Weight = c.Weight
             }).ToList();
 
-            await _criteriaRepository.AddCriteriaAsync(criteria);
+            var criteriaRepo = _uow.GetRepository<ICriteriaRepository>();
+            await criteriaRepo.AddCriteriaAsync(criteria);
+            await _uow.SaveChangesAsync();
 
             return new ServiceResponse
             {
@@ -74,7 +77,8 @@ namespace BusinessObjectLayer.Services
                 return validation;
             }
 
-            await _criteriaRepository.DeleteByJobIdAsync(jobId);
+            var criteriaRepo = _uow.GetRepository<ICriteriaRepository>();
+            await criteriaRepo.DeleteByJobIdAsync(jobId);
 
             var criteria = criteriaRequests.Select(c => new Criteria
             {
@@ -83,7 +87,8 @@ namespace BusinessObjectLayer.Services
                 Weight = c.Weight
             }).ToList();
 
-            await _criteriaRepository.AddCriteriaAsync(criteria);
+            await criteriaRepo.AddCriteriaAsync(criteria);
+            await _uow.SaveChangesAsync();
 
             return new ServiceResponse
             {

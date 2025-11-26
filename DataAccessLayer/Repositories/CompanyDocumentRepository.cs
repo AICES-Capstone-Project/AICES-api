@@ -21,20 +21,19 @@ namespace DataAccessLayer.Repositories
         public async Task<CompanyDocument> AddAsync(CompanyDocument document)
         {
             await _context.CompanyDocuments.AddAsync(document);
-            await _context.SaveChangesAsync();
             return document;
         }
 
         public async Task<List<CompanyDocument>> AddRangeAsync(List<CompanyDocument> documents)
         {
             await _context.CompanyDocuments.AddRangeAsync(documents);
-            await _context.SaveChangesAsync();
             return documents;
         }
 
         public async Task<List<CompanyDocument>> GetByCompanyIdAsync(int companyId)
         {
             return await _context.CompanyDocuments
+                .AsNoTracking()
                 .Where(d => d.CompanyId == companyId && d.IsActive)
                 .ToListAsync();
         }
@@ -45,7 +44,7 @@ namespace DataAccessLayer.Repositories
             if (document != null)
             {
                 document.IsActive = false;
-                await _context.SaveChangesAsync();
+                _context.CompanyDocuments.Update(document);
             }
         }
     }

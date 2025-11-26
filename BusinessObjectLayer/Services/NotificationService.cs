@@ -4,6 +4,7 @@ using Data.Entities;
 using Data.Enum;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.SignalR;
 using System;
 using System.Collections.Generic;
@@ -16,17 +17,18 @@ namespace BusinessObjectLayer.Services
 {
     public class NotificationService : INotificationService
     {
-        private readonly INotificationRepository _notificationRepository;
+        private readonly IUnitOfWork _uow;
         private readonly IHubContext<NotificationHub> _hubContext;
 
-        public NotificationService(INotificationRepository notificationRepository, IHubContext<NotificationHub> hubContext)
+        public NotificationService(IUnitOfWork uow, IHubContext<NotificationHub> hubContext)
         {
-            _notificationRepository = notificationRepository;
+            _uow = uow;
             _hubContext = hubContext;
         }
 
         public async Task<ServiceResponse> CreateAsync(int userId, NotificationTypeEnum type, string message, string? detail = null)
         {
+            var notifRepo = _uow.GetRepository<INotificationRepository>();
             var notif = new Notification
             {
                 UserId = userId,
@@ -35,7 +37,8 @@ namespace BusinessObjectLayer.Services
                 Detail = detail
             };
 
-            await _notificationRepository.AddAsync(notif);
+            await notifRepo.AddAsync(notif);
+            await _uow.SaveChangesAsync();
 
             // 🔔 Gửi realtime tới user
             await _hubContext.Clients.Group($"user-{userId}")
@@ -57,7 +60,8 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetByUserIdAsync(int userId)
         {
-            var notifs = await _notificationRepository.GetByUserIdAsync(userId);
+            var notifRepo = _uow.GetRepository<INotificationRepository>();
+            var notifs = await notifRepo.GetByUserIdAsync(userId);
 
             return new ServiceResponse
             {
@@ -77,7 +81,9 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> MarkAsReadAsync(int notifId)
         {
-            await _notificationRepository.MarkAsReadAsync(notifId);
+            var notifRepo = _uow.GetRepository<INotificationRepository>();
+            await notifRepo.MarkAsReadAsync(notifId);
+            await _uow.SaveChangesAsync();
             return new ServiceResponse
             {
                 Status = SRStatus.Success,
@@ -111,7 +117,8 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetByIdAndMarkAsReadAsync(int userId, int notifId)
         {
-            var notif = await _notificationRepository.GetByIdAsync(notifId);
+            var notifRepo = _uow.GetRepository<INotificationRepository>();
+            var notif = await notifRepo.GetByIdAsync(notifId);
 
             if (notif == null || notif.UserId != userId)
             {
@@ -125,7 +132,8 @@ namespace BusinessObjectLayer.Services
             if (!notif.IsRead)
             {
                 notif.IsRead = true;
-                await _notificationRepository.UpdateAsync(notif);
+                await notifRepo.UpdateAsync(notif);
+                await _uow.SaveChangesAsync();
             }
 
             return new ServiceResponse

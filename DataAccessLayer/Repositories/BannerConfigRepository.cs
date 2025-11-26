@@ -21,6 +21,7 @@ namespace DataAccessLayer.Repositories
         public async Task<List<BannerConfig>> GetBannersAsync(int page, int pageSize, string? search = null)
         {
             var query = _context.BannerConfigs
+                .AsNoTracking()
                 .Where(b => b.IsActive)
                 .AsQueryable();
 
@@ -39,6 +40,7 @@ namespace DataAccessLayer.Repositories
         public async Task<int> GetTotalBannersAsync(string? search = null)
         {
             var query = _context.BannerConfigs
+                .AsNoTracking()
                 .Where(b => b.IsActive)
                 .AsQueryable();
 
@@ -57,20 +59,20 @@ namespace DataAccessLayer.Repositories
 
         public async Task<BannerConfig> AddAsync(BannerConfig bannerConfig)
         {
-            _context.BannerConfigs.Add(bannerConfig);
-            await _context.SaveChangesAsync();
+            await _context.BannerConfigs.AddAsync(bannerConfig);
             return bannerConfig;
         }
 
         public async Task UpdateAsync(BannerConfig bannerConfig)
         {
             _context.BannerConfigs.Update(bannerConfig);
-            await _context.SaveChangesAsync();
         }
 
         public async Task<bool> ExistsAsync(int bannerId)
         {
-            return await _context.BannerConfigs.AnyAsync(b => b.BannerId == bannerId && b.IsActive);
+            return await _context.BannerConfigs
+                .AsNoTracking()
+                .AnyAsync(b => b.BannerId == bannerId && b.IsActive);
         }
     }
 }

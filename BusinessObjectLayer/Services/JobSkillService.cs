@@ -4,6 +4,7 @@ using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,23 +15,17 @@ namespace BusinessObjectLayer.Services
 {
     public class JobSkillService : IJobSkillService
     {
-        private readonly IJobSkillRepository _jobSkillRepository;
-        private readonly IJobRepository _jobRepository;
-        private readonly ISkillRepository _skillRepository;
+        private readonly IUnitOfWork _uow;
 
-        public JobSkillService(
-            IJobSkillRepository jobSkillRepository,
-            IJobRepository jobRepository,
-            ISkillRepository skillRepository)
+        public JobSkillService(IUnitOfWork uow)
         {
-            _jobSkillRepository = jobSkillRepository;
-            _jobRepository = jobRepository;
-            _skillRepository = skillRepository;
+            _uow = uow;
         }
 
         public async Task<ServiceResponse> GetAllAsync()
         {
-            var jobSkills = await _jobSkillRepository.GetAllAsync();
+            var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
+            var jobSkills = await jobSkillRepo.GetAllAsync();
 
             var result = jobSkills.Select(js => new
             {
@@ -51,7 +46,8 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetByIdAsync(int id)
         {
-            var jobSkill = await _jobSkillRepository.GetByIdAsync(id);
+            var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
+            var jobSkill = await jobSkillRepo.GetByIdAsync(id);
             if (jobSkill == null)
             {
                 return new ServiceResponse
@@ -80,8 +76,12 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> CreateAsync(JobSkillRequest request)
         {
+            var jobRepo = _uow.GetRepository<IJobRepository>();
+            var skillRepo = _uow.GetRepository<ISkillRepository>();
+            var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
+            
             // Kiểm tra tồn tại Job
-            var job = await _jobRepository.GetJobByIdAsync(request.JobId);
+            var job = await jobRepo.GetJobByIdAsync(request.JobId);
 
             if (job == null)
             {
@@ -93,7 +93,7 @@ namespace BusinessObjectLayer.Services
             }
 
             // Kiểm tra tồn tại Skill
-            var skill = await _skillRepository.GetByIdAsync(request.SkillId);
+            var skill = await skillRepo.GetByIdAsync(request.SkillId);
             if (skill == null)
             {
                 return new ServiceResponse
@@ -103,24 +103,36 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var jobSkill = new JobSkill
+            await _uow.BeginTransactionAsync();
+            try
             {
-                JobId = request.JobId,
-                SkillId = request.SkillId
-            };
+                var jobSkill = new JobSkill
+                {
+                    JobId = request.JobId,
+                    SkillId = request.SkillId
+                };
 
-            await _jobSkillRepository.AddAsync(jobSkill);
+                await jobSkillRepo.AddAsync(jobSkill);
+                await _uow.SaveChangesAsync();
+                await _uow.CommitTransactionAsync();
 
-            return new ServiceResponse
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "JobSkill created successfully."
+                };
+            }
+            catch
             {
-                Status = SRStatus.Success,
-                Message = "JobSkill created successfully."
-            };
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         public async Task<ServiceResponse> UpdateAsync(int id, JobSkillRequest request)
         {
-            var jobSkill = await _jobSkillRepository.GetByIdAsync(id);
+            var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
+            var jobSkill = await jobSkillRepo.GetByIdAsync(id);
             if (jobSkill == null)
             {
                 return new ServiceResponse
@@ -130,21 +142,32 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            jobSkill.JobId = request.JobId;
-            jobSkill.SkillId = request.SkillId;
-
-            await _jobSkillRepository.UpdateAsync(jobSkill);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "JobSkill updated successfully."
-            };
+                jobSkill.JobId = request.JobId;
+                jobSkill.SkillId = request.SkillId;
+
+                jobSkillRepo.Update(jobSkill);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "JobSkill updated successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         public async Task<ServiceResponse> DeleteAsync(int id)
         {
-            var jobSkill = await _jobSkillRepository.GetByIdAsync(id);
+            var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
+            var jobSkill = await jobSkillRepo.GetByIdAsync(id);
             if (jobSkill == null)
             {
                 return new ServiceResponse
@@ -154,13 +177,23 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            await _jobSkillRepository.DeleteAsync(jobSkill);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "JobSkill deleted successfully."
-            };
+                jobSkillRepo.Delete(jobSkill);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "JobSkill deleted successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
     }
 }

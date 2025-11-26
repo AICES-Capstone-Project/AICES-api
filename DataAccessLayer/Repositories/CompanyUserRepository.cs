@@ -16,20 +16,21 @@ namespace DataAccessLayer.Repositories
 
         public async Task<CompanyUser> AddCompanyUserAsync(CompanyUser companyUser)
         {
-            _context.CompanyUsers.Add(companyUser);
-            await _context.SaveChangesAsync();
+            await _context.CompanyUsers.AddAsync(companyUser);
             return companyUser;
         }
 
         public async Task<CompanyUser?> GetByUserIdAsync(int userId)
         {
             return await _context.CompanyUsers
+                .AsNoTracking()
                 .FirstOrDefaultAsync(cu => cu.UserId == userId && cu.IsActive);
         }
 
         public async Task<CompanyUser?> GetCompanyUserByUserIdAsync(int userId)
         {
             return await _context.CompanyUsers
+                .AsNoTracking()
                 .Include(cu => cu.Company)
                 .FirstOrDefaultAsync(cu => cu.UserId == userId && cu.IsActive);
         }
@@ -37,6 +38,7 @@ namespace DataAccessLayer.Repositories
         public async Task<CompanyUser?> GetByComUserIdAsync(int comUserId)
         {
             return await _context.CompanyUsers
+                .AsNoTracking()
                 .Include(cu => cu.User)
                     .ThenInclude(u => u.Profile)
                 .Include(cu => cu.User)
@@ -47,18 +49,20 @@ namespace DataAccessLayer.Repositories
 
         public async Task<bool> ExistsAsync(int comUserId)
         {
-            return await _context.CompanyUsers.AnyAsync(cu => cu.ComUserId == comUserId);
+            return await _context.CompanyUsers
+                .AsNoTracking()
+                .AnyAsync(cu => cu.ComUserId == comUserId);
         }
 
         public async Task UpdateAsync(CompanyUser companyUser)
         {
             _context.CompanyUsers.Update(companyUser);
-            await _context.SaveChangesAsync();
         }
 
         public async Task<List<CompanyUser>> GetMembersByCompanyIdAsync(int companyId)
         {
             return await _context.CompanyUsers
+                .AsNoTracking()
                 .Include(cu => cu.User)
                     .ThenInclude(u => u.Profile)
                 .Include(cu => cu.User)
@@ -70,6 +74,7 @@ namespace DataAccessLayer.Repositories
         public async Task<List<CompanyUser>> GetPendingByCompanyIdAsync(int companyId)
         {
             return await _context.CompanyUsers
+                .AsNoTracking()
                 .Include(cu => cu.User)
                     .ThenInclude(u => u.Profile)
                 .Include(cu => cu.User)
@@ -81,6 +86,7 @@ namespace DataAccessLayer.Repositories
         public async Task<List<CompanyUser>> GetApprovedAndInvitedMembersByCompanyIdAsync(int companyId)
         {
             return await _context.CompanyUsers
+                .AsNoTracking()
                 .Include(cu => cu.User)
                     .ThenInclude(u => u.Profile)
                 .Include(cu => cu.User)

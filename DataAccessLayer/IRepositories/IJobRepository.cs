@@ -10,7 +10,7 @@ namespace DataAccessLayer.IRepositories
 {
     public interface IJobRepository
     {
-        Task<Job> CreateJobAsync(Job job);
+        Task AddAsync(Job job);
         Task<Job?> GetJobByIdAsync(int jobId);
         Task<List<Job>> GetPublishedJobsAsync(int page, int pageSize, string? search = null);
         Task<int> GetTotalPublishedJobsAsync(string? search = null);
@@ -26,8 +26,8 @@ namespace DataAccessLayer.IRepositories
         Task<List<Job>> GetJobsByComUserIdAsync(int comUserId, int page, int pageSize, string? search = null, JobStatusEnum? status = null);
         Task<int> GetTotalJobsByComUserIdAsync(int comUserId, string? search = null, JobStatusEnum? status = null);
         Task<bool> JobTitleExistsInCompanyAsync(string title, int companyId);
-        Task UpdateJobAsync(Job job);
-        Task SoftDeleteJobAsync(Job job);
+        void UpdateJob(Job job);
+        void SoftDeleteJob(Job job);
     }
 }
 

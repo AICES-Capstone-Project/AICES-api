@@ -21,8 +21,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<Payment> AddAsync(Payment payment)
         {
-            _context.Payments.Add(payment);
-            await _context.SaveChangesAsync();
+            await _context.Payments.AddAsync(payment);
             return payment;
         }
 
@@ -35,12 +34,12 @@ namespace DataAccessLayer.Repositories
         public async Task UpdateAsync(Payment payment)
         {
             _context.Payments.Update(payment);
-            await _context.SaveChangesAsync();
         }
 
         public async Task<List<Payment>> GetPaymentHistoryByCompanyAsync(int companyId, int page, int pageSize)
         {
             return await _context.Payments
+                .AsNoTracking()
                 .Where(p => p.CompanyId == companyId && p.IsActive)
                 .Include(p => p.Transactions)
                 .Include(p => p.Company)
@@ -56,6 +55,7 @@ namespace DataAccessLayer.Repositories
         public async Task<int> GetTotalPaymentsByCompanyAsync(int companyId)
         {
             return await _context.Payments
+                .AsNoTracking()
                 .Where(p => p.CompanyId == companyId && p.IsActive)
                 .CountAsync();
         }
@@ -71,6 +71,7 @@ namespace DataAccessLayer.Repositories
         public async Task<List<Payment>> GetPendingBeforeAsync(DateTime cutoff)
         {
             return await _context.Payments
+                .AsNoTracking()
                 .Where(p => p.PaymentStatus == PaymentStatusEnum.Pending 
                     && p.IsActive 
                     && p.CreatedAt.HasValue 

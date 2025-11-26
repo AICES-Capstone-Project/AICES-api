@@ -11,9 +11,12 @@ namespace DataAccessLayer.IRepositories
     {
         Task<IEnumerable<Skill>> GetAllAsync();
         Task<Skill?> GetByIdAsync(int id);
-        Task<Skill> AddAsync(Skill skill);
+        Task AddAsync(Skill skill);
+        void Update(Skill skill);
+        Task<bool> ExistsByNameAsync(string name);
+        
+        // Legacy methods for backward compatibility
         Task UpdateAsync(Skill skill);
         Task SoftDeleteAsync(Skill skill);
-        Task<bool> ExistsByNameAsync(string name);
     }
 }

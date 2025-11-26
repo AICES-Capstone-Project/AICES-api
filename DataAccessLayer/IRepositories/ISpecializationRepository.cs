@@ -10,11 +10,14 @@ namespace DataAccessLayer.IRepositories
         Task<Specialization?> GetByIdAsync(int id);
         Task<bool> ExistsAsync(int id);
         Task<bool> ExistsByNameAsync(string name);
-        Task<Specialization> AddAsync(Specialization specialization);
-        Task UpdateAsync(Specialization specialization);
+        Task AddAsync(Specialization specialization);
+        void Update(Specialization specialization);
         Task<List<Specialization>> GetPagedAsync(int page, int pageSize, string? search = null);
         Task<int> GetTotalCountAsync(string? search = null);
         Task<List<Specialization>> GetByCategoryIdAsync(int categoryId);
+        
+        // Legacy method for backward compatibility
+        Task UpdateAsync(Specialization specialization);
     }
 }
 

@@ -19,11 +19,9 @@ namespace DataAccessLayer.Repositories
             _context = context;
         }
 
-        public async Task<Job> CreateJobAsync(Job job)
+        public async Task AddAsync(Job job)
         {
-            _context.Jobs.Add(job);
-            await _context.SaveChangesAsync();
-            return job;
+            await _context.Jobs.AddAsync(job);
         }
 
         public async Task<Job?> GetJobByIdAsync(int jobId)
@@ -346,17 +344,15 @@ namespace DataAccessLayer.Repositories
                 .AnyAsync(j => j.CompanyId == companyId && j.Title == title && j.IsActive);
         }
 
-        public async Task UpdateJobAsync(Job job)
+        public void UpdateJob(Job job)
         {
             _context.Jobs.Update(job);
-            await _context.SaveChangesAsync();
         }
 
-        public async Task SoftDeleteJobAsync(Job job)
+        public void SoftDeleteJob(Job job)
         {
             job.IsActive = false;
             _context.Jobs.Update(job);
-            await _context.SaveChangesAsync();
         }
     }
 }

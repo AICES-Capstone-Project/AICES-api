@@ -20,12 +20,18 @@ namespace DataAccessLayer.Repositories
 
         public async Task<IEnumerable<Subscription>> GetAllAsync()
         {
-            var query = _context.Subscriptions.AsQueryable().Where(s => s.IsActive);
+            var query = _context.Subscriptions
+                .AsNoTracking()
+                .AsQueryable()
+                .Where(s => s.IsActive);
             return await query.ToListAsync();
         }
         public async Task<List<Subscription>> GetSubscriptionsAsync(int page, int pageSize, string? search = null)
         {
-            var query = _context.Subscriptions.AsQueryable().Where(s => s.IsActive);
+            var query = _context.Subscriptions
+                .AsNoTracking()
+                .AsQueryable()
+                .Where(s => s.IsActive);
             if (!string.IsNullOrEmpty(search))
             {
                 query = query.Where(s => s.Name.Contains(search) ||
@@ -41,7 +47,10 @@ namespace DataAccessLayer.Repositories
 
         public async Task<int> GetTotalSubscriptionsAsync(string? search = null)
         {
-            var query = _context.Subscriptions.AsQueryable().Where(s => s.IsActive);
+            var query = _context.Subscriptions
+                .AsNoTracking()
+                .AsQueryable()
+                .Where(s => s.IsActive);
             if (!string.IsNullOrEmpty(search))
             {
                 query = query.Where(s => s.Name.Contains(search) ||
@@ -53,33 +62,35 @@ namespace DataAccessLayer.Repositories
 
         public async Task<Subscription?> GetByIdAsync(int id)
         {
-            var query = _context.Subscriptions.AsQueryable().Where(s => s.IsActive);
+            var query = _context.Subscriptions
+                .AsNoTracking()
+                .AsQueryable()
+                .Where(s => s.IsActive);
             return await query.FirstOrDefaultAsync(s => s.SubscriptionId == id);
         }
 
         public async Task<Subscription> AddAsync(Subscription subscription)
         {
-            _context.Subscriptions.Add(subscription);
-            await _context.SaveChangesAsync();
+            await _context.Subscriptions.AddAsync(subscription);
             return subscription;
         }
 
         public async Task UpdateAsync(Subscription subscription)
         {
             _context.Subscriptions.Update(subscription);
-            await _context.SaveChangesAsync();
         }
 
         public async Task SoftDeleteAsync(Subscription subscription)
         {
             subscription.IsActive = false;
             _context.Subscriptions.Update(subscription);
-            await _context.SaveChangesAsync();
         }
 
         public async Task<bool> ExistsByNameAsync(string name)
         {
-            return await _context.Subscriptions.AnyAsync(s => s.Name == name);
+            return await _context.Subscriptions
+                .AsNoTracking()
+                .AnyAsync(s => s.Name == name);
         }
     }
 }

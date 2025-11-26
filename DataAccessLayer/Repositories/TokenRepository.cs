@@ -17,8 +17,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<RefreshToken> AddRefreshTokenAsync(RefreshToken refreshToken)
         {
-            _context.RefreshTokens.Add(refreshToken);
-            await _context.SaveChangesAsync();
+            await _context.RefreshTokens.AddAsync(refreshToken);
             return refreshToken;
         }
 
@@ -35,7 +34,6 @@ namespace DataAccessLayer.Repositories
         public async Task UpdateRefreshTokenAsync(RefreshToken refreshToken)
         {
             _context.RefreshTokens.Update(refreshToken);
-            await _context.SaveChangesAsync();
         }
 
         public async Task RevokeAllRefreshTokensAsync(int userId)
@@ -47,9 +45,8 @@ namespace DataAccessLayer.Repositories
             foreach (var token in refreshTokens)
             {
                 token.IsActive = false;
+                _context.RefreshTokens.Update(token);
             }
-
-            await _context.SaveChangesAsync();
         }
     }
 }

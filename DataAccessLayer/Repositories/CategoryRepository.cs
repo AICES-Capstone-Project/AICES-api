@@ -21,6 +21,7 @@ namespace DataAccessLayer.Repositories
         public async Task<IEnumerable<Category>> GetAllAsync()
         {
             return await _context.Categories
+                .AsNoTracking()
                 .Where(c => c.IsActive)
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();
@@ -29,6 +30,7 @@ namespace DataAccessLayer.Repositories
         public async Task<List<Category>> GetCategoriesAsync(int page, int pageSize, string? search = null)
         {
             var query = _context.Categories
+                .AsNoTracking()
                 .Where(c => c.IsActive)
                 .AsQueryable();
 
@@ -47,6 +49,7 @@ namespace DataAccessLayer.Repositories
         public async Task<int> GetTotalCategoriesAsync(string? search = null)
         {
             var query = _context.Categories
+                .AsNoTracking()
                 .Where(c => c.IsActive)
                 .AsQueryable();
 
@@ -60,30 +63,40 @@ namespace DataAccessLayer.Repositories
 
         public async Task<Category?> GetByIdAsync(int id)
         {
-            return await _context.Categories.FirstOrDefaultAsync(c => c.CategoryId == id);
+            return await _context.Categories
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.CategoryId == id);
         }
 
-        public async Task<Category> AddAsync(Category category)
+        public async Task AddAsync(Category category)
         {
-            _context.Categories.Add(category);
-            await _context.SaveChangesAsync();
-            return category;
+            await _context.Categories.AddAsync(category);
         }
 
-        public async Task UpdateAsync(Category category)
+        public void Update(Category category)
         {
             _context.Categories.Update(category);
-            await _context.SaveChangesAsync();
         }
 
         public async Task<bool> ExistsByNameAsync(string name)
         {
-            return await _context.Categories.AnyAsync(c => c.Name == name);
+            return await _context.Categories
+                .AsNoTracking()
+                .AnyAsync(c => c.Name == name);
         }
 
         public async Task<bool> ExistsAsync(int categoryId)
         {
-            return await _context.Categories.AnyAsync(c => c.CategoryId == categoryId && c.IsActive);
+            return await _context.Categories
+                .AsNoTracking()
+                .AnyAsync(c => c.CategoryId == categoryId && c.IsActive);
+        }
+
+        // Legacy method for backward compatibility
+        public async Task UpdateAsync(Category category)
+        {
+            _context.Categories.Update(category);
+            await _context.SaveChangesAsync();
         }
     }
 }

@@ -3,6 +3,7 @@ using Data.Entities;
 using Data.Enum;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,16 +14,17 @@ namespace BusinessObjectLayer.Services
 {
     public class RoleService : IRoleService
     {
-        private readonly IRoleRepository _roleRepository;
+        private readonly IUnitOfWork _uow;
 
-        public RoleService(IRoleRepository roleRepository)
+        public RoleService(IUnitOfWork uow)
         {
-            _roleRepository = roleRepository;
+            _uow = uow;
         }
 
         public async Task<ServiceResponse> GetAllAsync()
         {
-            var roles = await _roleRepository.GetAllAsync();
+            var roleRepo = _uow.GetRepository<IRoleRepository>();
+            var roles = await roleRepo.GetAllAsync();
             var result = roles.Select(r => new RoleResponse
             {
                 RoleId = r.RoleId,
@@ -39,7 +41,8 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetByIdAsync(int id)
         {
-            var role = await _roleRepository.GetByIdAsync(id);
+            var roleRepo = _uow.GetRepository<IRoleRepository>();
+            var role = await roleRepo.GetByIdAsync(id);
             if (role == null)
             {
                 return new ServiceResponse

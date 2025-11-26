@@ -16,8 +16,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<ParsedResumes> CreateAsync(ParsedResumes parsedResume)
         {
-            _context.ParsedResumes.Add(parsedResume);
-            await _context.SaveChangesAsync();
+            await _context.ParsedResumes.AddAsync(parsedResume);
             return parsedResume;
         }
 
@@ -36,6 +35,7 @@ namespace DataAccessLayer.Repositories
         public async Task<ParsedResumes?> GetByIdWithDetailsAsync(int resumeId)
         {
             return await _context.ParsedResumes
+                .AsNoTracking()
                 .Include(pr => pr.ParsedCandidates)
                     .ThenInclude(pc => pc!.AIScores)
                         .ThenInclude(ais => ais!.AIScoreDetails)
@@ -46,12 +46,12 @@ namespace DataAccessLayer.Repositories
         public async Task UpdateAsync(ParsedResumes parsedResume)
         {
             _context.ParsedResumes.Update(parsedResume);
-            await _context.SaveChangesAsync();
         }
 
         public async Task<List<ParsedResumes>> GetByJobIdAsync(int jobId)
         {
             return await _context.ParsedResumes
+                .AsNoTracking()
                 .Include(pr => pr.ParsedCandidates)
                     .ThenInclude(pc => pc!.AIScores)
                 .Where(pr => pr.JobId == jobId && pr.IsActive)
@@ -62,6 +62,7 @@ namespace DataAccessLayer.Repositories
         public async Task<ParsedResumes?> GetByJobIdAndResumeIdAsync(int jobId, int resumeId)
         {
             return await _context.ParsedResumes
+                .AsNoTracking()
                 .Include(pr => pr.ParsedCandidates)
                     .ThenInclude(pc => pc!.AIScores)
                         .ThenInclude(ais => ais!.AIScoreDetails)
@@ -73,6 +74,7 @@ namespace DataAccessLayer.Repositories
         public async Task<List<ParsedResumes>> GetPendingBeforeAsync(DateTime cutoff)
         {
             return await _context.ParsedResumes
+                .AsNoTracking()
                 .Where(x => x.ResumeStatus == ResumeStatusEnum.Pending 
                          && x.CreatedAt < cutoff
                          && x.IsActive)

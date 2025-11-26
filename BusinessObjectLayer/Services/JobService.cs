@@ -5,6 +5,7 @@ using Data.Models.Request;
 using Data.Models.Response;
 using Data.Models.Response.Pagination;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
@@ -17,40 +18,19 @@ namespace BusinessObjectLayer.Services
 {
     public class JobService : IJobService
     {
-        private readonly IJobRepository _jobRepository;
-        private readonly IAuthRepository _authRepository;
-        private readonly ICompanyUserRepository _companyUserRepository;
-        private readonly ISpecializationRepository _specializationRepository;
-        private readonly IEmploymentTypeRepository _employmentTypeRepository;
-        private readonly IJobEmploymentTypeRepository _jobEmploymentTypeRepository;
-        private readonly ISkillRepository _skillRepository;
-        private readonly IJobSkillRepository _jobSkillRepository;
+        private readonly IUnitOfWork _uow;
         private readonly ICriteriaService _criteriaService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly INotificationService _notificationService;
 
 
         public JobService(
-            IJobRepository jobRepository, 
-            IAuthRepository authRepository,
-            ICompanyUserRepository companyUserRepository,
-            ISpecializationRepository specializationRepository,
-            IEmploymentTypeRepository employmentTypeRepository,
-            IJobEmploymentTypeRepository jobEmploymentTypeRepository,
-            ISkillRepository skillRepository,
-            IJobSkillRepository jobSkillRepository,
+            IUnitOfWork uow,
             ICriteriaService criteriaService,
             IHttpContextAccessor httpContextAccessor,
             INotificationService notificationService)
         {
-            _jobRepository = jobRepository;
-            _authRepository = authRepository;
-            _companyUserRepository = companyUserRepository;
-            _specializationRepository = specializationRepository;
-            _employmentTypeRepository = employmentTypeRepository;
-            _jobEmploymentTypeRepository = jobEmploymentTypeRepository;
-            _skillRepository = skillRepository;
-            _jobSkillRepository = jobSkillRepository;
+            _uow = uow;
             _criteriaService = criteriaService;
             _httpContextAccessor = httpContextAccessor;
             _notificationService = notificationService;
@@ -60,7 +40,8 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var job = await _jobRepository.GetAllJobByIdAndCompanyIdAsync(jobId, companyId);
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var job = await jobRepo.GetAllJobByIdAndCompanyIdAsync(jobId, companyId);
 
                 if (job == null)
                 {
@@ -118,8 +99,9 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var jobs = await _jobRepository.GetAllJobsByCompanyIdAsync(companyId, page, pageSize, search);
-                var total = await _jobRepository.GetTotalAllJobsByCompanyIdAsync(companyId, search);
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var jobs = await jobRepo.GetAllJobsByCompanyIdAsync(companyId, page, pageSize, search);
+                var total = await jobRepo.GetTotalAllJobsByCompanyIdAsync(companyId, search);
 
                 var jobResponses = jobs.Select(j => new JobResponse
                 {
@@ -175,6 +157,18 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
+                // ============================================
+                // PHASE 1: VALIDATE ALL INPUT BEFORE TRANSACTION
+                // ============================================
+                
+                // Get repositories
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
+                var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
+                var skillRepo = _uow.GetRepository<ISkillRepository>();
+                
                 // Get user email from claims
                 var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
                 if (string.IsNullOrEmpty(emailClaim))
@@ -187,7 +181,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get user from database
-                var user = await _authRepository.GetByEmailAsync(emailClaim);
+                var user = await authRepo.GetByEmailAsync(emailClaim);
                 if (user == null)
                 {
                     return new ServiceResponse
@@ -198,7 +192,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get CompanyUser for this user
-                var companyUser = await _companyUserRepository.GetCompanyUserByUserIdAsync(user.UserId);
+                var companyUser = await companyUserRepo.GetCompanyUserByUserIdAsync(user.UserId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -221,7 +215,7 @@ namespace BusinessObjectLayer.Services
                 // Check for duplicate job title in company
                 if (!string.IsNullOrEmpty(request.Title))
                 {
-                    var titleExists = await _jobRepository.JobTitleExistsInCompanyAsync(request.Title, companyUser.CompanyId.Value);
+                    var titleExists = await jobRepo.JobTitleExistsInCompanyAsync(request.Title, companyUser.CompanyId.Value);
                     if (titleExists)
                     {
                         return new ServiceResponse
@@ -229,49 +223,6 @@ namespace BusinessObjectLayer.Services
                             Status = SRStatus.Validation,
                             Message = "A job with this title already exists in your company."
                         };
-                    }
-                }
-
-                // Determine JobStatus based on user role
-                var jobStatus = user.Role?.RoleName == "HR_Manager"
-                    ? JobStatusEnum.Published
-                    : JobStatusEnum.Pending;
-
-                // Create job entity
-                var job = new Job
-                {
-                    ComUserId = companyUser.ComUserId,
-                    CompanyId = companyUser.CompanyId.Value,
-                    Title = request.Title ?? string.Empty,
-                    Description = request.Description,
-                    Slug = GenerateSlug(request.Title ?? string.Empty),
-                    Requirements = request.Requirements,
-                    JobStatus = jobStatus,
-                    SpecializationId = request.SpecializationId
-                };
-
-                // Save job
-                var createdJob = await _jobRepository.CreateJobAsync(job);
-
-                // ? G?I TH�NG B�O SAU KHI JOB ???C T?O
-                if (createdJob != null)
-                {
-                    try
-                    {
-                        var admins = await _authRepository.GetUsersByRoleAsync("System_Admin");
-                        foreach (var admin in admins)
-                        {
-                            await _notificationService.CreateAsync(
-                                admin.UserId,
-                                NotificationTypeEnum.JobCreated,
-                                $"A new job has been created: {createdJob.Title}"
-                            );
-                        }
-                        Console.WriteLine($"?? Sent notification for new job: {createdJob.Title}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"? Error sending notification: {ex.Message}");
                     }
                 }
 
@@ -285,7 +236,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var specExists = await _specializationRepository.ExistsAsync(request.SpecializationId.Value);
+                var specExists = await specializationRepo.ExistsAsync(request.SpecializationId.Value);
                 if (!specExists)
                 {
                     return new ServiceResponse
@@ -295,7 +246,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Validate and add job employment types
+                // Validate employment types
                 if (request.EmploymentTypeIds == null || request.EmploymentTypeIds.Count == 0)
                 {
                     return new ServiceResponse
@@ -307,7 +258,7 @@ namespace BusinessObjectLayer.Services
 
                 foreach (var employTypeId in request.EmploymentTypeIds)
                 {
-                    var employmentTypeExists = await _employmentTypeRepository.ExistsAsync(employTypeId);
+                    var employmentTypeExists = await employmentTypeRepo.ExistsAsync(employTypeId);
                     if (!employmentTypeExists)
                     {
                         return new ServiceResponse
@@ -318,50 +269,24 @@ namespace BusinessObjectLayer.Services
                     }
                 }
 
-                var jobEmploymentTypes = request.EmploymentTypeIds.Select(employTypeId => new JobEmploymentType
-                {
-                    JobId = createdJob.JobId,
-                    EmployTypeId = employTypeId
-                }).ToList();
-
-                await _jobEmploymentTypeRepository.AddJobEmploymentTypesAsync(jobEmploymentTypes);
-
-                // Add job skills if provided
+                // Validate skills if provided
                 if (request.SkillIds != null && request.SkillIds.Count > 0)
                 {
-                    var invalidSkillId = 0;
                     foreach (var skillId in request.SkillIds)
                     {
-                        var skill = await _skillRepository.GetByIdAsync(skillId);
+                        var skill = await skillRepo.GetByIdAsync(skillId);
                         if (skill == null)
                         {
-                            invalidSkillId = skillId;
-                            break;
+                            return new ServiceResponse
+                            {
+                                Status = SRStatus.Validation,
+                                Message = $"Skill with ID {skillId} does not exist."
+                            };
                         }
-                    }
-
-                    if (invalidSkillId != 0)
-                    {
-                        return new ServiceResponse
-                        {
-                            Status = SRStatus.Validation,
-                            Message = $"Skill with ID {invalidSkillId} does not exist."
-                        };
-                    }
-
-                    var jobSkills = request.SkillIds.Select(id => new JobSkill
-                    {
-                        JobId = createdJob.JobId,
-                        SkillId = id
-                    }).ToList();
-
-                    foreach (var js in jobSkills)
-                    {
-                        await _jobSkillRepository.AddAsync(js);
                     }
                 }
 
-                // Validate and create criteria via service
+                // Validate criteria
                 if (request.Criteria == null)
                 {
                     return new ServiceResponse
@@ -371,28 +296,136 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var criteriaResponse = await _criteriaService.CreateCriteriaForJobAsync(createdJob.JobId, request.Criteria);
-                if (criteriaResponse.Status != SRStatus.Success)
-                {
-                    return criteriaResponse;
-                }
-
-                var jobWithRelations = await _jobRepository.GetJobByIdAsync(createdJob.JobId);
-
-                if (jobWithRelations == null)
+                // Validate criteria structure (without creating them yet)
+                if (request.Criteria.Count < 2)
                 {
                     return new ServiceResponse
                     {
-                        Status = SRStatus.Error,
-                        Message = "Job created but could not retrieve details."
+                        Status = SRStatus.Validation,
+                        Message = "At least 2 criteria are required."
                     };
                 }
 
-                return new ServiceResponse
+                if (request.Criteria.Count >= 20)
                 {
-                    Status = SRStatus.Success,
-                    Message = "Job created successfully."
-                };
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Maximum of 19 criteria can be provided."
+                    };
+                }
+
+                var totalWeight = request.Criteria.Sum(c => c.Weight);
+                if (Math.Abs(totalWeight - 1.0m) > 0.001m)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = $"Total weight of all criteria must equal 1.0. Current total: {totalWeight}"
+                    };
+                }
+
+                // ============================================
+                // PHASE 2: BEGIN TRANSACTION AND CREATE ENTITIES
+                // ============================================
+                
+                await _uow.BeginTransactionAsync();
+
+                try
+                {
+                    // Determine JobStatus based on user role
+                    var jobStatus = user.Role?.RoleName == "HR_Manager"
+                        ? JobStatusEnum.Published
+                        : JobStatusEnum.Pending;
+
+                    // Create job entity
+                    var job = new Job
+                    {
+                        ComUserId = companyUser.ComUserId,
+                        CompanyId = companyUser.CompanyId.Value,
+                        Title = request.Title ?? string.Empty,
+                        Description = request.Description,
+                        Slug = GenerateSlug(request.Title ?? string.Empty),
+                        Requirements = request.Requirements,
+                        JobStatus = jobStatus,
+                        SpecializationId = request.SpecializationId
+                    };
+
+                    // Add job to context
+                    await jobRepo.AddAsync(job);
+                    
+                    // ✅ CRITICAL: Save immediately to generate JobId for FK relationships
+                    await _uow.SaveChangesAsync();
+
+                    // Add job employment types (now JobId exists in database)
+                    var jobEmploymentTypeRepo = _uow.GetRepository<IJobEmploymentTypeRepository>();
+                    var jobEmploymentTypes = request.EmploymentTypeIds.Select(employTypeId => new JobEmploymentType
+                    {
+                        JobId = job.JobId,
+                        EmployTypeId = employTypeId
+                    }).ToList();
+                    await jobEmploymentTypeRepo.AddJobEmploymentTypesAsync(jobEmploymentTypes);
+
+                    // Add job skills if provided
+                    if (request.SkillIds != null && request.SkillIds.Count > 0)
+                    {
+                        var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
+                        var jobSkills = request.SkillIds.Select(id => new JobSkill
+                        {
+                            JobId = job.JobId,
+                            SkillId = id
+                        }).ToList();
+                        await jobSkillRepo.AddRangeAsync(jobSkills);
+                    }
+
+                    // Add criteria (JobId now exists, no FK constraint error)
+                    var criteriaRepo = _uow.GetRepository<ICriteriaRepository>();
+                    var criteria = request.Criteria.Select(c => new Criteria
+                    {
+                        JobId = job.JobId,
+                        Name = c.Name,
+                        Weight = c.Weight
+                    }).ToList();
+                    await criteriaRepo.AddCriteriaAsync(criteria);
+
+                    // Commit transaction (saves remaining changes and commits)
+                    await _uow.CommitTransactionAsync();
+
+                    // ============================================
+                    // PHASE 3: POST-COMMIT OPERATIONS (Notifications)
+                    // ============================================
+                    
+                    // try
+                    // {
+                    //     var admins = await authRepo.GetUsersByRoleAsync("System_Admin");
+                    //     foreach (var admin in admins)
+                    //     {
+                    //         await _notificationService.CreateAsync(
+                    //             admin.UserId,
+                    //             NotificationTypeEnum.JobCreated,
+                    //             $"A new job has been created: {job.Title}"
+                    //         );
+                    //     }
+                    //     Console.WriteLine($"Sent notification for new job: {job.Title}");
+                    // }
+                    // catch (Exception ex)
+                    // {
+                    //     Console.WriteLine($"Error sending notification: {ex.Message}");
+                    //     // Don't fail the whole operation if notification fails
+                    // }
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Job created successfully."
+                    };
+                }
+                catch (Exception)
+                {
+                    // Rollback transaction on any error
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -428,7 +461,8 @@ namespace BusinessObjectLayer.Services
                 int userId = int.Parse(userIdClaim);
 
                 // Get company user to find associated company
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -456,8 +490,9 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var jobs = await _jobRepository.GetPublishedJobsByCompanyIdAsync(companyUser.CompanyId.Value, page, pageSize, search);
-                var total = await _jobRepository.GetTotalPublishedJobsByCompanyIdAsync(companyUser.CompanyId.Value, search);
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var jobs = await jobRepo.GetPublishedJobsByCompanyIdAsync(companyUser.CompanyId.Value, page, pageSize, search);
+                var total = await jobRepo.GetTotalPublishedJobsByCompanyIdAsync(companyUser.CompanyId.Value, search);
 
                 var jobResponses = jobs.Select(j => new SelfJobResponse
                 {
@@ -527,7 +562,8 @@ namespace BusinessObjectLayer.Services
                 int userId = int.Parse(userIdClaim);
 
                 // Get company user to find associated company
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -546,8 +582,9 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var jobs = await _jobRepository.GetPendingJobsByCompanyIdAsync(companyUser.CompanyId.Value, page, pageSize, search);
-                var total = await _jobRepository.GetTotalPendingJobsByCompanyIdAsync(companyUser.CompanyId.Value, search);
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var jobs = await jobRepo.GetPendingJobsByCompanyIdAsync(companyUser.CompanyId.Value, page, pageSize, search);
+                var total = await jobRepo.GetTotalPendingJobsByCompanyIdAsync(companyUser.CompanyId.Value, search);
 
                 var jobResponses = jobs.Select(j => new ManagerJobResponse
                 {
@@ -617,7 +654,8 @@ namespace BusinessObjectLayer.Services
                 int userId = int.Parse(userIdClaim);
 
                 // Get company user to find associated company
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -645,7 +683,8 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var job = await _jobRepository.GetPublishedJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var job = await jobRepo.GetPublishedJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
 
                 if (job == null)
                 {
@@ -713,7 +752,8 @@ namespace BusinessObjectLayer.Services
 
                 int userId = int.Parse(userIdClaim);
 
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -732,7 +772,8 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var job = await _jobRepository.GetPendingJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var job = await jobRepo.GetPendingJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null || job.JobStatus != JobStatusEnum.Pending)
                 {
                     return new ServiceResponse
@@ -804,7 +845,8 @@ namespace BusinessObjectLayer.Services
                 int userId = int.Parse(userIdClaim);
 
                 // Get company user to find ComUserId
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -823,8 +865,9 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var jobs = await _jobRepository.GetJobsByComUserIdAsync(companyUser.ComUserId, page, pageSize, search, status);
-                var total = await _jobRepository.GetTotalJobsByComUserIdAsync(companyUser.ComUserId, search, status);
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var jobs = await jobRepo.GetJobsByComUserIdAsync(companyUser.ComUserId, page, pageSize, search, status);
+                var total = await jobRepo.GetTotalJobsByComUserIdAsync(companyUser.ComUserId, search, status);
 
                 var jobResponses = jobs.Select(j => new SelfJobResponse
                 {
@@ -899,57 +942,57 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
+                // ============================================
+                // PHASE 1: VALIDATE INPUT
+                // ============================================
+                
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
+                var skillRepo = _uow.GetRepository<ISkillRepository>();
+                var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
+                
                 var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
                 if (string.IsNullOrEmpty(emailClaim))
                 {
                     return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "Email claim not found in token." };
                 }
 
-                var user = await _authRepository.GetByEmailAsync(emailClaim);
+                var user = await authRepo.GetByEmailAsync(emailClaim);
                 if (user == null)
                 {
                     return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not found." };
                 }
 
-                var companyUser = await _companyUserRepository.GetCompanyUserByUserIdAsync(user.UserId);
+                var companyUser = await companyUserRepo.GetCompanyUserByUserIdAsync(user.UserId);
                 if (companyUser?.CompanyId == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before updating a job." };
                 }
 
-                var job = await _jobRepository.GetPublishedJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var job = await jobRepo.GetPublishedJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
                 }
 
-                if (!string.IsNullOrEmpty(request.Title))
-                {
-                    job.Title = request.Title;
-                    job.Slug = GenerateSlug(request.Title);
-                }
-                if (request.Description != null) job.Description = request.Description;
-                if (request.Requirements != null) job.Requirements = request.Requirements;
-
+                // Validate specialization if provided
                 if (request.SpecializationId != null)
                 {
-                    var specExists = await _specializationRepository.ExistsAsync(request.SpecializationId.Value);
+                    var specExists = await specializationRepo.ExistsAsync(request.SpecializationId.Value);
                     if (!specExists)
                     {
                         return new ServiceResponse { Status = SRStatus.Validation, Message = $"Specialization with ID {request.SpecializationId} does not exist." };
                     }
-                    job.SpecializationId = request.SpecializationId;
                 }
 
-                await _jobRepository.UpdateJobAsync(job);
-
-                // Replace job skills if provided
+                // Validate skills if provided
                 if (request.SkillIds != null)
                 {
-                    // Validate skills
                     foreach (var skillId in request.SkillIds)
                     {
-                        var skill = await _skillRepository.GetByIdAsync(skillId);
+                        var skill = await skillRepo.GetByIdAsync(skillId);
                         if (skill == null)
                         {
                             return new ServiceResponse
@@ -959,32 +1002,14 @@ namespace BusinessObjectLayer.Services
                             };
                         }
                     }
-
-                    await _jobSkillRepository.DeleteByJobIdAsync(job.JobId);
-                    var newJobSkills = request.SkillIds.Select(id => new JobSkill
-                    {
-                        JobId = job.JobId,
-                        SkillId = id
-                    }).ToList();
-                    await _jobSkillRepository.AddRangeAsync(newJobSkills);
                 }
 
-                // Replace criteria if provided
-                if (request.Criteria != null)
-                {
-                    var criteriaReplaceResponse = await _criteriaService.ReplaceCriteriaForJobAsync(job.JobId, request.Criteria);
-                    if (criteriaReplaceResponse.Status != SRStatus.Success)
-                    {
-                        return criteriaReplaceResponse;
-                    }
-                }
-
-                // Replace employment types if provided
+                // Validate employment types if provided
                 if (request.EmploymentTypeIds != null)
                 {
                     foreach (var etId in request.EmploymentTypeIds)
                     {
-                        var exist = await _employmentTypeRepository.ExistsAsync(etId);
+                        var exist = await employmentTypeRepo.ExistsAsync(etId);
                         if (!exist)
                         {
                             return new ServiceResponse
@@ -994,17 +1019,97 @@ namespace BusinessObjectLayer.Services
                             };
                         }
                     }
-
-                    await _jobEmploymentTypeRepository.DeleteByJobIdAsync(job.JobId);
-                    var newJets = request.EmploymentTypeIds.Select(id => new JobEmploymentType
-                    {
-                        JobId = job.JobId,
-                        EmployTypeId = id
-                    }).ToList();
-                    await _jobEmploymentTypeRepository.AddJobEmploymentTypesAsync(newJets);
                 }
 
-                return new ServiceResponse { Status = SRStatus.Success, Message = "Job updated successfully." };
+                // Validate criteria if provided
+                if (request.Criteria != null)
+                {
+                    if (request.Criteria.Count < 2)
+                    {
+                        return new ServiceResponse { Status = SRStatus.Validation, Message = "At least 2 criteria are required." };
+                    }
+
+                    if (request.Criteria.Count >= 20)
+                    {
+                        return new ServiceResponse { Status = SRStatus.Validation, Message = "Maximum of 19 criteria can be provided." };
+                    }
+
+                    var totalWeight = request.Criteria.Sum(c => c.Weight);
+                    if (Math.Abs(totalWeight - 1.0m) > 0.001m)
+                    {
+                        return new ServiceResponse { Status = SRStatus.Validation, Message = $"Total weight of all criteria must equal 1.0. Current total: {totalWeight}" };
+                    }
+                }
+
+                // ============================================
+                // PHASE 2: BEGIN TRANSACTION AND UPDATE
+                // ============================================
+                
+                await _uow.BeginTransactionAsync();
+
+                try
+                {
+                    // Update basic job fields
+                    if (!string.IsNullOrEmpty(request.Title))
+                    {
+                        job.Title = request.Title;
+                        job.Slug = GenerateSlug(request.Title);
+                    }
+                    if (request.Description != null) job.Description = request.Description;
+                    if (request.Requirements != null) job.Requirements = request.Requirements;
+                    if (request.SpecializationId != null) job.SpecializationId = request.SpecializationId;
+
+                    jobRepo.UpdateJob(job);
+
+                    // Replace job skills if provided
+                    if (request.SkillIds != null)
+                    {
+                        var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
+                        await jobSkillRepo.DeleteByJobIdAsync(job.JobId);
+                        var newJobSkills = request.SkillIds.Select(id => new JobSkill
+                        {
+                            JobId = job.JobId,
+                            SkillId = id
+                        }).ToList();
+                        await jobSkillRepo.AddRangeAsync(newJobSkills);
+                    }
+
+                    // Replace criteria if provided
+                    if (request.Criteria != null)
+                    {
+                        var criteriaRepo = _uow.GetRepository<ICriteriaRepository>();
+                        await criteriaRepo.DeleteByJobIdAsync(job.JobId);
+                        var criteria = request.Criteria.Select(c => new Criteria
+                        {
+                            JobId = job.JobId,
+                            Name = c.Name,
+                            Weight = c.Weight
+                        }).ToList();
+                        await criteriaRepo.AddCriteriaAsync(criteria);
+                    }
+
+                    // Replace employment types if provided
+                    if (request.EmploymentTypeIds != null)
+                    {
+                        var jobEmploymentTypeRepo = _uow.GetRepository<IJobEmploymentTypeRepository>();
+                        await jobEmploymentTypeRepo.DeleteByJobIdAsync(job.JobId);
+                        var newJets = request.EmploymentTypeIds.Select(id => new JobEmploymentType
+                        {
+                            JobId = job.JobId,
+                            EmployTypeId = id
+                        }).ToList();
+                        await jobEmploymentTypeRepo.AddJobEmploymentTypesAsync(newJets);
+                    }
+
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse { Status = SRStatus.Success, Message = "Job updated successfully." };
+                }
+                catch (Exception)
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -1018,33 +1123,48 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                
                 var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
                 if (string.IsNullOrEmpty(emailClaim))
                 {
                     return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "Email claim not found in token." };
                 }
 
-                var user = await _authRepository.GetByEmailAsync(emailClaim);
+                var user = await authRepo.GetByEmailAsync(emailClaim);
                 if (user == null)
                 {
                     return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not found." };
                 }
 
-                var companyUser = await _companyUserRepository.GetCompanyUserByUserIdAsync(user.UserId);
+                var companyUser = await companyUserRepo.GetCompanyUserByUserIdAsync(user.UserId);
                 if (companyUser?.CompanyId == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before deleting a job." };
                 }
 
-                var job = await _jobRepository.GetPublishedJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var job = await jobRepo.GetPublishedJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
                 }
 
-                await _jobRepository.SoftDeleteJobAsync(job);
+                await _uow.BeginTransactionAsync();
 
-                return new ServiceResponse { Status = SRStatus.Success, Message = "Job deleted successfully." };
+                try
+                {
+                    jobRepo.SoftDeleteJob(job);
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse { Status = SRStatus.Success, Message = "Job deleted successfully." };
+                }
+                catch (Exception)
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -1057,26 +1177,30 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                
                 var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
                 if (string.IsNullOrEmpty(emailClaim))
                 {
                     return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "Email claim not found in token." };
                 }
 
-                var user = await _authRepository.GetByEmailAsync(emailClaim);
+                var user = await authRepo.GetByEmailAsync(emailClaim);
                 if (user == null)
                 {
                     return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not found." };
                 }
 
-                var companyUser = await _companyUserRepository.GetCompanyUserByUserIdAsync(user.UserId);
+                var companyUser = await companyUserRepo.GetCompanyUserByUserIdAsync(user.UserId);
                 if (companyUser?.CompanyId == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before updating job status." };
                 }
 
                 // Use GetAnyJobByIdAndCompanyIdAsync to get job regardless of current status
-                var job = await _jobRepository.GetAllJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var job = await jobRepo.GetAllJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
@@ -1155,14 +1279,25 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Update job status
-                job.JobStatus = status;
-                await _jobRepository.UpdateJobAsync(job);
+                await _uow.BeginTransactionAsync();
 
-                return new ServiceResponse
+                try
                 {
-                    Status = SRStatus.Success,
-                    Message = $"Job status updated to {status} successfully."
-                };
+                    job.JobStatus = status;
+                    jobRepo.UpdateJob(job);
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = $"Job status updated to {status} successfully."
+                    };
+                }
+                catch (Exception)
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {

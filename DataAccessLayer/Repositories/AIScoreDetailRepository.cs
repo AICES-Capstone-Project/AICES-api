@@ -15,21 +15,20 @@ namespace DataAccessLayer.Repositories
 
         public async Task<AIScoreDetail> CreateAsync(AIScoreDetail aiScoreDetail)
         {
-            _context.AIScoreDetails.Add(aiScoreDetail);
-            await _context.SaveChangesAsync();
+            await _context.AIScoreDetails.AddAsync(aiScoreDetail);
             return aiScoreDetail;
         }
 
         public async Task<List<AIScoreDetail>> CreateRangeAsync(List<AIScoreDetail> aiScoreDetails)
         {
-            _context.AIScoreDetails.AddRange(aiScoreDetails);
-            await _context.SaveChangesAsync();
+            await _context.AIScoreDetails.AddRangeAsync(aiScoreDetails);
             return aiScoreDetails;
         }
 
         public async Task<List<AIScoreDetail>> GetByScoreIdAsync(int scoreId)
         {
             return await _context.AIScoreDetails
+                .AsNoTracking()
                 .Include(aisd => aisd.Criteria)
                 .Where(aisd => aisd.ScoreId == scoreId)
                 .ToListAsync();

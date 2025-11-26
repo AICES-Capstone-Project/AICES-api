@@ -13,7 +13,10 @@ namespace DataAccessLayer.IRepositories
         Task<EmploymentType?> GetByIdAsync(int id);
         Task<bool> ExistsByNameAsync(string name);
         Task<bool> ExistsAsync(int employmentTypeId);
-        Task<EmploymentType> AddAsync(EmploymentType employmentType);
+        Task AddAsync(EmploymentType employmentType);
+        void Update(EmploymentType employmentType);
+        
+        // Legacy method for backward compatibility
         Task UpdateAsync(EmploymentType employmentType);
     }
 }

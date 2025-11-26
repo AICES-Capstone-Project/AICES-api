@@ -3,6 +3,7 @@ using Data.Entities;
 using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Data.Enum;
 using System;
 using System.Linq;
@@ -12,24 +13,18 @@ namespace BusinessObjectLayer.Services
 {
     public class CompanySubscriptionService : ICompanySubscriptionService
     {
-        private readonly ICompanySubscriptionRepository _companySubscriptionRepository;
-        private readonly ICompanyRepository _companyRepository;
-        private readonly ISubscriptionRepository _subscriptionRepository;
+        private readonly IUnitOfWork _uow;
 
-        public CompanySubscriptionService(
-            ICompanySubscriptionRepository companySubscriptionRepository,
-            ICompanyRepository companyRepository,
-            ISubscriptionRepository subscriptionRepository)
+        public CompanySubscriptionService(IUnitOfWork uow)
         {
-            _companySubscriptionRepository = companySubscriptionRepository;
-            _companyRepository = companyRepository;
-            _subscriptionRepository = subscriptionRepository;
+            _uow = uow;
         }
 
         public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null)
         {
-            var companySubscriptions = await _companySubscriptionRepository.GetCompanySubscriptionsAsync(page, pageSize, search);
-            var total = await _companySubscriptionRepository.GetTotalCompanySubscriptionsAsync(search);
+            var companySubscriptionRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            var companySubscriptions = await companySubscriptionRepo.GetCompanySubscriptionsAsync(page, pageSize, search);
+            var total = await companySubscriptionRepo.GetTotalCompanySubscriptionsAsync(search);
 
             var pagedData = companySubscriptions.Select(cs => new CompanySubscriptionResponse
             {
@@ -73,7 +68,11 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var company = await _companyRepository.GetByIdAsync(request.CompanyId);
+            var companyRepo = _uow.GetRepository<ICompanyRepository>();
+            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+            var companySubscriptionRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            
+            var company = await companyRepo.GetByIdAsync(request.CompanyId);
             if (company == null || !company.IsActive)
             {
                 return new ServiceResponse
@@ -83,7 +82,7 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var subscription = await _subscriptionRepository.GetByIdAsync(request.SubscriptionId);
+            var subscription = await subscriptionRepo.GetByIdAsync(request.SubscriptionId);
             if (subscription == null)
             {
                 return new ServiceResponse
@@ -95,7 +94,7 @@ namespace BusinessObjectLayer.Services
 
             var endDate = request.StartDate.AddDays(subscription.DurationDays);
 
-            var anyActiveSubscription = await _companySubscriptionRepository.GetAnyActiveSubscriptionByCompanyAsync(request.CompanyId);
+            var anyActiveSubscription = await companySubscriptionRepo.GetAnyActiveSubscriptionByCompanyAsync(request.CompanyId);
             if (anyActiveSubscription != null && anyActiveSubscription.SubscriptionId != request.SubscriptionId)
             {
                 return new ServiceResponse
@@ -105,7 +104,7 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var activeSubscription = await _companySubscriptionRepository.GetActiveSubscriptionAsync(request.CompanyId, request.SubscriptionId);
+            var activeSubscription = await companySubscriptionRepo.GetActiveSubscriptionAsync(request.CompanyId, request.SubscriptionId);
 
             if (activeSubscription != null)
             {
@@ -131,20 +130,31 @@ namespace BusinessObjectLayer.Services
                     IsActive = false
                 };
 
-                await _companySubscriptionRepository.AddAsync(renewedSubscription);
-
-                return new ServiceResponse
+                await _uow.BeginTransactionAsync();
+                try
                 {
-                    Status = SRStatus.Success,
-                    Message = "Renewal subscription created successfully.",
-                };
+                    await companySubscriptionRepo.AddAsync(renewedSubscription);
+                    await _uow.SaveChangesAsync();
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Renewal subscription created successfully.",
+                    };
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
 
             var requestedStatus = request.Status ?? SubscriptionStatusEnum.Pending;
 
             if (requestedStatus == SubscriptionStatusEnum.Active)
             {
-                var overlapping = await _companySubscriptionRepository.GetActiveSubscriptionAsync(request.CompanyId, request.SubscriptionId);
+                var overlapping = await companySubscriptionRepo.GetActiveSubscriptionAsync(request.CompanyId, request.SubscriptionId);
                 if (overlapping != null)
                 {
                     return new ServiceResponse
@@ -155,27 +165,39 @@ namespace BusinessObjectLayer.Services
                 }
             }
 
-            var companySubscription = new CompanySubscription
+            await _uow.BeginTransactionAsync();
+            try
             {
-                CompanyId = request.CompanyId,
-                SubscriptionId = request.SubscriptionId,
-                StartDate = request.StartDate,
-                EndDate = endDate,
-                SubscriptionStatus = requestedStatus
-            };
+                var companySubscription = new CompanySubscription
+                {
+                    CompanyId = request.CompanyId,
+                    SubscriptionId = request.SubscriptionId,
+                    StartDate = request.StartDate,
+                    EndDate = endDate,
+                    SubscriptionStatus = requestedStatus
+                };
 
-            await _companySubscriptionRepository.AddAsync(companySubscription);
+                await companySubscriptionRepo.AddAsync(companySubscription);
+                await _uow.SaveChangesAsync();
+                await _uow.CommitTransactionAsync();
 
-            return new ServiceResponse
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Company subscription created successfully.",
+                };
+            }
+            catch
             {
-                Status = SRStatus.Success,
-                Message = "Company subscription created successfully.",
-            };
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         public async Task<ServiceResponse> GetByIdAsync(int id)
         {
-            var companySubscription = await _companySubscriptionRepository.GetByIdAsync(id);
+            var companySubscriptionRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            var companySubscription = await companySubscriptionRepo.GetByIdAsync(id);
             if (companySubscription == null)
             {
                 return new ServiceResponse
@@ -208,7 +230,11 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> UpdateAsync(int id, CompanySubscriptionRequest request)
         {
-            var companySubscription = await _companySubscriptionRepository.GetByIdAsync(id);
+            var companySubscriptionRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            var companyRepo = _uow.GetRepository<ICompanyRepository>();
+            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+            
+            var companySubscription = await companySubscriptionRepo.GetByIdAsync(id);
             if (companySubscription == null)
             {
                 return new ServiceResponse
@@ -219,7 +245,7 @@ namespace BusinessObjectLayer.Services
             }
 
             // Validate company exists
-            var company = await _companyRepository.GetByIdAsync(request.CompanyId);
+            var company = await companyRepo.GetByIdAsync(request.CompanyId);
             if (company == null || !company.IsActive)
             {
                 return new ServiceResponse
@@ -230,7 +256,7 @@ namespace BusinessObjectLayer.Services
             }
 
             // Validate subscription exists
-            var subscription = await _subscriptionRepository.GetByIdAsync(request.SubscriptionId);
+            var subscription = await subscriptionRepo.GetByIdAsync(request.SubscriptionId);
             if (subscription == null)
             {
                 return new ServiceResponse
@@ -250,18 +276,29 @@ namespace BusinessObjectLayer.Services
             if (request.EndDate.HasValue)
                 companySubscription.EndDate = request.EndDate.Value;
 
-            await _companySubscriptionRepository.UpdateAsync(companySubscription);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Company subscription updated successfully."
-            };
+                await companySubscriptionRepo.UpdateAsync(companySubscription);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Company subscription updated successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
-            var companySubscription = await _companySubscriptionRepository.GetByIdAsync(id);
+            var companySubscriptionRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            var companySubscription = await companySubscriptionRepo.GetByIdAsync(id);
             if (companySubscription == null)
             {
                 return new ServiceResponse
@@ -271,13 +308,23 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            await _companySubscriptionRepository.SoftDeleteAsync(companySubscription);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Company subscription deleted successfully."
-            };
+                await companySubscriptionRepo.SoftDeleteAsync(companySubscription);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Company subscription deleted successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
     }
 }

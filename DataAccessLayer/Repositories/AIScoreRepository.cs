@@ -15,14 +15,14 @@ namespace DataAccessLayer.Repositories
 
         public async Task<AIScores> CreateAsync(AIScores aiScore)
         {
-            _context.AIScores.Add(aiScore);
-            await _context.SaveChangesAsync();
+            await _context.AIScores.AddAsync(aiScore);
             return aiScore;
         }
 
         public async Task<AIScores?> GetByIdAsync(int scoreId)
         {
             return await _context.AIScores
+                .AsNoTracking()
                 .Include(ais => ais.AIScoreDetails)
                     .ThenInclude(aisd => aisd.Criteria)
                 .FirstOrDefaultAsync(ais => ais.ScoreId == scoreId);
@@ -31,6 +31,7 @@ namespace DataAccessLayer.Repositories
         public async Task<AIScores?> GetByResumeIdAsync(int resumeId)
         {
             return await _context.ParsedCandidates
+                .AsNoTracking()
                 .Where(pc => pc.ResumeId == resumeId)
                 .Select(pc => pc.AIScores)
                 .Include(ais => ais.AIScoreDetails)

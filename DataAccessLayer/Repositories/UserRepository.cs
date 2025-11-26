@@ -21,7 +21,6 @@ namespace DataAccessLayer.Repositories
         public async Task<User> GetByIdAsync(int id)
         {
             return await _context.Users
-                .AsNoTracking()
                 .Include(u => u.Role)
                 .Include(u => u.Profile)
                 .Include(u => u.LoginProviders)
@@ -66,27 +65,26 @@ namespace DataAccessLayer.Repositories
 
         public async Task<User> AddAsync(User user)
         {
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            await _context.Users.AddAsync(user);
             return user;
         }
 
         public async Task UpdateAsync(User user)
         {
             _context.Users.Update(user);
-            await _context.SaveChangesAsync();
         }
 
         public async Task<LoginProvider> AddLoginProviderAsync(LoginProvider loginProvider)
         {
-            _context.LoginProviders.Add(loginProvider);
-            await _context.SaveChangesAsync();
+            await _context.LoginProviders.AddAsync(loginProvider);
             return loginProvider;
         }
 
         public async Task<bool> EmailExistsAsync(string email)
         {
-            return await _context.Users.AnyAsync(u => u.Email == email);
+            return await _context.Users
+                .AsNoTracking()
+                .AnyAsync(u => u.Email == email);
         }
     }
 }

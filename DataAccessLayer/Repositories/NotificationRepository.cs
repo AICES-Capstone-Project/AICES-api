@@ -20,13 +20,13 @@ namespace DataAccessLayer.Repositories
 
         public async Task AddAsync(Notification notification)
         {
-            _context.Notifications.Add(notification);
-            await _context.SaveChangesAsync();
+            await _context.Notifications.AddAsync(notification);
         }
 
         public async Task<IEnumerable<Notification>> GetByUserIdAsync(int userId)
         {
             return await _context.Notifications
+                .AsNoTracking()
                 .Where(n => n.UserId == userId)
                 .OrderByDescending(n => n.CreatedAt)
                 .ToListAsync();
@@ -38,7 +38,7 @@ namespace DataAccessLayer.Repositories
             if (notif != null)
             {
                 notif.IsRead = true;
-                await _context.SaveChangesAsync();
+                _context.Notifications.Update(notif);
             }
         }
 
@@ -51,7 +51,6 @@ namespace DataAccessLayer.Repositories
         public async Task UpdateAsync(Notification notification)
         {
             _context.Notifications.Update(notification);
-            await _context.SaveChangesAsync();
         }
 
     }

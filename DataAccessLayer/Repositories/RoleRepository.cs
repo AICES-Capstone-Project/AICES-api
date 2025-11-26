@@ -21,6 +21,7 @@ namespace DataAccessLayer.Repositories
         public async Task<IEnumerable<Role>> GetAllAsync()
         {
             return await _context.Roles
+                .AsNoTracking()
                 .OrderBy(r => r.RoleId)
                 .ToListAsync();
         }
@@ -28,6 +29,7 @@ namespace DataAccessLayer.Repositories
         public async Task<Role?> GetByIdAsync(int id)
         {
             return await _context.Roles
+                .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.RoleId == id);
         }
     }

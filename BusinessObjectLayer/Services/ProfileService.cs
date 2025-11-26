@@ -6,6 +6,7 @@ using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using Org.BouncyCastle.Utilities;
@@ -21,49 +22,59 @@ namespace BusinessObjectLayer.Services
 {
     public class ProfileService : IProfileService
     {
-        private readonly IProfileRepository _profileRepository;
+        private readonly IUnitOfWork _uow;
         private readonly Common.CloudinaryHelper _cloudinaryHelper;
 
-        public ProfileService(IProfileRepository profileRepository, Common.CloudinaryHelper cloudinaryHelper)
+        public ProfileService(IUnitOfWork uow, Common.CloudinaryHelper cloudinaryHelper)
         {
-            _profileRepository = profileRepository;
+            _uow = uow;
             _cloudinaryHelper = cloudinaryHelper;
         }
 
         public async Task<Profile> CreateDefaultProfileAsync(int userId, string fullName)
         {
+            var profileRepo = _uow.GetRepository<IProfileRepository>();
             var profile = new Profile
             {
                 UserId = userId,
                 FullName = fullName
             };
-            return await _profileRepository.AddAsync(profile);
+            var result = await profileRepo.AddAsync(profile);
+            await _uow.SaveChangesAsync();
+            return result;
         }
 
         public async Task<Profile> CreateDefaultProfileAsync(int userId, string fullName, string avatarUrl)
         {
+            var profileRepo = _uow.GetRepository<IProfileRepository>();
             var profile = new Profile
             {
                 UserId = userId,
                 FullName = fullName,
                 AvatarUrl = avatarUrl
             };
-            return await _profileRepository.AddAsync(profile);
+            var result = await profileRepo.AddAsync(profile);
+            await _uow.SaveChangesAsync();
+            return result;
         }
 
         public async Task<Profile> GetByUserIdAsync(int userId)
         {
-            return await _profileRepository.GetByUserIdAsync(userId);
+            var profileRepo = _uow.GetRepository<IProfileRepository>();
+            return await profileRepo.GetByUserIdAsync(userId);
         }
 
         public async Task UpdateAsync(Profile profile)
         {
-            await _profileRepository.UpdateAsync(profile);
+            var profileRepo = _uow.GetRepository<IProfileRepository>();
+            await profileRepo.UpdateAsync(profile);
+            await _uow.SaveChangesAsync();
         }
 
         public async Task<ServiceResponse> UpdateProfileAsync(int userId, UpdateProfileRequest request)
         {
-            var profile = await _profileRepository.GetByUserIdAsync(userId);
+            var profileRepo = _uow.GetRepository<IProfileRepository>();
+            var profile = await profileRepo.GetByUserIdAsync(userId);
             if (profile == null)
             {
                 return new ServiceResponse
@@ -103,7 +114,8 @@ namespace BusinessObjectLayer.Services
                 profile.AvatarUrl = avatarUploadResult.Url;
             }
 
-            await _profileRepository.UpdateAsync(profile);
+            await profileRepo.UpdateAsync(profile);
+            await _uow.SaveChangesAsync();
 
             return new ServiceResponse
             {

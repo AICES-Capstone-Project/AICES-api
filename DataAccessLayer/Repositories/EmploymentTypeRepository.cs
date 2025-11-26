@@ -20,31 +20,43 @@ namespace DataAccessLayer.Repositories
 
         public async Task<IEnumerable<EmploymentType>> GetAllAsync()
         {
-            return await _context.EmploymentTypes.ToListAsync();
+            return await _context.EmploymentTypes
+                .AsNoTracking()
+                .ToListAsync();
         }
 
         public async Task<EmploymentType?> GetByIdAsync(int id)
         {
-            return await _context.EmploymentTypes.FindAsync(id);
+            return await _context.EmploymentTypes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(et => et.EmployTypeId == id);
         }
 
         public async Task<bool> ExistsByNameAsync(string name)
         {
-            return await _context.EmploymentTypes.AnyAsync(e => e.Name == name);
+            return await _context.EmploymentTypes
+                .AsNoTracking()
+                .AnyAsync(e => e.Name == name);
         }
 
         public async Task<bool> ExistsAsync(int employmentTypeId)
         {
-            return await _context.EmploymentTypes.AnyAsync(et => et.EmployTypeId == employmentTypeId && et.IsActive);
+            return await _context.EmploymentTypes
+                .AsNoTracking()
+                .AnyAsync(et => et.EmployTypeId == employmentTypeId && et.IsActive);
         }
 
-        public async Task<EmploymentType> AddAsync(EmploymentType employmentType)
+        public async Task AddAsync(EmploymentType employmentType)
         {
-            _context.EmploymentTypes.Add(employmentType);
-            await _context.SaveChangesAsync();
-            return employmentType;
+            await _context.EmploymentTypes.AddAsync(employmentType);
         }
 
+        public void Update(EmploymentType employmentType)
+        {
+            _context.EmploymentTypes.Update(employmentType);
+        }
+
+        // Legacy method for backward compatibility
         public async Task UpdateAsync(EmploymentType employmentType)
         {
             _context.EmploymentTypes.Update(employmentType);

@@ -21,6 +21,7 @@ namespace DataAccessLayer.Repositories
         public async Task<IEnumerable<Skill>> GetAllAsync()
         {
             return await _context.Skills
+                .AsNoTracking()
                 .Where(s => s.IsActive)
                 .OrderByDescending(s => s.CreatedAt)
                 .ToListAsync();
@@ -28,16 +29,29 @@ namespace DataAccessLayer.Repositories
 
         public async Task<Skill?> GetByIdAsync(int id)
         {
-            return await _context.Skills.FirstOrDefaultAsync(s => s.SkillId == id && s.IsActive);
+            return await _context.Skills
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.SkillId == id && s.IsActive);
         }
 
-        public async Task<Skill> AddAsync(Skill skill)
+        public async Task AddAsync(Skill skill)
         {
-            _context.Skills.Add(skill);
-            await _context.SaveChangesAsync();
-            return skill;
+            await _context.Skills.AddAsync(skill);
         }
 
+        public void Update(Skill skill)
+        {
+            _context.Skills.Update(skill);
+        }
+
+        public async Task<bool> ExistsByNameAsync(string name)
+        {
+            return await _context.Skills
+                .AsNoTracking()
+                .AnyAsync(s => s.Name == name);
+        }
+
+        // Legacy methods for backward compatibility
         public async Task UpdateAsync(Skill skill)
         {
             _context.Skills.Update(skill);
@@ -49,11 +63,6 @@ namespace DataAccessLayer.Repositories
             skill.IsActive = false;
             _context.Skills.Update(skill);
             await _context.SaveChangesAsync();
-        }
-
-        public async Task<bool> ExistsByNameAsync(string name)
-        {
-            return await _context.Skills.AnyAsync(s => s.Name == name);
         }
     }
 }

@@ -6,6 +6,7 @@ using Data.Entities;
 using Data.Enum;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -15,27 +16,24 @@ namespace BusinessObjectLayer.Services.Auth
 {
     public class AuthService : IAuthService
     {
-        private readonly IAuthRepository _authRepository;
+        private readonly IUnitOfWork _uow;
         private readonly IProfileService _profileService;
         private readonly ITokenService _tokenService;
         private readonly IEmailService _emailService;
         private readonly ICompanyUserService _companyUserService;
-        private readonly ITokenRepository _tokenRepository;
 
         public AuthService(
-            IAuthRepository authRepository,
+            IUnitOfWork uow,
             IProfileService profileService,
             ITokenService tokenService,
             IEmailService emailService,
-            ICompanyUserService companyUserService,
-            ITokenRepository tokenRepository)
+            ICompanyUserService companyUserService)
         {
-            _authRepository = authRepository;
+            _uow = uow;
             _profileService = profileService;
             _tokenService = tokenService;
             _emailService = emailService;
             _companyUserService = companyUserService;
-            _tokenRepository = tokenRepository;
         }
 
         private static string GetEnvOrThrow(string key)
@@ -92,7 +90,8 @@ namespace BusinessObjectLayer.Services.Auth
 
         public async Task<ServiceResponse> RegisterAsync(string email, string password, string fullName)
         {
-            var existedUser = await _authRepository.GetByEmailAsync(email);
+            var authRepo = _uow.GetRepository<IAuthRepository>();
+            var existedUser = await authRepo.GetByEmailAsync(email);
             if (existedUser != null)
             {
                 if (existedUser.IsActive)
@@ -118,7 +117,7 @@ namespace BusinessObjectLayer.Services.Auth
            
             int roleId = 5; // HR_Recruiter
 
-            if (!await _authRepository.RoleExistsAsync(roleId))
+            if (!await authRepo.RoleExistsAsync(roleId))
             {
                 return new ServiceResponse
                 {
@@ -135,7 +134,8 @@ namespace BusinessObjectLayer.Services.Auth
                 Status = UserStatusEnum.Unverified,
             };
 
-            var addedUser = await _authRepository.AddAsync(user);
+            var addedUser = await authRepo.AddAsync(user);
+            await _uow.SaveChangesAsync();
             
             await _profileService.CreateDefaultProfileAsync(addedUser.UserId, fullName);
 
@@ -146,7 +146,8 @@ namespace BusinessObjectLayer.Services.Auth
                 AuthProvider = AuthProviderEnum.Local,
                 ProviderId = ""
             };
-            await _authRepository.AddLoginProviderAsync(localProvider);
+            await authRepo.AddLoginProviderAsync(localProvider);
+            await _uow.SaveChangesAsync();
 
             // Create default company and company user
             if (user.RoleId == 4 || user.RoleId == 5)
@@ -164,7 +165,9 @@ namespace BusinessObjectLayer.Services.Auth
 
         public async Task<ServiceResponse> LoginAsync(string email, string password)
         {
-            var user = await _authRepository.GetByEmailAsync(email);
+            var authRepo = _uow.GetRepository<IAuthRepository>();
+            var tokenRepo = _uow.GetRepository<ITokenRepository>();
+            var user = await authRepo.GetByEmailAsync(email);
 
             // Validate user status
             var validation = ValidateUserStatus(user);
@@ -182,7 +185,8 @@ namespace BusinessObjectLayer.Services.Auth
             }
 
             // Revoke all existing refresh tokens on new login (security: invalidate old sessions)
-            await _tokenRepository.RevokeAllRefreshTokensAsync(user.UserId);
+            await tokenRepo.RevokeAllRefreshTokensAsync(user.UserId);
+            await _uow.SaveChangesAsync();
 
             var tokens = await _tokenService.GenerateTokensAsync(user);
 
@@ -219,7 +223,8 @@ namespace BusinessObjectLayer.Services.Auth
                     return new ServiceResponse { Status = SRStatus.Error, Message = "Invalid token." };
                 }
 
-                var user = await _authRepository.GetByEmailAsync(email);
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                var user = await authRepo.GetByEmailAsync(email);
                 if (user == null)
                     return new ServiceResponse { Status = SRStatus.Error, Message = "User not found." };
 
@@ -227,7 +232,8 @@ namespace BusinessObjectLayer.Services.Auth
                     return new ServiceResponse { Status = SRStatus.Success, Message = "Email already verified. You can now log in." };
 
                 user.Status = UserStatusEnum.Verified;
-                await _authRepository.UpdateAsync(user);
+                await authRepo.UpdateAsync(user);
+                await _uow.SaveChangesAsync();
 
                 Console.WriteLine($"User {user.UserId} Verified successfully.");
 
@@ -297,13 +303,16 @@ namespace BusinessObjectLayer.Services.Auth
 
                 var adminEmail = GetEnvOrThrow("EMAILCONFIG__USERNAME");
 
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                var tokenRepo = _uow.GetRepository<ITokenRepository>();
+                
                 // 2. Check if user exists by ProviderId or Email
-                var user = await _authRepository.GetByProviderAsync(AuthProviderEnum.Google, userInfo.Id);
+                var user = await authRepo.GetByProviderAsync(AuthProviderEnum.Google, userInfo.Id);
 
                 if (user == null)
                 {
                     // Try to find by email (in case user exists but no Google provider)
-                    user = await _authRepository.GetByEmailAsync(userInfo.Email);
+                    user = await authRepo.GetByEmailAsync(userInfo.Email);
                 }
 
                 if (user == null)
@@ -319,7 +328,8 @@ namespace BusinessObjectLayer.Services.Auth
                         Status = UserStatusEnum.Verified,
                     };
 
-                    user = await _authRepository.AddAsync(user);
+                    user = await authRepo.AddAsync(user);
+                    await _uow.SaveChangesAsync();
 
                     // Create profile with Google name & avatar
                     await _profileService.CreateDefaultProfileAsync(user.UserId, userInfo.Name, userInfo.Picture);
@@ -331,7 +341,8 @@ namespace BusinessObjectLayer.Services.Auth
                         AuthProvider = AuthProviderEnum.Google,
                         ProviderId = userInfo.Id
                     };
-                    await _authRepository.AddLoginProviderAsync(googleProvider);
+                    await authRepo.AddLoginProviderAsync(googleProvider);
+                    await _uow.SaveChangesAsync();
 
                     // Create default company and company user
                     if (user.RoleId == 4 || user.RoleId == 5)
@@ -340,7 +351,7 @@ namespace BusinessObjectLayer.Services.Auth
                 else
                 {
                     // Check if Google provider already exists for this user
-                    var existingGoogleProvider = await _authRepository.GetLoginProviderAsync(user.UserId, AuthProviderEnum.Google);
+                    var existingGoogleProvider = await authRepo.GetLoginProviderAsync(user.UserId, AuthProviderEnum.Google);
                     if (existingGoogleProvider == null)
                     {
                         // Add Google login provider if it doesn't exist
@@ -350,14 +361,16 @@ namespace BusinessObjectLayer.Services.Auth
                             AuthProvider = AuthProviderEnum.Google,
                             ProviderId = userInfo.Id
                         };
-                        await _authRepository.AddLoginProviderAsync(googleProvider);
+                        await authRepo.AddLoginProviderAsync(googleProvider);
+                        await _uow.SaveChangesAsync();
                     }
 
                     // If user exists but is admin email, force role to 1
                     if (IsAdminEmail(userInfo.Email) && user.RoleId != 1)
                     {
                         user.RoleId = 1;
-                        await _authRepository.UpdateAsync(user);
+                        await authRepo.UpdateAsync(user);
+                        await _uow.SaveChangesAsync();
                     }
 
                     // Validate user status for existing users
@@ -367,7 +380,8 @@ namespace BusinessObjectLayer.Services.Auth
                 }
 
                 // 3. Revoke all existing refresh tokens on new login (security: invalidate old sessions)
-                await _tokenRepository.RevokeAllRefreshTokensAsync(user.UserId);
+                await tokenRepo.RevokeAllRefreshTokensAsync(user.UserId);
+                await _uow.SaveChangesAsync();
 
                 // 4. Generate tokens
                 var tokens = await _tokenService.GenerateTokensAsync(user);
@@ -488,9 +502,12 @@ namespace BusinessObjectLayer.Services.Auth
                     };
                 }
 
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                var tokenRepo = _uow.GetRepository<ITokenRepository>();
+                
                 // 4️⃣ Find or create user (same as before)
-                var user = await _authRepository.GetByProviderAsync(AuthProviderEnum.GitHub, githubUser.Id.ToString())
-                           ?? await _authRepository.GetByEmailAsync(githubUser.Email);
+                var user = await authRepo.GetByProviderAsync(AuthProviderEnum.GitHub, githubUser.Id.ToString())
+                           ?? await authRepo.GetByEmailAsync(githubUser.Email);
 
                 if (user == null)
                 {
@@ -501,15 +518,17 @@ namespace BusinessObjectLayer.Services.Auth
                         Status = UserStatusEnum.Verified,
                     };
 
-                    user = await _authRepository.AddAsync(user);
+                    user = await authRepo.AddAsync(user);
+                    await _uow.SaveChangesAsync();
                     await _profileService.CreateDefaultProfileAsync(user.UserId, githubUser.Name, githubUser.AvatarUrl);
 
-                    await _authRepository.AddLoginProviderAsync(new LoginProvider
+                    await authRepo.AddLoginProviderAsync(new LoginProvider
                     {
                         UserId = user.UserId,
                         AuthProvider = AuthProviderEnum.GitHub,
                         ProviderId = githubUser.Id.ToString()
                     });
+                    await _uow.SaveChangesAsync();
 
                     // Create default company and company user
                     if(user.RoleId == 4 || user.RoleId == 5)
@@ -518,15 +537,16 @@ namespace BusinessObjectLayer.Services.Auth
                 else
                 {
                     // Ensure GitHub provider record exists for this user
-                    var existingGitHubProvider = await _authRepository.GetLoginProviderAsync(user.UserId, AuthProviderEnum.GitHub);
+                    var existingGitHubProvider = await authRepo.GetLoginProviderAsync(user.UserId, AuthProviderEnum.GitHub);
                     if (existingGitHubProvider == null)
                     {
-                        await _authRepository.AddLoginProviderAsync(new LoginProvider
+                        await authRepo.AddLoginProviderAsync(new LoginProvider
                         {
                             UserId = user.UserId,
                             AuthProvider = AuthProviderEnum.GitHub,
                             ProviderId = githubUser.Id.ToString()
                         });
+                        await _uow.SaveChangesAsync();
                     }
 
                     // Validate user status for existing users
@@ -535,7 +555,8 @@ namespace BusinessObjectLayer.Services.Auth
                         return validation;
                 }
 
-                await _tokenRepository.RevokeAllRefreshTokensAsync(user.UserId);
+                await tokenRepo.RevokeAllRefreshTokensAsync(user.UserId);
+                await _uow.SaveChangesAsync();
                 var tokens = await _tokenService.GenerateTokensAsync(user);
 
                 return new ServiceResponse
@@ -568,7 +589,8 @@ namespace BusinessObjectLayer.Services.Auth
                 };
             }
 
-            var user = await _authRepository.GetByEmailAsync(emailClaim);
+            var authRepo = _uow.GetRepository<IAuthRepository>();
+            var user = await authRepo.GetByEmailAsync(emailClaim);
 
             // Validate user status
             var validation = ValidateUserStatus(user);
@@ -621,7 +643,8 @@ namespace BusinessObjectLayer.Services.Auth
 
         public async Task<ServiceResponse> RequestPasswordResetAsync(string email)
         {
-            var user = await _authRepository.GetByEmailAsync(email);
+            var authRepo = _uow.GetRepository<IAuthRepository>();
+            var user = await authRepo.GetByEmailAsync(email);
             // Validate user status
             var validation = ValidateUserStatus(user);
             if (validation != null)
@@ -649,14 +672,16 @@ namespace BusinessObjectLayer.Services.Auth
                     return new ServiceResponse { Status = SRStatus.Error, Message = "Invalid reset token." };
                 }
 
-                var user = await _authRepository.GetByEmailAsync(email);
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                var user = await authRepo.GetByEmailAsync(email);
                 // Validate user status
                 var validation = ValidateUserStatus(user);
                 if (validation != null)
                     return validation;
 
                 user.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
-                await _authRepository.UpdateAsync(user);
+                await authRepo.UpdateAsync(user);
+                await _uow.SaveChangesAsync();
 
                 return new ServiceResponse
                 {
@@ -684,7 +709,8 @@ namespace BusinessObjectLayer.Services.Auth
         {
             try
             {
-                var storedToken = await _tokenRepository.GetRefreshTokenAsync(refreshToken);
+                var tokenRepo = _uow.GetRepository<ITokenRepository>();
+                var storedToken = await tokenRepo.GetRefreshTokenAsync(refreshToken);
                 if (storedToken == null)
                 {
                     return new ServiceResponse
@@ -695,7 +721,8 @@ namespace BusinessObjectLayer.Services.Auth
                 }
 
                 storedToken.IsActive = false;
-                await _tokenRepository.UpdateRefreshTokenAsync(storedToken);
+                await tokenRepo.UpdateRefreshTokenAsync(storedToken);
+                await _uow.SaveChangesAsync();
 
                 return new ServiceResponse
                 {

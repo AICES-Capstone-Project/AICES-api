@@ -19,8 +19,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<Transaction> AddAsync(Transaction transaction)
         {
-            _context.Transactions.Add(transaction);
-            await _context.SaveChangesAsync();
+            await _context.Transactions.AddAsync(transaction);
             return transaction;
         }
     }

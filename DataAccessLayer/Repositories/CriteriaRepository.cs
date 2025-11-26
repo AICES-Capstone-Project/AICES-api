@@ -19,8 +19,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task AddCriteriaAsync(List<Criteria> criteria)
         {
-            _context.Criterias.AddRange(criteria);
-            await _context.SaveChangesAsync();
+            await _context.Criterias.AddRangeAsync(criteria);
         }
 
         public async Task DeleteByJobIdAsync(int jobId)
@@ -29,7 +28,6 @@ namespace DataAccessLayer.Repositories
             if (toRemove.Count > 0)
             {
                 _context.Criterias.RemoveRange(toRemove);
-                await _context.SaveChangesAsync();
             }
         }
     }

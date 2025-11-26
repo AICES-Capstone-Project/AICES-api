@@ -5,6 +5,7 @@ using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.Design;
@@ -15,33 +16,18 @@ namespace BusinessObjectLayer.Services
 {
     public class ResumeService : IResumeService
     {
-        private readonly IParsedResumeRepository _parsedResumeRepository;
-        private readonly IParsedCandidateRepository _parsedCandidateRepository;
-        private readonly IAIScoreRepository _aiScoreRepository;
-        private readonly IAIScoreDetailRepository _aiScoreDetailRepository;
-        private readonly IJobRepository _jobRepository;
-        private readonly ICompanyUserRepository _companyUserRepository;
+        private readonly IUnitOfWork _uow;
         private readonly GoogleCloudStorageHelper _storageHelper;
         private readonly RedisHelper _redisHelper;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
         public ResumeService(
-            IParsedResumeRepository parsedResumeRepository,
-            IParsedCandidateRepository parsedCandidateRepository,
-            IAIScoreRepository aiScoreRepository,
-            IAIScoreDetailRepository aiScoreDetailRepository,
-            IJobRepository jobRepository,
-            ICompanyUserRepository companyUserRepository,
+            IUnitOfWork uow,
             GoogleCloudStorageHelper storageHelper,
             RedisHelper redisHelper,
             IHttpContextAccessor httpContextAccessor)
         {
-            _parsedResumeRepository = parsedResumeRepository;
-            _parsedCandidateRepository = parsedCandidateRepository;
-            _aiScoreRepository = aiScoreRepository;
-            _aiScoreDetailRepository = aiScoreDetailRepository;
-            _jobRepository = jobRepository;
-            _companyUserRepository = companyUserRepository;
+            _uow = uow;
             _storageHelper = storageHelper;
             _redisHelper = redisHelper;
             _httpContextAccessor = httpContextAccessor;
@@ -60,8 +46,12 @@ namespace BusinessObjectLayer.Services
 
             try
             {
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                
                 // Validate job exists
-                var job = await _jobRepository.GetJobByIdAsync(jobId);
+                var job = await jobRepo.GetJobByIdAsync(jobId);
                 if (job == null)
                 {
                     return new ServiceResponse
@@ -85,7 +75,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 int userId = int.Parse(userIdClaim);
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 
                 if (companyUser == null || companyUser.CompanyId == null)
                 {
@@ -96,6 +86,16 @@ namespace BusinessObjectLayer.Services
                     };
                 }
                 int companyId = companyUser.CompanyId.Value;
+
+                // Validate that the job belongs to the user's company
+                if (job.CompanyId != companyId)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "This jobId not exists in your company."
+                    };
+                }
 
                 var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
 
@@ -135,17 +135,21 @@ namespace BusinessObjectLayer.Services
                 // Generate queue job ID
                 var queueJobId = Guid.NewGuid().ToString();
 
-                // Create ParsedResume record
-                var parsedResume = new ParsedResumes
+                await _uow.BeginTransactionAsync();
+                try
                 {
-                    CompanyId = companyUser.CompanyId.Value,
-                    JobId = jobId,
-                    QueueJobId = queueJobId,
-                    FileUrl = fileUrl,
-                    ResumeStatus = ResumeStatusEnum.Pending
-                };
+                    // Create ParsedResume record
+                    var parsedResume = new ParsedResumes
+                    {
+                        CompanyId = companyUser.CompanyId.Value,
+                        JobId = jobId,
+                        QueueJobId = queueJobId,
+                        FileUrl = fileUrl,
+                        ResumeStatus = ResumeStatusEnum.Pending
+                    };
 
-                var createdResume = await _parsedResumeRepository.CreateAsync(parsedResume);
+                    await parsedResumeRepo.CreateAsync(parsedResume);
+                    await _uow.SaveChangesAsync(); // Get ResumeId
 
                 // Prepare criteria data for queue
                 var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
@@ -155,35 +159,43 @@ namespace BusinessObjectLayer.Services
                     weight = c.Weight
                 }).ToList() ?? new List<CriteriaQueueResponse>();
 
-                // Push job to Redis queue with requirements and criteria
-                var jobData = new ResumeQueueJobResponse
-                {
-                    resumeId = createdResume.ResumeId,
-                    queueJobId = queueJobId,
-                    jobId = jobId,
-                    fileUrl = fileUrl,
-                    requirements = job.Requirements,
-                    criteria = criteriaData
-                };
-
-                var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
-                if (!pushed)
-                {
-                    // Log warning but don't fail the request
-                    Console.WriteLine($"Warning: Failed to push job to Redis queue for resumeId: {createdResume.ResumeId}");
-                }
-
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Success,
-                    Message = "Resume uploaded successfully.",
-                    Data = new ResumeUploadResponse
+                    // Push job to Redis queue with requirements and criteria
+                    var jobData = new ResumeQueueJobResponse
                     {
-                        ResumeId = createdResume.ResumeId,
-                        QueueJobId = queueJobId,
-                        Status = ResumeStatusEnum.Pending
+                        resumeId = parsedResume.ResumeId,
+                        queueJobId = queueJobId,
+                        jobId = jobId,
+                        fileUrl = fileUrl,
+                        requirements = job.Requirements,
+                        criteria = criteriaData
+                    };
+
+                    var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
+                    if (!pushed)
+                    {
+                        // Log warning but don't fail the request
+                        Console.WriteLine($"Warning: Failed to push job to Redis queue for resumeId: {parsedResume.ResumeId}");
                     }
-                };
+
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Resume uploaded successfully.",
+                        Data = new ResumeUploadResponse
+                        {
+                            ResumeId = parsedResume.ResumeId,
+                            QueueJobId = queueJobId,
+                            Status = ResumeStatusEnum.Pending
+                        }
+                    };
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -223,8 +235,13 @@ namespace BusinessObjectLayer.Services
 
             try
             {
+                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                var parsedCandidateRepo = _uow.GetRepository<IParsedCandidateRepository>();
+                var aiScoreRepo = _uow.GetRepository<IAIScoreRepository>();
+                var aiScoreDetailRepo = _uow.GetRepository<IAIScoreDetailRepository>();
+                
                 // 1. Find resume
-                var parsedResume = await _parsedResumeRepository.GetByQueueJobIdAsync(request.QueueJobId);
+                var parsedResume = await parsedResumeRepo.GetByQueueJobIdAsync(request.QueueJobId);
                 if (parsedResume == null)
                 {
                     return new ServiceResponse
@@ -244,85 +261,98 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // 3. Update parsed resume (JSON + Completed)
-                parsedResume.ResumeStatus = ResumeStatusEnum.Completed;
-
-                if (request.RawJson != null)
+                await _uow.BeginTransactionAsync();
+                try
                 {
-                    parsedResume.Data = request.RawJson is string rawJsonString
-                        ? rawJsonString
-                        : JsonSerializer.Serialize(request.RawJson, new JsonSerializerOptions
-                        {
-                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                            WriteIndented = false
-                        });
-                }
+                    // 3. Update parsed resume (JSON + Completed)
+                    parsedResume.ResumeStatus = ResumeStatusEnum.Completed;
 
-                await _parsedResumeRepository.UpdateAsync(parsedResume);
-
-                // 4. Save AI Score
-                string? aiExplanationString = request.AIExplanation is string s
-                    ? s
-                    : JsonSerializer.Serialize(request.AIExplanation);
-
-                var aiScore = new AIScores
-                {
-                    TotalResumeScore = request.TotalResumeScore,
-                    AIExplanation = aiExplanationString
-                };
-
-                var createdScore = await _aiScoreRepository.CreateAsync(aiScore);
-
-                // 5. Create/Update ParsedCandidate
-                var existingCandidate = await _parsedCandidateRepository.GetByResumeIdAsync(parsedResume.ResumeId);
-
-                var fullName = request.CandidateInfo?.FullName ?? "Unknown";
-                var email = request.CandidateInfo?.Email ?? "unknown@example.com";
-                var phone = request.CandidateInfo?.PhoneNumber;
-
-                if (existingCandidate == null)
-                {
-                    var parsedCandidate = new ParsedCandidates
+                    if (request.RawJson != null)
                     {
-                        ResumeId = parsedResume.ResumeId,
-                        JobId = parsedResume.JobId,
-                        ScoreId = createdScore.ScoreId,
-                        FullName = fullName,
-                        Email = email,
-                        PhoneNumber = phone
+                        parsedResume.Data = request.RawJson is string rawJsonString
+                            ? rawJsonString
+                            : JsonSerializer.Serialize(request.RawJson, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                WriteIndented = false
+                            });
+                    }
+
+                    await parsedResumeRepo.UpdateAsync(parsedResume);
+                    await _uow.SaveChangesAsync();
+
+                    // 4. Save AI Score
+                    string? aiExplanationString = request.AIExplanation is string s
+                        ? s
+                        : JsonSerializer.Serialize(request.AIExplanation);
+
+                    var aiScore = new AIScores
+                    {
+                        TotalResumeScore = request.TotalResumeScore,
+                        AIExplanation = aiExplanationString
                     };
 
-                    await _parsedCandidateRepository.CreateAsync(parsedCandidate);
+                    await aiScoreRepo.CreateAsync(aiScore);
+                    await _uow.SaveChangesAsync(); // Get ScoreId
+
+                    // 5. Create/Update ParsedCandidate
+                    var existingCandidate = await parsedCandidateRepo.GetByResumeIdAsync(parsedResume.ResumeId);
+
+                    var fullName = request.CandidateInfo?.FullName ?? "Unknown";
+                    var email = request.CandidateInfo?.Email ?? "unknown@example.com";
+                    var phone = request.CandidateInfo?.PhoneNumber;
+
+                    if (existingCandidate == null)
+                    {
+                        var parsedCandidate = new ParsedCandidates
+                        {
+                            ResumeId = parsedResume.ResumeId,
+                            JobId = parsedResume.JobId,
+                            ScoreId = aiScore.ScoreId,
+                            FullName = fullName,
+                            Email = email,
+                            PhoneNumber = phone
+                        };
+
+                        await parsedCandidateRepo.CreateAsync(parsedCandidate);
+                    }
+                    else
+                    {
+                        existingCandidate.ScoreId = aiScore.ScoreId;
+                        existingCandidate.FullName = fullName;
+                        existingCandidate.Email = email;
+                        existingCandidate.PhoneNumber = phone;
+
+                        await parsedCandidateRepo.UpdateAsync(existingCandidate);
+                    }
+
+                    // 6. Save AIScoreDetail
+                    var scoreDetails = request.AIScoreDetail.Select(detail => new AIScoreDetail
+                    {
+                        CriteriaId = detail.CriteriaId,
+                        ScoreId = aiScore.ScoreId,
+                        Matched = detail.Matched,
+                        Score = detail.Score,
+                        AINote = detail.AINote
+                    }).ToList();
+
+                    await aiScoreDetailRepo.CreateRangeAsync(scoreDetails);
+                    await _uow.SaveChangesAsync();
+                    await _uow.CommitTransactionAsync();
+
+                    // 7. Response
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "AI result saved successfully.",
+                        Data = new { resumeId = parsedResume.ResumeId }
+                    };
                 }
-                else
+                catch
                 {
-                    existingCandidate.ScoreId = createdScore.ScoreId;
-                    existingCandidate.FullName = fullName;
-                    existingCandidate.Email = email;
-                    existingCandidate.PhoneNumber = phone;
-
-                    await _parsedCandidateRepository.UpdateAsync(existingCandidate);
+                    await _uow.RollbackTransactionAsync();
+                    throw;
                 }
-
-                // 6. Save AIScoreDetail
-                var scoreDetails = request.AIScoreDetail.Select(detail => new AIScoreDetail
-                {
-                    CriteriaId = detail.CriteriaId,
-                    ScoreId = createdScore.ScoreId,
-                    Matched = detail.Matched,
-                    Score = detail.Score,
-                    AINote = detail.AINote
-                }).ToList();
-
-                await _aiScoreDetailRepository.CreateRangeAsync(scoreDetails);
-
-                // 7. Response
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Success,
-                    Message = "AI result saved successfully.",
-                    Data = new { resumeId = parsedResume.ResumeId }
-                };
             }
             catch (Exception ex)
             {
@@ -330,11 +360,21 @@ namespace BusinessObjectLayer.Services
                 Console.WriteLine(ex.StackTrace);
                 try
                 {
-                    var parsedResume = await _parsedResumeRepository.GetByQueueJobIdAsync(request.QueueJobId);
+                    var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                    var parsedResume = await parsedResumeRepo.GetByQueueJobIdAsync(request.QueueJobId);
                     if (parsedResume != null)
                     {
-                        parsedResume.ResumeStatus = ResumeStatusEnum.Failed;
-                        await _parsedResumeRepository.UpdateAsync(parsedResume);
+                        await _uow.BeginTransactionAsync();
+                        try
+                        {
+                            parsedResume.ResumeStatus = ResumeStatusEnum.Failed;
+                            await parsedResumeRepo.UpdateAsync(parsedResume);
+                            await _uow.CommitTransactionAsync();
+                        }
+                        catch
+                        {
+                            await _uow.RollbackTransactionAsync();
+                        }
                     }
                 }
                 catch { /* ignore logging errors */ }
@@ -365,7 +405,11 @@ namespace BusinessObjectLayer.Services
                 }
 
                 int userId = int.Parse(userIdClaim);
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 
                 if (companyUser == null || companyUser.CompanyId == null)
                 {
@@ -377,7 +421,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Validate job exists and belongs to company
-                var job = await _jobRepository.GetJobByIdAsync(jobId);
+                var job = await jobRepo.GetJobByIdAsync(jobId);
                 if (job == null)
                 {
                     return new ServiceResponse
@@ -397,7 +441,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get all resumes for this job
-                var resumes = await _parsedResumeRepository.GetByJobIdAsync(jobId);
+                var resumes = await parsedResumeRepo.GetByJobIdAsync(jobId);
 
                 var resumeList = resumes.Select(resume => new JobResumeListResponse
                 {
@@ -444,7 +488,11 @@ namespace BusinessObjectLayer.Services
                 }
 
                 int userId = int.Parse(userIdClaim);
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 
                 if (companyUser == null || companyUser.CompanyId == null)
                 {
@@ -456,7 +504,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Validate job exists and belongs to company
-                var job = await _jobRepository.GetJobByIdAsync(jobId);
+                var job = await jobRepo.GetJobByIdAsync(jobId);
                 if (job == null)
                 {
                     return new ServiceResponse
@@ -476,7 +524,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get resume with full details
-                var resume = await _parsedResumeRepository.GetByJobIdAndResumeIdAsync(jobId, resumeId);
+                var resume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
                 if (resume == null)
                 {
                     return new ServiceResponse
@@ -550,7 +598,11 @@ namespace BusinessObjectLayer.Services
                 }
 
                 int userId = int.Parse(userIdClaim);
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 
                 if (companyUser == null || companyUser.CompanyId == null)
                 {
@@ -562,7 +614,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get resume
-                var resume = await _parsedResumeRepository.GetByIdAsync(resumeId);
+                var resume = await parsedResumeRepo.GetByIdAsync(resumeId);
                 if (resume == null)
                 {
                     return new ServiceResponse
@@ -603,7 +655,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get job with requirements and criteria
-                var job = await _jobRepository.GetJobByIdAsync(resume.JobId);
+                var job = await jobRepo.GetJobByIdAsync(resume.JobId);
                 if (job == null)
                 {
                     return new ServiceResponse
@@ -645,10 +697,20 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Update resume: new queueJobId and status = Pending
-                resume.QueueJobId = newQueueJobId;
-                resume.ResumeStatus = ResumeStatusEnum.Pending;
-                await _parsedResumeRepository.UpdateAsync(resume);
+                await _uow.BeginTransactionAsync();
+                try
+                {
+                    // Update resume: new queueJobId and status = Pending
+                    resume.QueueJobId = newQueueJobId;
+                    resume.ResumeStatus = ResumeStatusEnum.Pending;
+                    await parsedResumeRepo.UpdateAsync(resume);
+                    await _uow.CommitTransactionAsync();
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
 
                 return new ServiceResponse
                 {
@@ -692,7 +754,10 @@ namespace BusinessObjectLayer.Services
                 }
 
                 int userId = int.Parse(userIdClaim);
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 
                 if (companyUser == null || companyUser.CompanyId == null)
                 {
@@ -704,7 +769,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get resume
-                var resume = await _parsedResumeRepository.GetByIdAsync(resumeId);
+                var resume = await parsedResumeRepo.GetByIdAsync(resumeId);
                 if (resume == null)
                 {
                     return new ServiceResponse
@@ -734,9 +799,19 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Soft delete: set IsActive = false
-                resume.IsActive = false;
-                await _parsedResumeRepository.UpdateAsync(resume);
+                await _uow.BeginTransactionAsync();
+                try
+                {
+                    // Soft delete: set IsActive = false
+                    resume.IsActive = false;
+                    await parsedResumeRepo.UpdateAsync(resume);
+                    await _uow.CommitTransactionAsync();
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
 
                 return new ServiceResponse
                 {

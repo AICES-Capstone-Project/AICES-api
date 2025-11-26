@@ -7,6 +7,7 @@ using Data.Settings;
 using Data.Settings.Data.Settings;
 using DataAccessLayer;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -24,35 +25,17 @@ namespace BusinessObjectLayer.Services
 {
     public class PaymentService : IPaymentService
     {
-        private readonly IPaymentRepository _paymentRepo;
-        private readonly ISubscriptionRepository _subscriptionRepo;
-        private readonly ICompanySubscriptionRepository _companySubRepo;
-        private readonly ITransactionRepository _transactionRepo;
-        private readonly ICompanyUserRepository _companyUserRepo;
+        private readonly IUnitOfWork _uow;
         private readonly StripeSettings _settings;
-        private readonly IAuthRepository _authRepo;
-        private readonly ICompanyRepository _companyRepo;
         private readonly INotificationService _notificationService;
 
         public PaymentService(
-            IPaymentRepository paymentRepo,
-            ISubscriptionRepository subscriptionRepo,
-            ICompanySubscriptionRepository companySubRepo,
-            ITransactionRepository transactionRepo,
-            ICompanyUserRepository companyUserRepo,
-            IAuthRepository authRepo,
+            IUnitOfWork uow,
             INotificationService notificationService,
-            ICompanyRepository companyRepo,
             IOptions<StripeSettings> settings)
         {
-            _paymentRepo = paymentRepo;
-            _subscriptionRepo = subscriptionRepo;
-            _companySubRepo = companySubRepo;
-            _transactionRepo = transactionRepo;
-            _companyUserRepo = companyUserRepo;
-            _authRepo = authRepo;
+            _uow = uow;
             _notificationService = notificationService;
-            _companyRepo = companyRepo;
             _settings = settings.Value;
         }
 
@@ -64,23 +47,29 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> CreateCheckoutSessionAsync(CheckoutRequest request, ClaimsPrincipal userClaims)
         {
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+            var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            var paymentRepo = _uow.GetRepository<IPaymentRepository>();
+            var companyRepo = _uow.GetRepository<ICompanyRepository>();
+            
             var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
             if (userIdClaim == null)
                 return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
 
             var userId = int.Parse(userIdClaim);
 
-            var companyUser = await _companyUserRepo.GetByUserIdAsync(userId);
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
             if (companyUser == null || companyUser.CompanyId == null)
                 return new ServiceResponse { Status = SRStatus.Error, Message = "You must join a company before purchasing a subscription." };
 
             int companyId = companyUser.CompanyId.Value;
 
-            var subscription = await _subscriptionRepo.GetByIdAsync(request.SubscriptionId);
+            var subscription = await subscriptionRepo.GetByIdAsync(request.SubscriptionId);
             if (subscription == null)
                 return new ServiceResponse { Status = SRStatus.NotFound, Message = "Subscription not found" };
 
-            var existingCompanySubscription = await _companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            var existingCompanySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
             if (existingCompanySubscription != null)
             {
                 return new ServiceResponse
@@ -97,7 +86,7 @@ namespace BusinessObjectLayer.Services
                   ?? throw new Exception($"Stripe price id not configured for subscription '{subscription.Name}' (ID: {subscription.SubscriptionId}). Please set StripePriceId in database or configure STRIPE__PRICE_DEFAULT in environment variables.");
 
             // Ensure company has Stripe customer
-            var company = await _companyRepo.GetByIdAsync(companyId);
+            var company = await companyRepo.GetByIdAsync(companyId);
             if (company == null)
                 return new ServiceResponse { Status = SRStatus.NotFound, Message = "Company not found" };
 
@@ -107,7 +96,7 @@ namespace BusinessObjectLayer.Services
             if (string.IsNullOrEmpty(customerId))
             {
                 // Try to set an email from user profile (falls back to null)
-                var companyUserEntity = await _companyUserRepo.GetCompanyUserByUserIdAsync(userId);
+                var companyUserEntity = await companyUserRepo.GetCompanyUserByUserIdAsync(userId);
                 string email = companyUserEntity?.User?.Email ?? null;
 
                 var cust = await customerService.CreateAsync(new CustomerCreateOptions
@@ -116,7 +105,8 @@ namespace BusinessObjectLayer.Services
                     Metadata = new Dictionary<string, string> { { "companyId", companyId.ToString() } }
                 });
                 company.StripeCustomerId = cust.Id;
-                await _companyRepo.UpdateAsync(company);
+                await companyRepo.UpdateAsync(company);
+                await _uow.SaveChangesAsync();
                 customerId = cust.Id;
             }
 
@@ -130,7 +120,8 @@ namespace BusinessObjectLayer.Services
 
                
             };
-            await _paymentRepo.AddAsync(payment);
+            await paymentRepo.AddAsync(payment);
+            await _uow.SaveChangesAsync();
 
             var metadata = new Dictionary<string, string>
             {
@@ -261,13 +252,17 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.Error, Message = "Session has no subscription id. Cannot process payment." };
                 }
 
-                var existing = await _companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubscriptionId);
+                var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+                var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                
+                var existing = await companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubscriptionId);
                 if (existing != null)
                 {
                     return new ServiceResponse { Status = SRStatus.Success, Message = "Subscription already processed." };
                 }
-
-                var subscriptionEntity = await _subscriptionRepo.GetByIdAsync(subscriptionId);
+                
+                var subscriptionEntity = await subscriptionRepo.GetByIdAsync(subscriptionId);
                 var now = DateTime.UtcNow;
 
                 var companySubscription = new CompanySubscription
@@ -280,9 +275,10 @@ namespace BusinessObjectLayer.Services
                     StripeSubscriptionId = stripeSubscriptionId
                 };
 
-                await _companySubRepo.AddAsync(companySubscription);
+                await companySubRepo.AddAsync(companySubscription);
+                await _uow.SaveChangesAsync();
 
-                var admins = await _authRepo.GetUsersByRoleAsync("System_Admin");
+                var admins = await authRepo.GetUsersByRoleAsync("System_Admin");
                 foreach (var admin in admins)
                 {
                     await _notificationService.CreateAsync(
@@ -306,6 +302,11 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.Error, Message = "Invoice missing." };
 
                 // Dùng reflection để tương thích với nhiều phiên bản Stripe.Net khác nhau.
+                var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+                var paymentRepo = _uow.GetRepository<IPaymentRepository>();
+                var transactionRepo = _uow.GetRepository<ITransactionRepository>();
+                var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+                
                 var stripeSubId = GetInvoiceSubscriptionId(invoice);
                 if (string.IsNullOrEmpty(stripeSubId))
                     return new ServiceResponse { Status = SRStatus.Error, Message = "Invoice missing subscription id." };
@@ -313,7 +314,7 @@ namespace BusinessObjectLayer.Services
                 long amountPaidCents = invoice.AmountPaid;
                 int amountPaid = (int)amountPaidCents;
 
-                var companySub = await _companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubId);
+                var companySub = await companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubId);
 
                 // Lấy metadata để xử lý payment ngay cả khi companySub chưa tồn tại
                 var metadataSnapshot = ExtractInvoiceMetadata(invoice);
@@ -338,7 +339,7 @@ namespace BusinessObjectLayer.Services
                     {
                         payment.PaymentStatus = PaymentStatusEnum.Paid;
                         payment.InvoiceUrl = invoiceUrl;
-                        await _paymentRepo.UpdateAsync(payment);
+                        await paymentRepo.UpdateAsync(payment);
                     }
                     else
                     {
@@ -353,10 +354,11 @@ namespace BusinessObjectLayer.Services
 
                             InvoiceUrl = invoiceUrl
                         };
-                        await _paymentRepo.AddAsync(payment);
+                        await paymentRepo.AddAsync(payment);
                     }
+                    await _uow.SaveChangesAsync();
 
-                    await _transactionRepo.AddAsync(new Transaction
+                    await transactionRepo.AddAsync(new Transaction
                     {
                         PaymentId = payment.PaymentId,
                         Amount = amountPaid,
@@ -366,18 +368,20 @@ namespace BusinessObjectLayer.Services
                         ResponseMessage = $"Invoice {invoice.Id} paid",
                         TransactionTime = DateTime.UtcNow,
                     });
+                    await _uow.SaveChangesAsync();
                 }
 
                 // Update companySub nếu tồn tại (cho renewal)
                 if (companySub != null)
                 {
-                    var subDef = await _subscriptionRepo.GetByIdAsync(companySub.SubscriptionId);
+                    var subDef = await subscriptionRepo.GetByIdAsync(companySub.SubscriptionId);
                     var now = DateTime.UtcNow;
                     var extendFrom = companySub.EndDate > now ? companySub.EndDate : now;
 
                     companySub.EndDate = extendFrom.AddDays(subDef?.DurationDays ?? 30);
                     companySub.SubscriptionStatus = SubscriptionStatusEnum.Active;
-                    await _companySubRepo.UpdateAsync(companySub);
+                    await companySubRepo.UpdateAsync(companySub);
+                    await _uow.SaveChangesAsync();
                 }
 
                 return new ServiceResponse { Status = SRStatus.Success, Message = "invoice.payment_succeeded handled." };
@@ -391,17 +395,21 @@ namespace BusinessObjectLayer.Services
                 var invoice = stripeEvent.Data.Object as Stripe.Invoice;
                 if (invoice != null)
                 {
+                    var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+                    var paymentRepo = _uow.GetRepository<IPaymentRepository>();
+                    
                     var stripeSubId = GetInvoiceSubscriptionId(invoice);
                     if (string.IsNullOrEmpty(stripeSubId))
                     {
                         return new ServiceResponse { Status = SRStatus.Error, Message = "Invoice missing subscription id." };
                     }
 
-                    var companySub = await _companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubId);
+                    var companySub = await companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubId);
                     if (companySub != null)
                     {
                         companySub.SubscriptionStatus = SubscriptionStatusEnum.Pending;
-                        await _companySubRepo.UpdateAsync(companySub);
+                        await companySubRepo.UpdateAsync(companySub);
+                        await _uow.SaveChangesAsync();
                     }
 
                     var metadataSnapshot = ExtractInvoiceMetadata(invoice);
@@ -409,7 +417,8 @@ namespace BusinessObjectLayer.Services
                     if (payment != null)
                     {
                         payment.PaymentStatus = PaymentStatusEnum.Failed;
-                        await _paymentRepo.UpdateAsync(payment);
+                        await paymentRepo.UpdateAsync(payment);
+                        await _uow.SaveChangesAsync();
                     }
                 }
 
@@ -426,12 +435,14 @@ namespace BusinessObjectLayer.Services
                 {
                     string stripeId = stripeSub.Id;
 
-                    var cs = await _companySubRepo.GetByStripeSubscriptionIdAsync(stripeId);
+                    var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+                    var cs = await companySubRepo.GetByStripeSubscriptionIdAsync(stripeId);
                     if (cs != null)
                     {
                         cs.SubscriptionStatus = SubscriptionStatusEnum.Canceled;
                         cs.IsActive = false;
-                        await _companySubRepo.UpdateAsync(cs);
+                        await companySubRepo.UpdateAsync(cs);
+                        await _uow.SaveChangesAsync();
                     }
                 }
 
@@ -481,17 +492,18 @@ namespace BusinessObjectLayer.Services
 
         private async Task<Payment?> GetPaymentFromInvoiceMetadataAsync(IDictionary<string, string>? metadata, int? fallbackCompanyId)
         {
+            var paymentRepo = _uow.GetRepository<IPaymentRepository>();
             int paymentId = GetPaymentIdFromMetadata(metadata);
             Payment? payment = null;
 
             if (paymentId > 0)
             {
-                payment = await _paymentRepo.GetByIdAsync(paymentId);
+                payment = await paymentRepo.GetByIdAsync(paymentId);
             }
 
             if (payment == null && fallbackCompanyId.HasValue)
             {
-                payment = await _paymentRepo.GetLatestPendingByCompanyAsync(fallbackCompanyId.Value);
+                payment = await paymentRepo.GetLatestPendingByCompanyAsync(fallbackCompanyId.Value);
             }
 
             return payment;
@@ -541,20 +553,23 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetPaymentHistoryAsync(ClaimsPrincipal userClaims, int page, int pageSize)
         {
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var paymentRepo = _uow.GetRepository<IPaymentRepository>();
+            
             var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
             if (userIdClaim == null)
                 return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
 
             int userId = int.Parse(userIdClaim);
 
-            var companyUser = await _companyUserRepo.GetByUserIdAsync(userId);
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
             if (companyUser == null || companyUser.CompanyId == null)
                 return new ServiceResponse { Status = SRStatus.Error, Message = "User is not associated with any company." };
 
             int companyId = companyUser.CompanyId.Value;
 
-            var payments = await _paymentRepo.GetPaymentHistoryByCompanyAsync(companyId, page, pageSize);
-            var total = await _paymentRepo.GetTotalPaymentsByCompanyAsync(companyId);
+            var payments = await paymentRepo.GetPaymentHistoryByCompanyAsync(companyId, page, pageSize);
+            var total = await paymentRepo.GetTotalPaymentsByCompanyAsync(companyId);
 
             var responseList = payments.Select(p => new PaymentHistoryResponse
             {
@@ -606,16 +621,19 @@ namespace BusinessObjectLayer.Services
             if (userIdClaim == null)
                 return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
 
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            
             var userId = int.Parse(userIdClaim);
 
-            var companyUser = await _companyUserRepo.GetByUserIdAsync(userId);
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
             if (companyUser == null || companyUser.CompanyId == null)
                 return new ServiceResponse { Status = SRStatus.Error, Message = "You must join a company before canceling a subscription." };
 
             int companyId = companyUser.CompanyId.Value;
 
             // Tìm active subscription của company
-            var companySubscription = await _companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
             if (companySubscription == null)
             {
                 return new ServiceResponse
@@ -663,7 +681,8 @@ namespace BusinessObjectLayer.Services
                 // Cancel ngay lập tức: mất quyền truy cập ngay
                 companySubscription.SubscriptionStatus = SubscriptionStatusEnum.Canceled;
                 companySubscription.IsActive = false;
-                await _companySubRepo.UpdateAsync(companySubscription);
+                await companySubRepo.UpdateAsync(companySubscription);
+                await _uow.SaveChangesAsync();
 
                 return new ServiceResponse
                 {
@@ -700,16 +719,19 @@ namespace BusinessObjectLayer.Services
             if (userIdClaim == null)
                 return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
 
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            
             var userId = int.Parse(userIdClaim);
 
-            var companyUser = await _companyUserRepo.GetByUserIdAsync(userId);
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
             if (companyUser == null || companyUser.CompanyId == null)
                 return new ServiceResponse { Status = SRStatus.Error, Message = "You must join a company to view subscription." };
 
             int companyId = companyUser.CompanyId.Value;
 
             // Lấy subscription hiện tại (Active hoặc Pending và chưa hết hạn)
-            var companySubscription = await _companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
             
             if (companySubscription == null)
             {

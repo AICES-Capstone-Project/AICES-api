@@ -20,20 +20,19 @@ namespace DataAccessLayer.Repositories
 
         public async Task<Profile> AddAsync(Profile profile)
         {
-            _context.Profiles.Add(profile);
-            await _context.SaveChangesAsync();
+            await _context.Profiles.AddAsync(profile);
             return profile;
         }
 
         public async Task<Profile> GetByUserIdAsync(int userId)
         {
-            return await _context.Profiles.FirstOrDefaultAsync(p => p.UserId == userId);
+            return await _context.Profiles
+                .FirstOrDefaultAsync(p => p.UserId == userId);
         }
 
         public async Task UpdateAsync(Profile profile)
         {
             _context.Profiles.Update(profile);
-            await _context.SaveChangesAsync();
         }
     }
 }

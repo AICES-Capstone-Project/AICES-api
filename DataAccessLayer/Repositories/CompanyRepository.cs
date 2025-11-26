@@ -21,7 +21,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<IEnumerable<Company>> GetAllAsync(bool includeInactive = false)
         {
-            var query = _context.Companies.AsQueryable();
+            var query = _context.Companies.AsNoTracking().AsQueryable();
 
             if (!includeInactive)
                 query = query.Where(c => c.IsActive);
@@ -31,7 +31,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<List<Company>> GetCompaniesAsync(int page, int pageSize, string? search = null)
         {
-            var query = _context.Companies.AsQueryable();
+            var query = _context.Companies.AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -49,7 +49,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<int> GetTotalCompaniesAsync(string? search = null)
         {
-            var query = _context.Companies.AsQueryable();
+            var query = _context.Companies.AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -64,6 +64,7 @@ namespace DataAccessLayer.Repositories
         public async Task<List<Company>> GetPublicCompaniesAsync()
         {
             return await _context.Companies
+                .AsNoTracking()
                 .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();
@@ -72,6 +73,7 @@ namespace DataAccessLayer.Repositories
         public async Task<Company?> GetPublicByIdAsync(int id)
         {
             return await _context.Companies
+                .AsNoTracking()
                 .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
                 .FirstOrDefaultAsync(c => c.CompanyId == id);
         }
@@ -89,25 +91,27 @@ namespace DataAccessLayer.Repositories
 
         public async Task<Company> AddAsync(Company company)
         {
-            _context.Companies.Add(company);
-            await _context.SaveChangesAsync();
+            await _context.Companies.AddAsync(company);
             return company;
         }
 
         public async Task UpdateAsync(Company company)
         {
             _context.Companies.Update(company);
-            await _context.SaveChangesAsync();
         }
 
         public async Task<bool> ExistsByNameAsync(string name)
         {
-            return await _context.Companies.AnyAsync(c => c.Name == name);
+            return await _context.Companies
+                .AsNoTracking()
+                .AnyAsync(c => c.Name == name);
         }
 
         public async Task<bool> ExistsAsync(int companyId)
         {
-            return await _context.Companies.AnyAsync(c => c.CompanyId == companyId);
+            return await _context.Companies
+                .AsNoTracking()
+                .AnyAsync(c => c.CompanyId == companyId);
         }
 
         public async Task<bool> UpdateUserRoleByCompanyAsync(int companyId, string newRoleName)
@@ -121,7 +125,9 @@ namespace DataAccessLayer.Repositories
                 return false;
 
             // Lấy role HR_Manager
-            var newRole = await _context.Roles.FirstOrDefaultAsync(r => r.RoleName == newRoleName);
+            var newRole = await _context.Roles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.RoleName == newRoleName);
             if (newRole == null)
                 return false;
 
@@ -133,15 +139,13 @@ namespace DataAccessLayer.Repositories
 
             _context.Users.Update(companyUser.User);
             _context.CompanyUsers.Update(companyUser);
-            await _context.SaveChangesAsync();
 
             return true;
         }
 
         public async Task AddCompanyUserAsync(CompanyUser companyUser)
         {
-            _context.CompanyUsers.Add(companyUser);
-            await _context.SaveChangesAsync();
+            await _context.CompanyUsers.AddAsync(companyUser);
         }
 
 

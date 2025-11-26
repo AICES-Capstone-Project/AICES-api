@@ -13,9 +13,12 @@ namespace DataAccessLayer.IRepositories
         Task<List<Category>> GetCategoriesAsync(int page, int pageSize, string? search = null);
         Task<int> GetTotalCategoriesAsync(string? search = null);
         Task<Category?> GetByIdAsync(int id);
-        Task<Category> AddAsync(Category category);
-        Task UpdateAsync(Category category);
+        Task AddAsync(Category category);
+        void Update(Category category);
         Task<bool> ExistsByNameAsync(string name);
         Task<bool> ExistsAsync(int categoryId);
+        
+        // Legacy method for backward compatibility
+        Task UpdateAsync(Category category);
     }
 }

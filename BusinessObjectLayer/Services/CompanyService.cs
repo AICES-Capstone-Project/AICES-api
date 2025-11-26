@@ -8,6 +8,7 @@ using Data.Models.Response;
 using Data.Models.Response.Pagination;
 using DataAccessLayer;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -20,30 +21,24 @@ namespace BusinessObjectLayer.Services
 {
     public class CompanyService : ICompanyService
     {
-        private readonly ICompanyRepository _companyRepository;
-        private readonly ICompanyUserRepository _companyUserRepository;
+        private readonly IUnitOfWork _uow;
         private readonly ICompanyDocumentService _companyDocumentService;
-        private readonly IUserRepository _userRepository;
         private readonly Common.CloudinaryHelper _cloudinaryHelper;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly INotificationService _notificationService;
 
         public CompanyService(
-            ICompanyRepository companyRepository,
-            ICompanyUserRepository companyUserRepository,
+            IUnitOfWork uow,
             ICompanyDocumentService companyDocumentService,
-            IUserRepository userRepository,
             Common.CloudinaryHelper cloudinaryHelper,
             IHttpContextAccessor httpContextAccessor,
             INotificationService notificationService)
         {
-            _companyRepository = companyRepository;
-            _companyUserRepository = companyUserRepository;
+            _uow = uow;
             _companyDocumentService = companyDocumentService;
-            _userRepository = userRepository;
             _cloudinaryHelper = cloudinaryHelper;
             _httpContextAccessor = httpContextAccessor;
-             _notificationService = notificationService;
+            _notificationService = notificationService;
         }
 
         // Get public companies (active and approved only)
@@ -51,7 +46,8 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var companies = await _companyRepository.GetPublicCompaniesAsync();
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                var companies = await companyRepo.GetPublicCompaniesAsync();
 
                 var companyResponses = companies.Select(c => new PublicCompanyResponse
                 {
@@ -87,7 +83,8 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var company = await _companyRepository.GetPublicByIdAsync(id);
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                var company = await companyRepo.GetPublicByIdAsync(id);
 
                 if (company == null)
                 {
@@ -132,8 +129,9 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var companies = await _companyRepository.GetCompaniesAsync(page, pageSize, search);
-                var total = await _companyRepository.GetTotalCompaniesAsync(search);
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                var companies = await companyRepo.GetCompaniesAsync(page, pageSize, search);
+                var total = await companyRepo.GetTotalCompaniesAsync(search);
 
                 var companyResponses = companies.Select(c => new CompanyResponse
                 {
@@ -181,7 +179,8 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var company = await _companyRepository.GetByIdAsync(id);
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                var company = await companyRepo.GetByIdAsync(id);
 
                 if (company == null)
                 {
@@ -271,8 +270,10 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                
                 // ✅ Kiểm tra trùng tên công ty
-                if (await _companyRepository.ExistsByNameAsync(request.Name))
+                if (await companyRepo.ExistsByNameAsync(request.Name))
                 {
                     return new ServiceResponse
                     {
@@ -291,38 +292,50 @@ namespace BusinessObjectLayer.Services
                     logoUrl = upload.Url;
                 }
 
-                // ✅ Tạo công ty mới với status Approved
-                var company = new Company
+                await _uow.BeginTransactionAsync();
+                try
                 {
-                    Name = request.Name,
-                    Description = request.Description,
-                    Address = request.Address,
-                    Website = request.Website,
-                    TaxCode = request.TaxCode,
-                    LogoUrl = logoUrl,
-                    CompanyStatus = CompanyStatusEnum.Approved, // Automatically approved
-                    CreatedBy = adminUserId, // User who owns the company
-                    ApprovedBy = adminUserId, // Admin who approved/created it
-                    RejectReason = null
-                };
+                    // ✅ Tạo công ty mới với status Approved
+                    var company = new Company
+                    {
+                        Name = request.Name,
+                        Description = request.Description,
+                        Address = request.Address,
+                        Website = request.Website,
+                        TaxCode = request.TaxCode,
+                        LogoUrl = logoUrl,
+                        CompanyStatus = CompanyStatusEnum.Approved, // Automatically approved
+                        CreatedBy = adminUserId, // User who owns the company
+                        ApprovedBy = adminUserId, // Admin who approved/created it
+                        RejectReason = null
+                    };
 
-                // Save company first to get CompanyId
-                var createdCompany = await _companyRepository.AddAsync(company);
+                    // Save company first to get CompanyId
+                    await companyRepo.AddAsync(company);
+                    await _uow.SaveChangesAsync(); // Get CompanyId
 
-                // ✅ Upload documents (nếu có) using CompanyDocumentService
-                if (request.DocumentFiles != null && request.DocumentFiles.Count > 0)
-                {
-                    await _companyDocumentService.UploadAndSaveDocumentsAsync(
-                        createdCompany.CompanyId,
-                        request.DocumentFiles,
-                        request.DocumentTypes);
+                    // ✅ Upload documents (nếu có) using CompanyDocumentService
+                    if (request.DocumentFiles != null && request.DocumentFiles.Count > 0)
+                    {
+                        await _companyDocumentService.UploadAndSaveDocumentsAsync(
+                            company.CompanyId,
+                            request.DocumentFiles,
+                            request.DocumentTypes);
+                    }
+
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Company created successfully.",
+                    };
                 }
-
-                return new ServiceResponse
+                catch
                 {
-                    Status = SRStatus.Success,
-                    Message = "Company created successfully.",
-                };
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -357,7 +370,9 @@ namespace BusinessObjectLayer.Services
                 int userId = int.Parse(userIdClaim);
 
                 // Get company user to find associated company
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -385,7 +400,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var company = await _companyRepository.GetByIdAsync(companyUser.CompanyId.Value);
+                var company = await companyRepo.GetByIdAsync(companyUser.CompanyId.Value);
 
                 if (company == null)
                 {
@@ -453,8 +468,11 @@ namespace BusinessObjectLayer.Services
 
                 int userId = int.Parse(userIdClaim);
 
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                
                 // ✅ Check if user already belongs to a different company BEFORE creating
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -494,7 +512,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // ✅ Kiểm tra trùng tên công ty
-                if (await _companyRepository.ExistsByNameAsync(request.Name))
+                if (await companyRepo.ExistsByNameAsync(request.Name))
                 {
                     return new ServiceResponse
                     {
@@ -513,42 +531,54 @@ namespace BusinessObjectLayer.Services
                     logoUrl = upload.Url;
                 }
 
-                // ✅ Tạo công ty mới
-                var company = new Company
+                await _uow.BeginTransactionAsync();
+                try
                 {
-                    Name = request.Name,
-                    Description = request.Description,
-                    Address = request.Address,
-                    Website = request.Website,
-                    TaxCode = request.TaxCode,
-                    LogoUrl = logoUrl,
-                    CompanyStatus = CompanyStatusEnum.Pending,
-                    CreatedBy = userId,
-                    ApprovedBy = null,
-                    RejectReason = null
-                };
+                    // ✅ Tạo công ty mới
+                    var company = new Company
+                    {
+                        Name = request.Name,
+                        Description = request.Description,
+                        Address = request.Address,
+                        Website = request.Website,
+                        TaxCode = request.TaxCode,
+                        LogoUrl = logoUrl,
+                        CompanyStatus = CompanyStatusEnum.Pending,
+                        CreatedBy = userId,
+                        ApprovedBy = null,
+                        RejectReason = null
+                    };
 
-                // Save company first to get CompanyId
-                var createdCompany = await _companyRepository.AddAsync(company);
+                    // Save company first to get CompanyId
+                    await companyRepo.AddAsync(company);
+                    await _uow.SaveChangesAsync(); // Get CompanyId
 
-                // ✅ Upload documents (nếu có) using CompanyDocumentService
-                if (request.DocumentFiles != null && request.DocumentFiles.Count > 0)
-                {
-                    await _companyDocumentService.UploadAndSaveDocumentsAsync(
-                        createdCompany.CompanyId,
-                        request.DocumentFiles,
-                        request.DocumentTypes);
+                    // ✅ Upload documents (nếu có) using CompanyDocumentService
+                    if (request.DocumentFiles != null && request.DocumentFiles.Count > 0)
+                    {
+                        await _companyDocumentService.UploadAndSaveDocumentsAsync(
+                            company.CompanyId,
+                            request.DocumentFiles,
+                            request.DocumentTypes);
+                    }
+
+                    // Associate user with the newly created company
+                    companyUser.CompanyId = company.CompanyId;
+                    await companyUserRepo.UpdateAsync(companyUser);
+                    
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Company created successfully. Waiting for admin approval.",
+                    };
                 }
-
-                // Associate user with the newly created company
-                companyUser.CompanyId = createdCompany.CompanyId;
-                await _companyUserRepository.UpdateAsync(companyUser);
-
-                return new ServiceResponse
+                catch
                 {
-                    Status = SRStatus.Success,
-                    Message = "Company created successfully. Waiting for admin approval.",
-                };
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -583,7 +613,8 @@ namespace BusinessObjectLayer.Services
                 int userId = int.Parse(userIdClaim);
 
                 // Get company user to find associated company
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -602,7 +633,8 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var company = await _companyRepository.GetByIdAsync(companyUser.CompanyId.Value);
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                var company = await companyRepo.GetByIdAsync(companyUser.CompanyId.Value);
                 if (company == null)
                 {
                     return new ServiceResponse
@@ -659,22 +691,33 @@ namespace BusinessObjectLayer.Services
 
                 // CreatedBy remains unchanged (already set)
 
-                await _companyRepository.UpdateAsync(company);
-
-                // Upload new documents if provided
-                if (request.DocumentFiles != null && request.DocumentFiles.Count > 0)
+                await _uow.BeginTransactionAsync();
+                try
                 {
-                    await _companyDocumentService.UploadAndSaveDocumentsAsync(
-                        company.CompanyId,
-                        request.DocumentFiles,
-                        request.DocumentTypes);
+                    await companyRepo.UpdateAsync(company);
+
+                    // Upload new documents if provided
+                    if (request.DocumentFiles != null && request.DocumentFiles.Count > 0)
+                    {
+                        await _companyDocumentService.UploadAndSaveDocumentsAsync(
+                            company.CompanyId,
+                            request.DocumentFiles,
+                            request.DocumentTypes);
+                    }
+
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Company updated successfully. Status set to Pending for admin review."
+                    };
                 }
-
-                return new ServiceResponse
+                catch
                 {
-                    Status = SRStatus.Success,
-                    Message = "Company updated successfully. Status set to Pending for admin review."
-                };
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -693,7 +736,8 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var company = await _companyRepository.GetByIdAsync(id);
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                var company = await companyRepo.GetByIdAsync(id);
                 if (company == null)
                 {
                     return new ServiceResponse
@@ -722,22 +766,34 @@ namespace BusinessObjectLayer.Services
                     company.LogoUrl = upload.Url;
                 }
 
-                await _companyRepository.UpdateAsync(company);
-
-                // Upload new documents if provided
-                if (request.DocumentFiles != null && request.DocumentFiles.Any())
+                await _uow.BeginTransactionAsync();
+                try
                 {
-                    await _companyDocumentService.UploadAndSaveDocumentsAsync(
-                        company.CompanyId,
-                        request.DocumentFiles,
-                        request.DocumentTypes);
+                    await companyRepo.UpdateAsync(company);
+                    await _uow.SaveChangesAsync();
+
+                    // Upload new documents if provided
+                    if (request.DocumentFiles != null && request.DocumentFiles.Any())
+                    {
+                        await _companyDocumentService.UploadAndSaveDocumentsAsync(
+                            company.CompanyId,
+                            request.DocumentFiles,
+                            request.DocumentTypes);
+                    }
+
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Company updated successfully. Status set to Pending for admin review."
+                    };
                 }
-
-                return new ServiceResponse
+                catch
                 {
-                    Status = SRStatus.Success,
-                    Message = "Company updated successfully. Status set to Pending for admin review."
-                };
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -772,7 +828,8 @@ namespace BusinessObjectLayer.Services
                 int userId = int.Parse(userIdClaim);
 
                 // Get company user to find associated company
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -800,7 +857,8 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var company = await _companyRepository.GetByIdAsync(companyUser.CompanyId.Value);
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                var company = await companyRepo.GetByIdAsync(companyUser.CompanyId.Value);
                 if (company == null)
                 {
                     return new ServiceResponse
@@ -829,13 +887,23 @@ namespace BusinessObjectLayer.Services
 
                 // Status, ApprovedBy, CreatedBy, RejectReason remain UNCHANGED
 
-                await _companyRepository.UpdateAsync(company);
-
-                return new ServiceResponse
+                await _uow.BeginTransactionAsync();
+                try
                 {
-                    Status = SRStatus.Success,
-                    Message = "Company profile updated successfully."
-                };
+                    await companyRepo.UpdateAsync(company);
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Company profile updated successfully."
+                    };
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -852,7 +920,8 @@ namespace BusinessObjectLayer.Services
         // Soft delete
         public async Task<ServiceResponse> DeleteAsync(int id)
         {
-            var company = await _companyRepository.GetByIdAsync(id);
+            var companyRepo = _uow.GetRepository<ICompanyRepository>();
+            var company = await companyRepo.GetByIdAsync(id);
             if (company == null)
             {
                 return new ServiceResponse
@@ -862,14 +931,24 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            company.IsActive = false;
-            await _companyRepository.UpdateAsync(company);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Company deactivated successfully."
-            };
+                company.IsActive = false;
+                await companyRepo.UpdateAsync(company);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Company deactivated successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         // Upload helper for logo images only
@@ -908,7 +987,8 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get company
-                var company = await _companyRepository.GetByIdAsync(companyId);
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                var company = await companyRepo.GetByIdAsync(companyId);
                 if (company == null)
                 {
                     return new ServiceResponse
@@ -941,43 +1021,65 @@ namespace BusinessObjectLayer.Services
                 switch (status)
                 {
                     case CompanyStatusEnum.Approved:
-                        company.ApprovedBy = currentUserId;
-                        company.RejectReason = null;
-                        await _companyRepository.UpdateAsync(company);
-
-                        // Promote the recruiter to HR_Manager
-                        bool updated = await _companyRepository.UpdateUserRoleByCompanyAsync(companyId, "HR_Manager");
-
-                        // Send notification to recruiter
-                        if (creatorUserId.HasValue)
+                        await _uow.BeginTransactionAsync();
+                        try
                         {
-                            await _notificationService.CreateAsync(
-                                creatorUserId.Value,
-                                NotificationTypeEnum.CompanyApproved,
-                                $"Your company '{company.Name}' has been approved ✅",
-                                "Congratulations! Your company has been approved by the system manager."
-                            );
-                        }
+                            company.ApprovedBy = currentUserId;
+                            company.RejectReason = null;
+                            await companyRepo.UpdateAsync(company);
+                            await _uow.SaveChangesAsync();
 
-                        if (!updated)
-                        {
+                            // Promote the recruiter to HR_Manager
+                            bool updated = await companyRepo.UpdateUserRoleByCompanyAsync(companyId, "HR_Manager");
+                            if (!updated)
+                            {
+                                await _uow.RollbackTransactionAsync();
+                                return new ServiceResponse
+                                {
+                                    Status = SRStatus.Error,
+                                    Message = "Company approved, but failed to promote the recruiter to HR_Manager."
+                                };
+                            }
+                            
+                            await _uow.CommitTransactionAsync();
+
+                            // Send notification to recruiter
+                            if (creatorUserId.HasValue)
+                            {
+                                await _notificationService.CreateAsync(
+                                    creatorUserId.Value,
+                                    NotificationTypeEnum.CompanyApproved,
+                                    $"Your company '{company.Name}' has been approved ✅",
+                                    "Congratulations! Your company has been approved by the system manager."
+                                );
+                            }
+
                             return new ServiceResponse
                             {
-                                Status = SRStatus.Error,
-                                Message = "Company approved, but failed to promote the recruiter to HR_Manager."
+                                Status = SRStatus.Success,
+                                Message = "Company approved and notification sent."
                             };
                         }
-
-                        return new ServiceResponse
+                        catch
                         {
-                            Status = SRStatus.Success,
-                            Message = "Company approved and notification sent."
-                        };
+                            await _uow.RollbackTransactionAsync();
+                            throw;
+                        }
 
                     case CompanyStatusEnum.Rejected:
-                        company.RejectReason = rejectionReason;
-                        company.ApprovedBy = null;
-                        await _companyRepository.UpdateAsync(company);
+                        await _uow.BeginTransactionAsync();
+                        try
+                        {
+                            company.RejectReason = rejectionReason;
+                            company.ApprovedBy = null;
+                            await companyRepo.UpdateAsync(company);
+                            await _uow.CommitTransactionAsync();
+                        }
+                        catch
+                        {
+                            await _uow.RollbackTransactionAsync();
+                            throw;
+                        }
 
                         // Send rejection notification
                         if (creatorUserId.HasValue)
@@ -997,7 +1099,17 @@ namespace BusinessObjectLayer.Services
                         };
 
                     case CompanyStatusEnum.Suspended:
-                        await _companyRepository.UpdateAsync(company);
+                        await _uow.BeginTransactionAsync();
+                        try
+                        {
+                            await companyRepo.UpdateAsync(company);
+                            await _uow.CommitTransactionAsync();
+                        }
+                        catch
+                        {
+                            await _uow.RollbackTransactionAsync();
+                            throw;
+                        }
 
                         // Send suspension notification
                         if (creatorUserId.HasValue)
@@ -1067,7 +1179,8 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get company user to find associated company
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(currentUserId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(currentUserId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -1086,7 +1199,8 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var company = await _companyRepository.GetByIdAsync(companyUser.CompanyId.Value);
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                var company = await companyRepo.GetByIdAsync(companyUser.CompanyId.Value);
 
                 if (company == null)
                 {
@@ -1117,17 +1231,28 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Update status to Canceled
-                company.CompanyStatus = CompanyStatusEnum.Canceled;
-                company.ApprovedBy = null;
-                company.RejectReason = null;
+                await _uow.BeginTransactionAsync();
+                try
+                {
+                    // Update status to Canceled
+                    company.CompanyStatus = CompanyStatusEnum.Canceled;
+                    company.ApprovedBy = null;
+                    company.RejectReason = null;
 
-                await _companyRepository.UpdateAsync(company);
+                    await companyRepo.UpdateAsync(company);
 
-                // Remove companyId from the user's CompanyUser record
-                companyUser.CompanyId = null;
-                companyUser.JoinStatus = JoinStatusEnum.NotApplied;
-                await _companyUserRepository.UpdateAsync(companyUser);
+                    // Remove companyId from the user's CompanyUser record
+                    companyUser.CompanyId = null;
+                    companyUser.JoinStatus = JoinStatusEnum.NotApplied;
+                    await companyUserRepo.UpdateAsync(companyUser);
+                    
+                    await _uow.CommitTransactionAsync();
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
 
                 return new ServiceResponse
                 {

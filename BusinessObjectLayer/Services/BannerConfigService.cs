@@ -6,6 +6,7 @@ using Data.Models.Request;
 using Data.Models.Response;
 using Data.Models.Response.Pagination;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
@@ -17,21 +18,22 @@ namespace BusinessObjectLayer.Services
 {
     public class BannerConfigService : IBannerConfigService
     {
-        private readonly IBannerConfigRepository _bannerConfigRepository;
+        private readonly IUnitOfWork _uow;
         private readonly CloudinaryHelper _cloudinaryHelper;
 
         public BannerConfigService(
-            IBannerConfigRepository bannerConfigRepository,
+            IUnitOfWork uow,
             CloudinaryHelper cloudinaryHelper)
         {
-            _bannerConfigRepository = bannerConfigRepository;
+            _uow = uow;
             _cloudinaryHelper = cloudinaryHelper;
         }
 
         public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null)
         {
-            var bannerConfigs = await _bannerConfigRepository.GetBannersAsync(page, pageSize, search);
-            var total = await _bannerConfigRepository.GetTotalBannersAsync(search);
+            var bannerConfigRepo = _uow.GetRepository<IBannerConfigRepository>();
+            var bannerConfigs = await bannerConfigRepo.GetBannersAsync(page, pageSize, search);
+            var total = await bannerConfigRepo.GetTotalBannersAsync(search);
 
             var bannerConfigResponses = bannerConfigs.Select(b => new BannerConfigResponse
             {
@@ -59,7 +61,8 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetByIdAsync(int id)
         {
-            var bannerConfig = await _bannerConfigRepository.GetByIdAsync(id);
+            var bannerConfigRepo = _uow.GetRepository<IBannerConfigRepository>();
+            var bannerConfig = await bannerConfigRepo.GetByIdAsync(id);
             if (bannerConfig == null)
             {
                 return new ServiceResponse
@@ -109,25 +112,38 @@ namespace BusinessObjectLayer.Services
                 imageUrl = uploadResult.Url;
             }
 
-            var bannerConfig = new BannerConfig
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Title = request.Title,
-                ColorCode = request.ColorCode,
-                Source = imageUrl
-            };
+                var bannerConfig = new BannerConfig
+                {
+                    Title = request.Title,
+                    ColorCode = request.ColorCode,
+                    Source = imageUrl
+                };
 
-            await _bannerConfigRepository.AddAsync(bannerConfig);
+                var bannerConfigRepo = _uow.GetRepository<IBannerConfigRepository>();
+                await bannerConfigRepo.AddAsync(bannerConfig);
+                await _uow.SaveChangesAsync();
+                await _uow.CommitTransactionAsync();
 
-            return new ServiceResponse
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Banner config created successfully.",
+                };
+            }
+            catch
             {
-                Status = SRStatus.Success,
-                Message = "Banner config created successfully.",
-            };
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         public async Task<ServiceResponse> UpdateAsync(int id, BannerConfigRequest request)
         {
-            var bannerConfig = await _bannerConfigRepository.GetByIdAsync(id);
+            var bannerConfigRepo = _uow.GetRepository<IBannerConfigRepository>();
+            var bannerConfig = await bannerConfigRepo.GetByIdAsync(id);
             if (bannerConfig == null)
             {
                 return new ServiceResponse
@@ -165,19 +181,30 @@ namespace BusinessObjectLayer.Services
             if (request.ColorCode != null)
                 bannerConfig.ColorCode = request.ColorCode;
 
-            await _bannerConfigRepository.UpdateAsync(bannerConfig);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Banner config updated successfully.",
-            };
+                await bannerConfigRepo.UpdateAsync(bannerConfig);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Banner config updated successfully.",
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
 
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
-            var bannerConfig = await _bannerConfigRepository.GetByIdAsync(id);
+            var bannerConfigRepo = _uow.GetRepository<IBannerConfigRepository>();
+            var bannerConfig = await bannerConfigRepo.GetByIdAsync(id);
             if (bannerConfig == null)
             {
                 return new ServiceResponse
@@ -187,14 +214,24 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            bannerConfig.IsActive = false;
-            await _bannerConfigRepository.UpdateAsync(bannerConfig);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Banner config deactivated successfully."
-            };
+                bannerConfig.IsActive = false;
+                await bannerConfigRepo.UpdateAsync(bannerConfig);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Banner config deactivated successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
     }
 }

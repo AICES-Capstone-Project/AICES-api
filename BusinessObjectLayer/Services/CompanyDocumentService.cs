@@ -3,6 +3,7 @@ using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Data.Entities;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
@@ -15,14 +16,14 @@ namespace BusinessObjectLayer.Services
 {
     public class CompanyDocumentService : ICompanyDocumentService
     {
-        private readonly ICompanyDocumentRepository _companyDocumentRepository;
+        private readonly IUnitOfWork _uow;
         private readonly Common.CloudinaryHelper _cloudinaryHelper;
 
         public CompanyDocumentService(
-            ICompanyDocumentRepository companyDocumentRepository,
+            IUnitOfWork uow,
             Common.CloudinaryHelper cloudinaryHelper)
         {
-            _companyDocumentRepository = companyDocumentRepository;
+            _uow = uow;
             _cloudinaryHelper = cloudinaryHelper;
         }
 
@@ -61,7 +62,9 @@ namespace BusinessObjectLayer.Services
             // Save all documents to database
             if (documents.Any())
             {
-                await _companyDocumentRepository.AddRangeAsync(documents);
+                var companyDocumentRepo = _uow.GetRepository<ICompanyDocumentRepository>();
+                await companyDocumentRepo.AddRangeAsync(documents);
+                await _uow.SaveChangesAsync();
             }
 
             return documents;
@@ -69,15 +72,27 @@ namespace BusinessObjectLayer.Services
 
         public async Task<List<CompanyDocument>> GetDocumentsByCompanyIdAsync(int companyId)
         {
-            return await _companyDocumentRepository.GetByCompanyIdAsync(companyId);
+            var companyDocumentRepo = _uow.GetRepository<ICompanyDocumentRepository>();
+            return await companyDocumentRepo.GetByCompanyIdAsync(companyId);
         }
 
         public async Task<bool> DeleteDocumentAsync(int docId)
         {
             try
             {
-                await _companyDocumentRepository.DeleteAsync(docId);
-                return true;
+                await _uow.BeginTransactionAsync();
+                try
+                {
+                    var companyDocumentRepo = _uow.GetRepository<ICompanyDocumentRepository>();
+                    await companyDocumentRepo.DeleteAsync(docId);
+                    await _uow.CommitTransactionAsync();
+                    return true;
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch
             {

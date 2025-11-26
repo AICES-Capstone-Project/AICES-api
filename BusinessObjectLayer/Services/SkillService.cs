@@ -4,6 +4,7 @@ using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,16 +15,17 @@ namespace BusinessObjectLayer.Services
 {
     public class SkillService : ISkillService
     {
-        private readonly ISkillRepository _skillRepository;
+        private readonly IUnitOfWork _uow;
 
-        public SkillService(ISkillRepository skillRepository)
+        public SkillService(IUnitOfWork uow)
         {
-            _skillRepository = skillRepository;
+            _uow = uow;
         }
 
         public async Task<ServiceResponse> GetAllAsync()
         {
-            var skills = await _skillRepository.GetAllAsync();
+            var skillRepo = _uow.GetRepository<ISkillRepository>();
+            var skills = await skillRepo.GetAllAsync();
             var result = skills.Select(s => new SkillResponse
             {
                 SkillId = s.SkillId,
@@ -41,7 +43,8 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetByIdAsync(int id)
         {
-            var skill = await _skillRepository.GetByIdAsync(id);
+            var skillRepo = _uow.GetRepository<ISkillRepository>();
+            var skill = await skillRepo.GetByIdAsync(id);
             if (skill == null)
             {
                 return new ServiceResponse
@@ -66,7 +69,9 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> CreateAsync(SkillRequest request)
         {
-            if (await _skillRepository.ExistsByNameAsync(request.Name))
+            var skillRepo = _uow.GetRepository<ISkillRepository>();
+            
+            if (await skillRepo.ExistsByNameAsync(request.Name))
             {
                 return new ServiceResponse
                 {
@@ -75,23 +80,34 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var skill = new Skill
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Name = request.Name
-            };
+                var skill = new Skill
+                {
+                    Name = request.Name
+                };
 
-            await _skillRepository.AddAsync(skill);
+                await skillRepo.AddAsync(skill);
+                await _uow.CommitTransactionAsync();
 
-            return new ServiceResponse
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Skill created successfully."
+                };
+            }
+            catch
             {
-                Status = SRStatus.Success,
-                Message = "Skill created successfully."
-            };
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         public async Task<ServiceResponse> UpdateAsync(int id, SkillRequest request)
         {
-            var skill = await _skillRepository.GetByIdAsync(id);
+            var skillRepo = _uow.GetRepository<ISkillRepository>();
+            var skill = await skillRepo.GetByIdAsync(id);
             if (skill == null)
             {
                 return new ServiceResponse
@@ -101,20 +117,30 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            skill.Name = request.Name ?? skill.Name;
-
-            await _skillRepository.UpdateAsync(skill);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Skill updated successfully."
-            };
+                skill.Name = request.Name ?? skill.Name;
+                skillRepo.Update(skill);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Skill updated successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
-            var skill = await _skillRepository.GetByIdAsync(id);
+            var skillRepo = _uow.GetRepository<ISkillRepository>();
+            var skill = await skillRepo.GetByIdAsync(id);
             if (skill == null)
             {
                 return new ServiceResponse
@@ -124,13 +150,24 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            await _skillRepository.SoftDeleteAsync(skill);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Skill deleted successfully."
-            };
+                skill.IsActive = false;
+                skillRepo.Update(skill);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Skill deleted successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
     }
 }

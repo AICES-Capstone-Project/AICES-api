@@ -21,6 +21,7 @@ namespace DataAccessLayer.Repositories
         public async Task<List<CompanySubscription>> GetCompanySubscriptionsAsync(int page, int pageSize, string? search = null)
         {
             var query = _context.CompanySubscriptions
+                .AsNoTracking()
                 .Include(cs => cs.Company)
                 .Include(cs => cs.Subscription)
                 .Where(cs => cs.IsActive)
@@ -43,6 +44,7 @@ namespace DataAccessLayer.Repositories
         public async Task<int> GetTotalCompanySubscriptionsAsync(string? search = null)
         {
             var query = _context.CompanySubscriptions
+                .AsNoTracking()
                 .Include(cs => cs.Company)
                 .Include(cs => cs.Subscription)
                 .Where(cs => cs.IsActive)
@@ -71,6 +73,7 @@ namespace DataAccessLayer.Repositories
         {
             var now = DateTime.UtcNow;
             return await _context.CompanySubscriptions
+                .AsNoTracking()
                 .Where(cs => cs.CompanyId == companyId
                     && cs.SubscriptionId == subscriptionId
                     && cs.SubscriptionStatus == SubscriptionStatusEnum.Active
@@ -83,6 +86,7 @@ namespace DataAccessLayer.Repositories
         {
             var now = DateTime.UtcNow;
             return await _context.CompanySubscriptions
+                .AsNoTracking()
                 .Include(cs => cs.Subscription)
                 .Where(cs => cs.CompanyId == companyId
                     && (cs.SubscriptionStatus == SubscriptionStatusEnum.Active || cs.SubscriptionStatus == SubscriptionStatusEnum.Pending)
@@ -93,27 +97,25 @@ namespace DataAccessLayer.Repositories
 
         public async Task<CompanySubscription> AddAsync(CompanySubscription companySubscription)
         {
-            _context.CompanySubscriptions.Add(companySubscription);
-            await _context.SaveChangesAsync();
+            await _context.CompanySubscriptions.AddAsync(companySubscription);
             return companySubscription;
         }
 
         public async Task UpdateAsync(CompanySubscription companySubscription)
         {
             _context.CompanySubscriptions.Update(companySubscription);
-            await _context.SaveChangesAsync();
         }
 
         public async Task SoftDeleteAsync(CompanySubscription companySubscription)
         {
             companySubscription.IsActive = false;
             _context.CompanySubscriptions.Update(companySubscription);
-            await _context.SaveChangesAsync();
         }
 
         public async Task<CompanySubscription?> GetByStripeSubscriptionIdAsync(string stripeSubscriptionId)
         {
             return await _context.CompanySubscriptions
+                .AsNoTracking()
                 .Include(cs => cs.Company)
                 .Include(cs => cs.Subscription)
                 .Where(cs => cs.IsActive && cs.StripeSubscriptionId == stripeSubscriptionId)

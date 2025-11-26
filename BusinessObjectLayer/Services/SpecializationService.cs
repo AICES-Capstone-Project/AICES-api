@@ -4,6 +4,7 @@ using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,23 +15,20 @@ namespace BusinessObjectLayer.Services
 {
     public class SpecializationService : ISpecializationService
     {
-        private readonly ISpecializationRepository _specializationRepository;
-        private readonly ICategoryRepository _categoryRepository;
+        private readonly IUnitOfWork _uow;
 
-        public SpecializationService(
-            ISpecializationRepository specializationRepository,
-            ICategoryRepository categoryRepository)
+        public SpecializationService(IUnitOfWork uow)
         {
-            _specializationRepository = specializationRepository;
-            _categoryRepository = categoryRepository;
+            _uow = uow;
         }
 
         public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null)
         {
             try
             {
-                var paged = await _specializationRepository.GetPagedAsync(page, pageSize, search);
-                var total = await _specializationRepository.GetTotalCountAsync(search);
+                var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
+                var paged = await specializationRepo.GetPagedAsync(page, pageSize, search);
+                var total = await specializationRepo.GetTotalCountAsync(search);
 
                 var pagedData = paged
                     .Select(s => new SpecializationResponse
@@ -73,7 +71,8 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var specialization = await _specializationRepository.GetByIdAsync(id);
+                var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
+                var specialization = await specializationRepo.GetByIdAsync(id);
                 if (specialization == null)
                 {
                     return new ServiceResponse
@@ -112,8 +111,11 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
+                var categoryRepo = _uow.GetRepository<ICategoryRepository>();
+                var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
+                
                 // Validate category exists
-                var categoryExists = await _categoryRepository.ExistsAsync(categoryId);
+                var categoryExists = await categoryRepo.ExistsAsync(categoryId);
                 if (!categoryExists)
                 {
                     return new ServiceResponse
@@ -123,7 +125,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var specializations = await _specializationRepository.GetByCategoryIdAsync(categoryId);
+                var specializations = await specializationRepo.GetByCategoryIdAsync(categoryId);
 
                 var responseData = specializations
                     .Select(s => new SpecializationResponse
@@ -158,8 +160,11 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
+                var categoryRepo = _uow.GetRepository<ICategoryRepository>();
+                var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
+                
                 // Validate category exists
-                var categoryExists = await _categoryRepository.ExistsAsync(request.CategoryId);
+                var categoryExists = await categoryRepo.ExistsAsync(request.CategoryId);
                 if (!categoryExists)
                 {
                     return new ServiceResponse
@@ -170,7 +175,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Check if specialization name already exists
-                if (await _specializationRepository.ExistsByNameAsync(request.Name))
+                if (await specializationRepo.ExistsByNameAsync(request.Name))
                 {
                     return new ServiceResponse
                     {
@@ -179,19 +184,29 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var specialization = new Specialization
+                await _uow.BeginTransactionAsync();
+                try
                 {
-                    Name = request.Name,
-                    CategoryId = request.CategoryId
-                };
+                    var specialization = new Specialization
+                    {
+                        Name = request.Name,
+                        CategoryId = request.CategoryId
+                    };
 
-                await _specializationRepository.AddAsync(specialization);
+                    await specializationRepo.AddAsync(specialization);
+                    await _uow.CommitTransactionAsync();
 
-                return new ServiceResponse
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Specialization created successfully."
+                    };
+                }
+                catch
                 {
-                    Status = SRStatus.Success,
-                    Message = "Specialization created successfully."
-                };
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -208,7 +223,10 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var specialization = await _specializationRepository.GetByIdAsync(id);
+                var categoryRepo = _uow.GetRepository<ICategoryRepository>();
+                var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
+                
+                var specialization = await specializationRepo.GetByIdAsync(id);
                 if (specialization == null)
                 {
                     return new ServiceResponse
@@ -221,7 +239,7 @@ namespace BusinessObjectLayer.Services
                 // Validate category if it's being changed
                 if (request.CategoryId != specialization.CategoryId)
                 {
-                    var categoryExists = await _categoryRepository.ExistsAsync(request.CategoryId);
+                    var categoryExists = await categoryRepo.ExistsAsync(request.CategoryId);
                     if (!categoryExists)
                     {
                         return new ServiceResponse
@@ -235,7 +253,7 @@ namespace BusinessObjectLayer.Services
                 // Check if name already exists (excluding current specialization)
                 if (!string.IsNullOrEmpty(request.Name) && request.Name != specialization.Name)
                 {
-                    if (await _specializationRepository.ExistsByNameAsync(request.Name))
+                    if (await specializationRepo.ExistsByNameAsync(request.Name))
                     {
                         return new ServiceResponse
                         {
@@ -245,19 +263,29 @@ namespace BusinessObjectLayer.Services
                     }
                 }
 
-                // Update fields
-                if (!string.IsNullOrEmpty(request.Name))
-                    specialization.Name = request.Name;
-
-                specialization.CategoryId = request.CategoryId;
-
-                await _specializationRepository.UpdateAsync(specialization);
-
-                return new ServiceResponse
+                await _uow.BeginTransactionAsync();
+                try
                 {
-                    Status = SRStatus.Success,
-                    Message = "Specialization updated successfully."
-                };
+                    // Update fields
+                    if (!string.IsNullOrEmpty(request.Name))
+                        specialization.Name = request.Name;
+
+                    specialization.CategoryId = request.CategoryId;
+
+                    specializationRepo.Update(specialization);
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Specialization updated successfully."
+                    };
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -274,7 +302,8 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var specialization = await _specializationRepository.GetByIdAsync(id);
+                var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
+                var specialization = await specializationRepo.GetByIdAsync(id);
                 if (specialization == null)
                 {
                     return new ServiceResponse
@@ -284,14 +313,24 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                specialization.IsActive = false;
-                await _specializationRepository.UpdateAsync(specialization);
-
-                return new ServiceResponse
+                await _uow.BeginTransactionAsync();
+                try
                 {
-                    Status = SRStatus.Success,
-                    Message = "Specialization deactivated successfully."
-                };
+                    specialization.IsActive = false;
+                    specializationRepo.Update(specialization);
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Specialization deactivated successfully."
+                    };
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {

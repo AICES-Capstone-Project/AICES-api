@@ -4,6 +4,7 @@ using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,16 +15,17 @@ namespace BusinessObjectLayer.Services
 {
     public class EmploymentTypeService : IEmploymentTypeService
     {
-        private readonly IEmploymentTypeRepository _repository;
+        private readonly IUnitOfWork _uow;
 
-        public EmploymentTypeService(IEmploymentTypeRepository repository)
+        public EmploymentTypeService(IUnitOfWork uow)
         {
-            _repository = repository;
+            _uow = uow;
         }
 
         public async Task<ServiceResponse> GetAllAsync()
         {
-            var list = await _repository.GetAllAsync();
+            var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
+            var list = await employmentTypeRepo.GetAllAsync();
 
             var data = list
                 .OrderBy(e => e.EmployTypeId)
@@ -44,7 +46,8 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetByIdAsync(int id)
         {
-            var item = await _repository.GetByIdAsync(id);
+            var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
+            var item = await employmentTypeRepo.GetByIdAsync(id);
             if (item == null)
             {
                 return new ServiceResponse
@@ -68,7 +71,9 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> CreateAsync(EmploymentTypeRequest request)
         {
-            if (await _repository.ExistsByNameAsync(request.Name))
+            var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
+            
+            if (await employmentTypeRepo.ExistsByNameAsync(request.Name))
             {
                 return new ServiceResponse
                 {
@@ -77,23 +82,34 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var newItem = new EmploymentType
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Name = request.Name
-            };
+                var newItem = new EmploymentType
+                {
+                    Name = request.Name
+                };
 
-            await _repository.AddAsync(newItem);
+                await employmentTypeRepo.AddAsync(newItem);
+                await _uow.CommitTransactionAsync();
 
-            return new ServiceResponse
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Employment type created successfully."
+                };
+            }
+            catch
             {
-                Status = SRStatus.Success,
-                Message = "Employment type created successfully."
-            };
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         public async Task<ServiceResponse> UpdateAsync(int id, EmploymentTypeRequest request)
         {
-            var item = await _repository.GetByIdAsync(id);
+            var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
+            var item = await employmentTypeRepo.GetByIdAsync(id);
             if (item == null)
             {
                 return new ServiceResponse
@@ -103,21 +119,32 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            if (!string.IsNullOrEmpty(request.Name))
-                item.Name = request.Name;
-
-            await _repository.UpdateAsync(item);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Employment type updated successfully."
-            };
+                if (!string.IsNullOrEmpty(request.Name))
+                    item.Name = request.Name;
+
+                employmentTypeRepo.Update(item);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Employment type updated successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
-            var item = await _repository.GetByIdAsync(id);
+            var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
+            var item = await employmentTypeRepo.GetByIdAsync(id);
             if (item == null)
             {
                 return new ServiceResponse
@@ -127,14 +154,24 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            item.IsActive = false;
-            await _repository.UpdateAsync(item);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Employment type deactivated successfully."
-            };
+                item.IsActive = false;
+                employmentTypeRepo.Update(item);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Employment type deactivated successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
     }
 }

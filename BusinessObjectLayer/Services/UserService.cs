@@ -5,6 +5,7 @@ using Data.Models.Request;
 using Data.Models.Response;
 using Data.Models.Response.Pagination;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,30 +16,25 @@ namespace BusinessObjectLayer.Services
 {
     public class UserService : IUserService
     {
-        private readonly IUserRepository _userRepository;
+        private readonly IUnitOfWork _uow;
         private readonly IProfileService _profileService;
         private readonly ICompanyUserService _companyUserService;
-        private readonly IProfileRepository _profileRepository;
-        private readonly ICompanyUserRepository _companyUserRepository;
 
         public UserService(
-            IUserRepository userRepository, 
+            IUnitOfWork uow, 
             IProfileService profileService, 
-            ICompanyUserService companyUserService,
-            IProfileRepository profileRepository,
-            ICompanyUserRepository companyUserRepository)
+            ICompanyUserService companyUserService)
         {
-            _userRepository = userRepository;
+            _uow = uow;
             _profileService = profileService;
             _companyUserService = companyUserService;
-            _profileRepository = profileRepository;
-            _companyUserRepository = companyUserRepository;
         }
 
         public async Task<ServiceResponse> GetUsersAsync(int page = 1, int pageSize = 10, string? search = null)
         {
-            var users = await _userRepository.GetUsersAsync(page, pageSize, search);
-            var total = await _userRepository.GetTotalUsersAsync(search);
+            var userRepo = _uow.GetRepository<IUserRepository>();
+            var users = await userRepo.GetUsersAsync(page, pageSize, search);
+            var total = await userRepo.GetTotalUsersAsync(search);
 
             var userResponses = users.Select(u => new UserResponse
             {
@@ -75,7 +71,8 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetUserByIdAsync(int id)
         {
-            var user = await _userRepository.GetByIdAsync(id);
+            var userRepo = _uow.GetRepository<IUserRepository>();
+            var user = await userRepo.GetByIdAsync(id);
             if (user == null)
             {
                 return new ServiceResponse
@@ -114,7 +111,9 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> CreateUserAsync(UserRequest request)
         {
-            if (await _userRepository.EmailExistsAsync(request.Email))
+            var userRepo = _uow.GetRepository<IUserRepository>();
+            
+            if (await userRepo.EmailExistsAsync(request.Email))
             {
                 return new ServiceResponse
                 {
@@ -123,48 +122,62 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var user = new User
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Email = request.Email,
-                Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                RoleId = request.RoleId,
-                Status = UserStatusEnum.Verified,
-            };
-
-            var addedUser = await _userRepository.AddAsync(user);
-
-            // Lưu default LoginProvider cho "Local"
-            var localProvider = new LoginProvider
-            {
-                UserId = addedUser.UserId,
-                AuthProvider = AuthProviderEnum.Local,
-                ProviderId = "" // Không cần ProviderId cho Local
-            };
-            await _userRepository.AddLoginProviderAsync(localProvider);
-
-            // Tạo profile mặc định
-            await _profileService.CreateDefaultProfileAsync(addedUser.UserId, request.FullName ?? request.Email);
-
-            // Create default company user for roleId 4 (HR_Manager) and 5 (HR_Recruiter)
-            if (request.RoleId == 4 || request.RoleId == 5)
-            {
-                var companyUserResult = await _companyUserService.CreateDefaultCompanyUserAsync(addedUser.UserId);
-                if (companyUserResult.Status != SRStatus.Success)
+                var user = new User
                 {
-                    // Log the error but don't fail the user creation
-                    Console.WriteLine($"Warning: Failed to create default company user: {companyUserResult.Message}");
-                }
-            }
+                    Email = request.Email,
+                    Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                    RoleId = request.RoleId,
+                    Status = UserStatusEnum.Verified,
+                };
 
-            return new ServiceResponse
+                await userRepo.AddAsync(user);
+                await _uow.SaveChangesAsync(); // Get UserId
+
+                // Lưu default LoginProvider cho "Local"
+                var localProvider = new LoginProvider
+                {
+                    UserId = user.UserId,
+                    AuthProvider = AuthProviderEnum.Local,
+                    ProviderId = "" // Không cần ProviderId cho Local
+                };
+                await userRepo.AddLoginProviderAsync(localProvider);
+                await _uow.SaveChangesAsync();
+
+                // Tạo profile mặc định
+                await _profileService.CreateDefaultProfileAsync(user.UserId, request.FullName ?? request.Email);
+
+                // Create default company user for roleId 4 (HR_Manager) and 5 (HR_Recruiter)
+                if (request.RoleId == 4 || request.RoleId == 5)
+                {
+                    var companyUserResult = await _companyUserService.CreateDefaultCompanyUserAsync(user.UserId);
+                    if (companyUserResult.Status != SRStatus.Success)
+                    {
+                        // Log the error but don't fail the user creation
+                        Console.WriteLine($"Warning: Failed to create default company user: {companyUserResult.Message}");
+                    }
+                }
+
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "User created successfully.",
+                };
+            }
+            catch
             {
-                Status = SRStatus.Success,
-                Message = "User created successfully.",
-            };
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
         public async Task<ServiceResponse> UpdateUserAsync(int id, UserRequest request)
         {
-            var user = await _userRepository.GetByIdAsync(id);
+            var userRepo = _uow.GetRepository<IUserRepository>();
+            var user = await userRepo.GetByIdAsync(id);
             if (user == null)
             {
                 return new ServiceResponse
@@ -174,7 +187,7 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            if (user.Email != request.Email && await _userRepository.EmailExistsAsync(request.Email))
+            if (user.Email != request.Email && await userRepo.EmailExistsAsync(request.Email))
             {
                 return new ServiceResponse
                 {
@@ -183,14 +196,24 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            user.Email = request.Email;
-            user.RoleId = request.RoleId;
-            if (!string.IsNullOrEmpty(request.Password))
+            await _uow.BeginTransactionAsync();
+            try
             {
-                user.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
-            }
+                user.Email = request.Email;
+                user.RoleId = request.RoleId;
+                if (!string.IsNullOrEmpty(request.Password))
+                {
+                    user.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
+                }
 
-            await _userRepository.UpdateAsync(user);
+                await userRepo.UpdateAsync(user);
+                await _uow.CommitTransactionAsync();
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
 
             return new ServiceResponse
             {
@@ -203,7 +226,11 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var user = await _userRepository.GetByIdAsync(id);
+                var userRepo = _uow.GetRepository<IUserRepository>();
+                var profileRepo = _uow.GetRepository<IProfileRepository>();
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                
+                var user = await userRepo.GetByIdAsync(id);
                 if (user == null)
                 {
                     return new ServiceResponse
@@ -213,22 +240,33 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Soft delete user
-                user.IsActive = false;
-                await _userRepository.UpdateAsync(user);
-
-                // Soft delete profile if exists (using navigation property)
-                if (user.Profile != null)
+                await _uow.BeginTransactionAsync();
+                try
                 {
-                    user.Profile.IsActive = false;
-                    await _profileRepository.UpdateAsync(user.Profile);
+                    // Soft delete user
+                    user.IsActive = false;
+                    await userRepo.UpdateAsync(user);
+
+                    // Soft delete profile if exists (using navigation property)
+                    if (user.Profile != null)
+                    {
+                        user.Profile.IsActive = false;
+                        await profileRepo.UpdateAsync(user.Profile);
+                    }
+
+                    // Soft delete company user if exists (using navigation property)
+                    if (user.CompanyUser != null)
+                    {
+                        user.CompanyUser.IsActive = false;
+                        await companyUserRepo.UpdateAsync(user.CompanyUser);
+                    }
+
+                    await _uow.CommitTransactionAsync();
                 }
-
-                // Soft delete company user if exists (using navigation property)
-                if (user.CompanyUser != null)
+                catch
                 {
-                    user.CompanyUser.IsActive = false;
-                    await _companyUserRepository.UpdateAsync(user.CompanyUser);
+                    await _uow.RollbackTransactionAsync();
+                    throw;
                 }
 
                 return new ServiceResponse
@@ -253,7 +291,8 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var user = await _userRepository.GetByIdAsync(id);
+                var userRepo = _uow.GetRepository<IUserRepository>();
+                var user = await userRepo.GetByIdAsync(id);
                 if (user == null)
                 {
                     return new ServiceResponse
@@ -263,9 +302,19 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Update user status
-                user.Status = status;
-                await _userRepository.UpdateAsync(user);
+                await _uow.BeginTransactionAsync();
+                try
+                {
+                    // Update user status
+                    user.Status = status;
+                    await userRepo.UpdateAsync(user);
+                    await _uow.CommitTransactionAsync();
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
 
                 return new ServiceResponse
                 {

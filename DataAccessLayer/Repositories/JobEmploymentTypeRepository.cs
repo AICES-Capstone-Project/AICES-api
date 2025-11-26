@@ -19,8 +19,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task AddJobEmploymentTypesAsync(List<JobEmploymentType> jobEmploymentTypes)
         {
-            _context.JobEmploymentTypes.AddRange(jobEmploymentTypes);
-            await _context.SaveChangesAsync();
+            await _context.JobEmploymentTypes.AddRangeAsync(jobEmploymentTypes);
         }
 
         public async Task DeleteByJobIdAsync(int jobId)
@@ -29,7 +28,6 @@ namespace DataAccessLayer.Repositories
             if (toRemove.Count > 0)
             {
                 _context.JobEmploymentTypes.RemoveRange(toRemove);
-                await _context.SaveChangesAsync();
             }
         }
     }

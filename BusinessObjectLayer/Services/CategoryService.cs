@@ -4,6 +4,7 @@ using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,17 +15,18 @@ namespace BusinessObjectLayer.Services
 {
     public class CategoryService : ICategoryService
     {
-        private readonly ICategoryRepository _categoryRepository;
+        private readonly IUnitOfWork _uow;
 
-        public CategoryService(ICategoryRepository categoryRepository)
+        public CategoryService(IUnitOfWork uow)
         {
-            _categoryRepository = categoryRepository;
+            _uow = uow;
         }
 
         public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null)
         {
-            var categories = await _categoryRepository.GetCategoriesAsync(page, pageSize, search);
-            var total = await _categoryRepository.GetTotalCategoriesAsync(search);
+            var categoryRepo = _uow.GetRepository<ICategoryRepository>();
+            var categories = await categoryRepo.GetCategoriesAsync(page, pageSize, search);
+            var total = await categoryRepo.GetTotalCategoriesAsync(search);
 
             var pagedData = categories.Select(c => new CategoryResponse
             {
@@ -52,7 +54,8 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetByIdAsync(int id)
         {
-            var category = await _categoryRepository.GetByIdAsync(id);
+            var categoryRepo = _uow.GetRepository<ICategoryRepository>();
+            var category = await categoryRepo.GetByIdAsync(id);
             if (category == null)
             {
                 return new ServiceResponse
@@ -76,7 +79,9 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> CreateAsync(CategoryRequest request)
         {
-            if (await _categoryRepository.ExistsByNameAsync(request.Name))
+            var categoryRepo = _uow.GetRepository<ICategoryRepository>();
+            
+            if (await categoryRepo.ExistsByNameAsync(request.Name))
             {
                 return new ServiceResponse
                 {
@@ -85,23 +90,34 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var category = new Category
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Name = request.Name
-            };
+                var category = new Category
+                {
+                    Name = request.Name
+                };
 
-            await _categoryRepository.AddAsync(category);
+                await categoryRepo.AddAsync(category);
+                await _uow.CommitTransactionAsync();
 
-            return new ServiceResponse
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Category created successfully."
+                };
+            }
+            catch
             {
-                Status = SRStatus.Success,
-                Message = "Category created successfully."
-            };
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
         public async Task<ServiceResponse> UpdateAsync(int id, CategoryRequest request)
         {
-            var category = await _categoryRepository.GetByIdAsync(id);
+            var categoryRepo = _uow.GetRepository<ICategoryRepository>();
+            var category = await categoryRepo.GetByIdAsync(id);
             if (category == null)
             {
                 return new ServiceResponse
@@ -111,23 +127,33 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            
-            if (!string.IsNullOrEmpty(request.Name))
-                category.Name = request.Name;
-
-            await _categoryRepository.UpdateAsync(category);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Category updated successfully."
-            };
+                if (!string.IsNullOrEmpty(request.Name))
+                    category.Name = request.Name;
+
+                categoryRepo.Update(category);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Category updated successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
 
 
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
-            var category = await _categoryRepository.GetByIdAsync(id);
+            var categoryRepo = _uow.GetRepository<ICategoryRepository>();
+            var category = await categoryRepo.GetByIdAsync(id);
             if (category == null)
             {
                 return new ServiceResponse
@@ -137,14 +163,24 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            category.IsActive = false;
-            await _categoryRepository.UpdateAsync(category);
-
-            return new ServiceResponse
+            await _uow.BeginTransactionAsync();
+            try
             {
-                Status = SRStatus.Success,
-                Message = "Category deactivated successfully."
-            };
+                category.IsActive = false;
+                categoryRepo.Update(category);
+                await _uow.CommitTransactionAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Category deactivated successfully."
+                };
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();
+                throw;
+            }
         }
     }
 }

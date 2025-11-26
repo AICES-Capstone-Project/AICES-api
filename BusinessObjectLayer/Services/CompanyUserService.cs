@@ -3,6 +3,7 @@ using Data.Entities;
 using Data.Enum;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
@@ -14,20 +15,14 @@ namespace BusinessObjectLayer.Services
 {
     public class CompanyUserService : ICompanyUserService
     {
-        private readonly ICompanyUserRepository _companyUserRepository;
-        private readonly ICompanyRepository _companyRepository;
-        private readonly IUserRepository _userRepository;
+        private readonly IUnitOfWork _uow;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
         public CompanyUserService(
-            ICompanyUserRepository companyUserRepository,
-            ICompanyRepository companyRepository,
-            IUserRepository userRepository,
+            IUnitOfWork uow,
             IHttpContextAccessor httpContextAccessor)
         {
-            _companyUserRepository = companyUserRepository;
-            _companyRepository = companyRepository;
-            _userRepository = userRepository;
+            _uow = uow;
             _httpContextAccessor = httpContextAccessor;
         }
 
@@ -42,7 +37,9 @@ namespace BusinessObjectLayer.Services
                     JoinStatus = JoinStatusEnum.NotApplied
                 };
                 
-                await _companyUserRepository.AddCompanyUserAsync(companyUser);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                await companyUserRepo.AddCompanyUserAsync(companyUser);
+                await _uow.SaveChangesAsync();
 
                 return new ServiceResponse
                 {
@@ -67,7 +64,8 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                var members = await _companyUserRepository.GetMembersByCompanyIdAsync(companyId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var members = await companyUserRepo.GetMembersByCompanyIdAsync(companyId);
 
                 var responses = members.Select(m => new CompanyMemberResponse
                 {
@@ -113,17 +111,31 @@ namespace BusinessObjectLayer.Services
                 }
                 int userId = int.Parse(userIdClaim);
 
-                var company = await _companyRepository.GetPublicByIdAsync(companyId);
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                
+                var company = await companyRepo.GetPublicByIdAsync(companyId);
                 if (company == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Company not found or not approved." };
                 }
 
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 if (companyUser == null)
                 {
-                    companyUser = new CompanyUser { UserId = userId };
-                    await _companyUserRepository.AddCompanyUserAsync(companyUser);
+                    await _uow.BeginTransactionAsync();
+                    try
+                    {
+                        companyUser = new CompanyUser { UserId = userId };
+                        await companyUserRepo.AddCompanyUserAsync(companyUser);
+                        await _uow.SaveChangesAsync();
+                        await _uow.CommitTransactionAsync();
+                    }
+                    catch
+                    {
+                        await _uow.RollbackTransactionAsync();
+                        throw;
+                    }
                 }
 
                 if (companyUser.CompanyId != null)
@@ -138,9 +150,19 @@ namespace BusinessObjectLayer.Services
                     }
                 }
 
-                companyUser.CompanyId = companyId;
-                companyUser.JoinStatus = JoinStatusEnum.Pending;
-                await _companyUserRepository.UpdateAsync(companyUser);
+                await _uow.BeginTransactionAsync();
+                try
+                {
+                    companyUser.CompanyId = companyId;
+                    companyUser.JoinStatus = JoinStatusEnum.Pending;
+                    await companyUserRepo.UpdateAsync(companyUser);
+                    await _uow.CommitTransactionAsync();
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
 
                 return new ServiceResponse { Status = SRStatus.Success, Message = "Join request sent." };
             }
@@ -159,7 +181,8 @@ namespace BusinessObjectLayer.Services
                 var auth = await CheckManagerOfCompany(companyId);
                 if (auth.Status != SRStatus.Success) return auth;
 
-                var pendings = await _companyUserRepository.GetPendingByCompanyIdAsync(companyId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var pendings = await companyUserRepo.GetPendingByCompanyIdAsync(companyId);
                 var data = pendings.Select(m => new CompanyMemberResponse
                 {
                     ComUserId = m.ComUserId,
@@ -190,7 +213,8 @@ namespace BusinessObjectLayer.Services
                 var auth = await CheckManagerOfCompany(companyId);
                 if (auth.Status != SRStatus.Success) return auth;
 
-                var companyUser = await _companyUserRepository.GetByComUserIdAsync(comUserId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByComUserIdAsync(comUserId);
                 if (companyUser == null || companyUser.CompanyId != companyId)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Join request not found for this company." };
@@ -201,9 +225,19 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.Validation, Message = "Invalid status. Only allows Approved or NotApplied status." };
                 }
 
-                companyUser.JoinStatus = joinStatus;
-                // Note: rejectionReason not stored due to schema lacking a field.
-                await _companyUserRepository.UpdateAsync(companyUser);
+                await _uow.BeginTransactionAsync();
+                try
+                {
+                    companyUser.JoinStatus = joinStatus;
+                    // Note: rejectionReason not stored due to schema lacking a field.
+                    await companyUserRepo.UpdateAsync(companyUser);
+                    await _uow.CommitTransactionAsync();
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
 
                 return new ServiceResponse { Status = SRStatus.Success, Message = "Join request updated." };
             }
@@ -224,12 +258,13 @@ namespace BusinessObjectLayer.Services
                 if (string.IsNullOrEmpty(userIdClaim))
                     return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated." };
                 int userId = int.Parse(userIdClaim);
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 if (companyUser == null || companyUser.CompanyId == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You are not associated with any company." };
                 }
-                var members = await _companyUserRepository.GetApprovedAndInvitedMembersByCompanyIdAsync(companyUser.CompanyId.Value);
+                var members = await companyUserRepo.GetApprovedAndInvitedMembersByCompanyIdAsync(companyUser.CompanyId.Value);
 
                 var responses = members.Select(m => new CompanyMemberResponse
                 {
@@ -270,7 +305,8 @@ namespace BusinessObjectLayer.Services
             if (string.IsNullOrEmpty(userIdClaim))
                 return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated." };
             int userId = int.Parse(userIdClaim);
-            var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
             if (companyUser == null || companyUser.CompanyId == null)
                 return new ServiceResponse { Status = SRStatus.Forbidden, Message = "You are not a manager of any company." };
             return await GetPendingJoinRequestsAsync(companyUser.CompanyId.Value);
@@ -283,7 +319,8 @@ namespace BusinessObjectLayer.Services
             if (string.IsNullOrEmpty(userIdClaim))
                 return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated." };
             int userId = int.Parse(userIdClaim);
-            var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
             if (companyUser == null || companyUser.CompanyId == null)
                 return new ServiceResponse { Status = SRStatus.Forbidden, Message = "You are not a manager of any company." };
 
@@ -294,7 +331,7 @@ namespace BusinessObjectLayer.Services
             }
 
             // Get the target company user to check their role
-            var targetCompanyUser = await _companyUserRepository.GetByComUserIdAsync(comUserId);
+            var targetCompanyUser = await companyUserRepo.GetByComUserIdAsync(comUserId);
             if (targetCompanyUser == null)
             {
                 return new ServiceResponse { Status = SRStatus.NotFound, Message = "Target company user not found." };
@@ -321,7 +358,8 @@ namespace BusinessObjectLayer.Services
                 }
                 int userId = int.Parse(userIdClaim);
 
-                var companyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Company user not found." };
@@ -336,10 +374,20 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Cancel join request by setting CompanyId to null and JoinStatus to NotApplied
-                companyUser.CompanyId = null;
-                companyUser.JoinStatus = JoinStatusEnum.NotApplied;
-                await _companyUserRepository.UpdateAsync(companyUser);
+                await _uow.BeginTransactionAsync();
+                try
+                {
+                    // Cancel join request by setting CompanyId to null and JoinStatus to NotApplied
+                    companyUser.CompanyId = null;
+                    companyUser.JoinStatus = JoinStatusEnum.NotApplied;
+                    await companyUserRepo.UpdateAsync(companyUser);
+                    await _uow.CommitTransactionAsync();
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
 
                 return new ServiceResponse { Status = SRStatus.Success, Message = "Join request canceled successfully." };
             }
@@ -360,12 +408,15 @@ namespace BusinessObjectLayer.Services
                 return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated." };
             }
             int userId = int.Parse(userIdClaim);
-            var userEntity = await _userRepository.GetByIdAsync(userId);
+            var userRepo = _uow.GetRepository<IUserRepository>();
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            
+            var userEntity = await userRepo.GetByIdAsync(userId);
             if (userEntity == null || userEntity.Role.RoleName != "HR_Manager")
             {
                 return new ServiceResponse { Status = SRStatus.Forbidden, Message = "Only HR_Manager can perform this action." };
             }
-            var managerCompanyUser = await _companyUserRepository.GetByUserIdAsync(userId);
+            var managerCompanyUser = await companyUserRepo.GetByUserIdAsync(userId);
             if (managerCompanyUser?.CompanyId != companyId)
             {
                 return new ServiceResponse { Status = SRStatus.Forbidden, Message = "You are not a manager of this company." };
