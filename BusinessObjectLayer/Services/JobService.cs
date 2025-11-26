@@ -971,7 +971,7 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before updating a job." };
                 }
 
-                var job = await jobRepo.GetPublishedJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var job = await jobRepo.GetPublishedForUpdateByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
@@ -1145,7 +1145,7 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before deleting a job." };
                 }
 
-                var job = await jobRepo.GetPublishedJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var job = await jobRepo.GetPublishedForUpdateByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
@@ -1199,8 +1199,8 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before updating job status." };
                 }
 
-                // Use GetAnyJobByIdAndCompanyIdAsync to get job regardless of current status
-                var job = await jobRepo.GetAllJobByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                // Use GetForUpdateByIdAndCompanyIdAsync to get job regardless of current status
+                var job = await jobRepo.GetForUpdateByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };

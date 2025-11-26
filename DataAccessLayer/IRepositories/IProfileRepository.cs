@@ -10,7 +10,8 @@ namespace DataAccessLayer.IRepositories
     public interface IProfileRepository
     {
         Task<Profile> AddAsync(Profile profile);
-        Task<Profile> GetByUserIdAsync(int userId);
+        Task<Profile?> GetByUserIdAsync(int userId);
+        Task<Profile?> GetForUpdateByUserIdAsync(int userId);
         Task UpdateAsync(Profile profile);
     }
 }

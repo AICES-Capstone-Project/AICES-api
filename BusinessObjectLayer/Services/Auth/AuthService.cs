@@ -224,7 +224,7 @@ namespace BusinessObjectLayer.Services.Auth
                 }
 
                 var authRepo = _uow.GetRepository<IAuthRepository>();
-                var user = await authRepo.GetByEmailAsync(email);
+                var user = await authRepo.GetForUpdateByEmailAsync(email);
                 if (user == null)
                     return new ServiceResponse { Status = SRStatus.Error, Message = "User not found." };
 
@@ -710,7 +710,7 @@ namespace BusinessObjectLayer.Services.Auth
             try
             {
                 var tokenRepo = _uow.GetRepository<ITokenRepository>();
-                var storedToken = await tokenRepo.GetRefreshTokenAsync(refreshToken);
+                var storedToken = await tokenRepo.GetRefreshTokenForUpdateAsync(refreshToken);
                 if (storedToken == null)
                 {
                     return new ServiceResponse

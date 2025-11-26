@@ -107,7 +107,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateAsync(int id, SkillRequest request)
         {
             var skillRepo = _uow.GetRepository<ISkillRepository>();
-            var skill = await skillRepo.GetByIdAsync(id);
+            var skill = await skillRepo.GetForUpdateAsync(id);
             if (skill == null)
             {
                 return new ServiceResponse
@@ -140,7 +140,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
             var skillRepo = _uow.GetRepository<ISkillRepository>();
-            var skill = await skillRepo.GetByIdAsync(id);
+            var skill = await skillRepo.GetForUpdateAsync(id);
             if (skill == null)
             {
                 return new ServiceResponse

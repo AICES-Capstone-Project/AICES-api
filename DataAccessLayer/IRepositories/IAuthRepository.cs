@@ -10,7 +10,8 @@ namespace DataAccessLayer.IRepositories
 {
     public interface IAuthRepository
     {
-        Task<User> GetByEmailAsync(string email);
+        Task<User?> GetByEmailAsync(string email);
+        Task<User?> GetForUpdateByEmailAsync(string email);
         Task<User> AddAsync(User user);
         Task<bool> EmailExistsAsync(string email);
         Task UpdateAsync(User user);

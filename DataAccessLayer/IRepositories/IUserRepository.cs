@@ -9,7 +9,8 @@ namespace DataAccessLayer.IRepositories
 {
     public interface IUserRepository
     {
-        Task<User> GetByIdAsync(int id);
+        Task<User?> GetByIdAsync(int id);
+        Task<User?> GetForUpdateAsync(int id);
         Task<List<User>> GetUsersAsync(int page, int pageSize, string? search = null);
         Task<int> GetTotalUsersAsync(string? search = null);
         Task<User> AddAsync(User user);

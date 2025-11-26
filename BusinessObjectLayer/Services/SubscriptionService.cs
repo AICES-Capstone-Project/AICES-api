@@ -137,7 +137,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateAsync(int id, SubscriptionRequest request)
         {
             var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
-            var subscription = await subscriptionRepo.GetByIdAsync(id);
+            var subscription = await subscriptionRepo.GetForUpdateAsync(id);
             if (subscription == null)
             {
                 return new ServiceResponse
@@ -177,7 +177,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
             var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
-            var subscription = await subscriptionRepo.GetByIdAsync(id);
+            var subscription = await subscriptionRepo.GetForUpdateAsync(id);
             if (subscription == null)
             {
                 return new ServiceResponse

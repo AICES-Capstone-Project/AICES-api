@@ -45,6 +45,13 @@ namespace DataAccessLayer.Repositories
         public async Task<Notification?> GetByIdAsync(int notifId)
         {
             return await _context.Notifications
+                .AsNoTracking()
+                .FirstOrDefaultAsync(n => n.NotifId == notifId);
+        }
+
+        public async Task<Notification?> GetForUpdateAsync(int notifId)
+        {
+            return await _context.Notifications
                 .FirstOrDefaultAsync(n => n.NotifId == notifId);
         }
 

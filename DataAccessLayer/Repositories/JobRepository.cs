@@ -27,6 +27,7 @@ namespace DataAccessLayer.Repositories
         public async Task<Job?> GetJobByIdAsync(int jobId)
         {
             return await _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
@@ -41,9 +42,63 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
 
+        public async Task<Job?> GetForUpdateAsync(int jobId)
+        {
+            return await _context.Jobs
+                .Include(j => j.Company)
+                .Include(j => j.CompanyUser)
+                    .ThenInclude(cu => cu.User)
+                        .ThenInclude(u => u.Profile)
+                .Include(j => j.Specialization!)
+                    .ThenInclude(s => s.Category)
+                .Include(j => j.JobEmploymentTypes!)
+                    .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.JobSkills!)
+                    .ThenInclude(js => js.Skill)
+                .Include(j => j.Criteria)
+                .FirstOrDefaultAsync(j => j.JobId == jobId);
+        }
+
+        public async Task<Job?> GetForUpdateByIdAndCompanyIdAsync(int jobId, int companyId)
+        {
+            return await _context.Jobs
+                .Include(j => j.Company)
+                .Include(j => j.CompanyUser)
+                    .ThenInclude(cu => cu.User)
+                        .ThenInclude(u => u.Profile)
+                .Include(j => j.Specialization!)
+                    .ThenInclude(s => s.Category)
+                .Include(j => j.JobEmploymentTypes!)
+                    .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.JobSkills!)
+                    .ThenInclude(js => js.Skill)
+                .Include(j => j.Criteria)
+                .Where(j => j.CompanyId == companyId && j.IsActive)
+                .FirstOrDefaultAsync(j => j.JobId == jobId);
+        }
+
+        public async Task<Job?> GetPublishedForUpdateByIdAndCompanyIdAsync(int jobId, int companyId)
+        {
+            return await _context.Jobs
+                .Include(j => j.Company)
+                .Include(j => j.CompanyUser)
+                    .ThenInclude(cu => cu.User)
+                        .ThenInclude(u => u.Profile)
+                .Include(j => j.Specialization!)
+                    .ThenInclude(s => s.Category)
+                .Include(j => j.JobEmploymentTypes!)
+                    .ThenInclude(jet => jet.EmploymentType)
+                .Include(j => j.JobSkills!)
+                    .ThenInclude(js => js.Skill)
+                .Include(j => j.Criteria)
+                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
+                .FirstOrDefaultAsync(j => j.JobId == jobId);
+        }
+
         public async Task<List<Job>> GetPublishedJobsAsync(int page, int pageSize, string? search = null)
         {
             var query = _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
@@ -74,7 +129,10 @@ namespace DataAccessLayer.Repositories
 
         public async Task<int> GetTotalPublishedJobsAsync(string? search = null)
         {
-            var query = _context.Jobs.Where(j => j.JobStatus == JobStatusEnum.Published && j.IsActive).AsQueryable();
+            var query = _context.Jobs
+                .AsNoTracking()
+                .Where(j => j.JobStatus == JobStatusEnum.Published && j.IsActive)
+                .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -89,6 +147,7 @@ namespace DataAccessLayer.Repositories
         public async Task<List<Job>> GetPublishedJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null)
         {
             var query = _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
@@ -120,6 +179,7 @@ namespace DataAccessLayer.Repositories
         public async Task<int> GetTotalPublishedJobsByCompanyIdAsync(int companyId, string? search = null)
         {
             var query = _context.Jobs
+                .AsNoTracking()
                 .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published && j.IsActive)
                 .AsQueryable();
 
@@ -136,6 +196,7 @@ namespace DataAccessLayer.Repositories
         public async Task<List<Job>> GetPendingJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null)
         {
             var query = _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
@@ -167,6 +228,7 @@ namespace DataAccessLayer.Repositories
         public async Task<int> GetTotalPendingJobsByCompanyIdAsync(int companyId, string? search = null)
         {
             var query = _context.Jobs
+                .AsNoTracking()
                 .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Pending && j.IsActive)
                 .AsQueryable();
 
@@ -183,6 +245,7 @@ namespace DataAccessLayer.Repositories
         public async Task<Job?> GetPublishedJobByIdAndCompanyIdAsync(int jobId, int companyId)
         {
             return await _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
@@ -201,6 +264,7 @@ namespace DataAccessLayer.Repositories
          public async Task<Job?> GetPendingJobByIdAndCompanyIdAsync(int jobId, int companyId)
         {
             return await _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
@@ -219,6 +283,7 @@ namespace DataAccessLayer.Repositories
         public async Task<Job?> GetAllJobByIdAndCompanyIdAsync(int jobId, int companyId)
         {
             return await _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
@@ -237,6 +302,7 @@ namespace DataAccessLayer.Repositories
         public async Task<List<Job>> GetAllJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null)
         {
             var query = _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
@@ -268,6 +334,7 @@ namespace DataAccessLayer.Repositories
         public async Task<int> GetTotalAllJobsByCompanyIdAsync(int companyId, string? search = null)
         {
             var query = _context.Jobs
+                .AsNoTracking()
                 .Where(j => j.CompanyId == companyId && j.IsActive)
                 .AsQueryable();
 
@@ -284,6 +351,7 @@ namespace DataAccessLayer.Repositories
         public async Task<List<Job>> GetJobsByComUserIdAsync(int comUserId, int page, int pageSize, string? search = null, JobStatusEnum? status = null)
         {
             var query = _context.Jobs
+                .AsNoTracking()
                 .Include(j => j.Company)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
@@ -320,6 +388,7 @@ namespace DataAccessLayer.Repositories
         public async Task<int> GetTotalJobsByComUserIdAsync(int comUserId, string? search = null, JobStatusEnum? status = null)
         {
             var query = _context.Jobs
+                .AsNoTracking()
                 .Where(j => j.ComUserId == comUserId && j.IsActive)
                 .AsQueryable();
 
@@ -341,6 +410,7 @@ namespace DataAccessLayer.Repositories
         public async Task<bool> JobTitleExistsInCompanyAsync(string title, int companyId)
         {
             return await _context.Jobs
+                .AsNoTracking()
                 .AnyAsync(j => j.CompanyId == companyId && j.Title == title && j.IsActive);
         }
 

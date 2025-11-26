@@ -63,6 +63,16 @@ namespace DataAccessLayer.Repositories
         public async Task<CompanySubscription?> GetByIdAsync(int id)
         {
             return await _context.CompanySubscriptions
+                .AsNoTracking()
+                .Include(cs => cs.Company)
+                .Include(cs => cs.Subscription)
+                .Where(cs => cs.ComSubId == id && cs.IsActive)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<CompanySubscription?> GetForUpdateAsync(int id)
+        {
+            return await _context.CompanySubscriptions
                 .Include(cs => cs.Company)
                 .Include(cs => cs.Subscription)
                 .Where(cs => cs.ComSubId == id && cs.IsActive)

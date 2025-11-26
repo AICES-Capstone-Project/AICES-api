@@ -11,6 +11,7 @@ namespace DataAccessLayer.IRepositories
     {
         Task<IEnumerable<Skill>> GetAllAsync();
         Task<Skill?> GetByIdAsync(int id);
+        Task<Skill?> GetForUpdateAsync(int id);
         Task AddAsync(Skill skill);
         void Update(Skill skill);
         Task<bool> ExistsByNameAsync(string name);

@@ -28,6 +28,13 @@ namespace DataAccessLayer.Repositories
         public async Task<Payment?> GetByIdAsync(int id)
         {
             return await _context.Payments
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.PaymentId == id);
+        }
+
+        public async Task<Payment?> GetForUpdateAsync(int id)
+        {
+            return await _context.Payments
                 .FirstOrDefaultAsync(p => p.PaymentId == id);
         }
 

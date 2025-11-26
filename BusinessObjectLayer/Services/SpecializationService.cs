@@ -226,7 +226,7 @@ namespace BusinessObjectLayer.Services
                 var categoryRepo = _uow.GetRepository<ICategoryRepository>();
                 var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
                 
-                var specialization = await specializationRepo.GetByIdAsync(id);
+                var specialization = await specializationRepo.GetForUpdateAsync(id);
                 if (specialization == null)
                 {
                     return new ServiceResponse
@@ -303,7 +303,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
-                var specialization = await specializationRepo.GetByIdAsync(id);
+                var specialization = await specializationRepo.GetForUpdateAsync(id);
                 if (specialization == null)
                 {
                     return new ServiceResponse

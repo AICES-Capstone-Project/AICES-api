@@ -32,6 +32,12 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(et => et.EmployTypeId == id);
         }
 
+        public async Task<EmploymentType?> GetForUpdateAsync(int id)
+        {
+            return await _context.EmploymentTypes
+                .FirstOrDefaultAsync(et => et.EmployTypeId == id);
+        }
+
         public async Task<bool> ExistsByNameAsync(string name)
         {
             return await _context.EmploymentTypes

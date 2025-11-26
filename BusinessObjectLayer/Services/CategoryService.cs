@@ -117,7 +117,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateAsync(int id, CategoryRequest request)
         {
             var categoryRepo = _uow.GetRepository<ICategoryRepository>();
-            var category = await categoryRepo.GetByIdAsync(id);
+            var category = await categoryRepo.GetForUpdateAsync(id);
             if (category == null)
             {
                 return new ServiceResponse
@@ -153,7 +153,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
             var categoryRepo = _uow.GetRepository<ICategoryRepository>();
-            var category = await categoryRepo.GetByIdAsync(id);
+            var category = await categoryRepo.GetForUpdateAsync(id);
             if (category == null)
             {
                 return new ServiceResponse

@@ -498,7 +498,7 @@ namespace BusinessObjectLayer.Services
 
             if (paymentId > 0)
             {
-                payment = await paymentRepo.GetByIdAsync(paymentId);
+                payment = await paymentRepo.GetForUpdateAsync(paymentId);
             }
 
             if (payment == null && fallbackCompanyId.HasValue)

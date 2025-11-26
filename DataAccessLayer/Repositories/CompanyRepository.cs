@@ -81,6 +81,17 @@ namespace DataAccessLayer.Repositories
         public async Task<Company?> GetByIdAsync(int id)
         {
             return await _context.Companies
+                .AsNoTracking()
+                .Include(c => c.CompanyUsers!)
+                    .ThenInclude(cu => cu.User)
+                        .ThenInclude(u => u.Role)
+                .Include(c => c.CompanyDocuments)
+                .FirstOrDefaultAsync(c => c.CompanyId == id);
+        }
+
+        public async Task<Company?> GetForUpdateAsync(int id)
+        {
+            return await _context.Companies
                 .Include(c => c.CompanyUsers!)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Role)

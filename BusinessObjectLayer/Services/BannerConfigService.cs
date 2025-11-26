@@ -143,7 +143,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateAsync(int id, BannerConfigRequest request)
         {
             var bannerConfigRepo = _uow.GetRepository<IBannerConfigRepository>();
-            var bannerConfig = await bannerConfigRepo.GetByIdAsync(id);
+            var bannerConfig = await bannerConfigRepo.GetForUpdateAsync(id);
             if (bannerConfig == null)
             {
                 return new ServiceResponse
@@ -204,7 +204,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
             var bannerConfigRepo = _uow.GetRepository<IBannerConfigRepository>();
-            var bannerConfig = await bannerConfigRepo.GetByIdAsync(id);
+            var bannerConfig = await bannerConfigRepo.GetForUpdateAsync(id);
             if (bannerConfig == null)
             {
                 return new ServiceResponse

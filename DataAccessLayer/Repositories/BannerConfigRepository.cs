@@ -54,7 +54,15 @@ namespace DataAccessLayer.Repositories
 
         public async Task<BannerConfig?> GetByIdAsync(int id)
         {
-            return await _context.BannerConfigs.FirstOrDefaultAsync(b => b.BannerId == id);
+            return await _context.BannerConfigs
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.BannerId == id);
+        }
+
+        public async Task<BannerConfig?> GetForUpdateAsync(int id)
+        {
+            return await _context.BannerConfigs
+                .FirstOrDefaultAsync(b => b.BannerId == id);
         }
 
         public async Task<BannerConfig> AddAsync(BannerConfig bannerConfig)

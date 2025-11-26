@@ -167,7 +167,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> DeleteAsync(int id)
         {
             var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
-            var jobSkill = await jobSkillRepo.GetByIdAsync(id);
+            var jobSkill = await jobSkillRepo.GetForUpdateAsync(id);
             if (jobSkill == null)
             {
                 return new ServiceResponse

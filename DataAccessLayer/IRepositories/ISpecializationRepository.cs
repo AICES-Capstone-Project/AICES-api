@@ -8,6 +8,7 @@ namespace DataAccessLayer.IRepositories
     {
         Task<IEnumerable<Specialization>> GetAllAsync();
         Task<Specialization?> GetByIdAsync(int id);
+        Task<Specialization?> GetForUpdateAsync(int id);
         Task<bool> ExistsAsync(int id);
         Task<bool> ExistsByNameAsync(string name);
         Task AddAsync(Specialization specialization);

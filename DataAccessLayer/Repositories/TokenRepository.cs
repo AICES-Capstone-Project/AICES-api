@@ -24,6 +24,17 @@ namespace DataAccessLayer.Repositories
         public async Task<RefreshToken?> GetRefreshTokenAsync(string token)
         {
             return await _context.RefreshTokens
+                .AsNoTracking()
+                .Include(rt => rt.User)
+                .ThenInclude(u => u.Role)
+                .Include(rt => rt.User)
+                .ThenInclude(u => u.Profile)
+                .FirstOrDefaultAsync(rt => rt.Token == token);
+        }
+
+        public async Task<RefreshToken?> GetRefreshTokenForUpdateAsync(string token)
+        {
+            return await _context.RefreshTokens
                 .Include(rt => rt.User)
                 .ThenInclude(u => u.Role)
                 .Include(rt => rt.User)

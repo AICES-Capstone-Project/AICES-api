@@ -34,6 +34,12 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(s => s.SkillId == id && s.IsActive);
         }
 
+        public async Task<Skill?> GetForUpdateAsync(int id)
+        {
+            return await _context.Skills
+                .FirstOrDefaultAsync(s => s.SkillId == id && s.IsActive);
+        }
+
         public async Task AddAsync(Skill skill)
         {
             await _context.Skills.AddAsync(skill);

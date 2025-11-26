@@ -30,6 +30,15 @@ namespace DataAccessLayer.Repositories
         public async Task<JobSkill?> GetByIdAsync(int id)
         {
             return await _context.JobSkills
+                .AsNoTracking()
+                .Include(js => js.Job)
+                .Include(js => js.Skill)
+                .FirstOrDefaultAsync(js => js.JobSkillId == id);
+        }
+
+        public async Task<JobSkill?> GetForUpdateAsync(int id)
+        {
+            return await _context.JobSkills
                 .Include(js => js.Job)
                 .Include(js => js.Skill)
                 .FirstOrDefaultAsync(js => js.JobSkillId == id);

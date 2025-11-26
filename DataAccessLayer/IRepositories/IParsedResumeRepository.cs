@@ -7,6 +7,7 @@ namespace DataAccessLayer.IRepositories
         Task<ParsedResumes> CreateAsync(ParsedResumes parsedResume);
         Task<ParsedResumes?> GetByQueueJobIdAsync(string queueJobId);
         Task<ParsedResumes?> GetByIdAsync(int resumeId);
+        Task<ParsedResumes?> GetForUpdateAsync(int resumeId);
         Task<ParsedResumes?> GetByIdWithDetailsAsync(int resumeId);
         Task UpdateAsync(ParsedResumes parsedResume);
         Task<List<ParsedResumes>> GetByJobIdAsync(int jobId);

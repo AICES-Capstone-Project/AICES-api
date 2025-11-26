@@ -24,7 +24,14 @@ namespace DataAccessLayer.Repositories
             return profile;
         }
 
-        public async Task<Profile> GetByUserIdAsync(int userId)
+        public async Task<Profile?> GetByUserIdAsync(int userId)
+        {
+            return await _context.Profiles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserId == userId);
+        }
+
+        public async Task<Profile?> GetForUpdateByUserIdAsync(int userId)
         {
             return await _context.Profiles
                 .FirstOrDefaultAsync(p => p.UserId == userId);

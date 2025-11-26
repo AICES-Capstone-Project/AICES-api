@@ -614,7 +614,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get resume
-                var resume = await parsedResumeRepo.GetByIdAsync(resumeId);
+                var resume = await parsedResumeRepo.GetForUpdateAsync(resumeId);
                 if (resume == null)
                 {
                     return new ServiceResponse
@@ -769,7 +769,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get resume
-                var resume = await parsedResumeRepo.GetByIdAsync(resumeId);
+                var resume = await parsedResumeRepo.GetForUpdateAsync(resumeId);
                 if (resume == null)
                 {
                     return new ServiceResponse

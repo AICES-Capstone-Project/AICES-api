@@ -15,6 +15,7 @@ namespace DataAccessLayer.IRepositories
         Task<List<Company>> GetPublicCompaniesAsync();
         Task<Company?> GetPublicByIdAsync(int id);
         Task<Company?> GetByIdAsync(int id);
+        Task<Company?> GetForUpdateAsync(int id);
         Task<Company> AddAsync(Company company);
         Task UpdateAsync(Company company);
         Task<bool> ExistsByNameAsync(string name);

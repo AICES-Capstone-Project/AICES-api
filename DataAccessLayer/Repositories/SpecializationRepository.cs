@@ -34,6 +34,13 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(s => s.SpecializationId == id);
         }
 
+        public async Task<Specialization?> GetForUpdateAsync(int id)
+        {
+            return await _context.Specializations
+                .Include(s => s.Category)
+                .FirstOrDefaultAsync(s => s.SpecializationId == id);
+        }
+
         public async Task<bool> ExistsAsync(int id)
         {
             return await _context.Specializations

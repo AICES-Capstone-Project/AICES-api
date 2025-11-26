@@ -74,7 +74,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateProfileAsync(int userId, UpdateProfileRequest request)
         {
             var profileRepo = _uow.GetRepository<IProfileRepository>();
-            var profile = await profileRepo.GetByUserIdAsync(userId);
+            var profile = await profileRepo.GetForUpdateByUserIdAsync(userId);
             if (profile == null)
             {
                 return new ServiceResponse

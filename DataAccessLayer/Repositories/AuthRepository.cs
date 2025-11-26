@@ -19,10 +19,20 @@ namespace DataAccessLayer.Repositories
             _context = context;
         }
 
-        public async Task<User> GetByEmailAsync(string email)
+        public async Task<User?> GetByEmailAsync(string email)
         {
             return await _context.Users
                 .AsNoTracking()
+                .Include(u => u.Role)
+                .Include(u => u.Profile)
+                .Include(u => u.CompanyUser)
+                    .ThenInclude(cu => cu.Company)
+                .FirstOrDefaultAsync(u => u.Email == email);
+        }
+
+        public async Task<User?> GetForUpdateByEmailAsync(string email)
+        {
+            return await _context.Users
                 .Include(u => u.Role)
                 .Include(u => u.Profile)
                 .Include(u => u.CompanyUser)

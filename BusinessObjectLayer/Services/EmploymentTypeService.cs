@@ -109,7 +109,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateAsync(int id, EmploymentTypeRequest request)
         {
             var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
-            var item = await employmentTypeRepo.GetByIdAsync(id);
+            var item = await employmentTypeRepo.GetForUpdateAsync(id);
             if (item == null)
             {
                 return new ServiceResponse
@@ -144,7 +144,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
             var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
-            var item = await employmentTypeRepo.GetByIdAsync(id);
+            var item = await employmentTypeRepo.GetForUpdateAsync(id);
             if (item == null)
             {
                 return new ServiceResponse

@@ -11,6 +11,7 @@ namespace DataAccessLayer.IRepositories
     {
         Task<IEnumerable<EmploymentType>> GetAllAsync();
         Task<EmploymentType?> GetByIdAsync(int id);
+        Task<EmploymentType?> GetForUpdateAsync(int id);
         Task<bool> ExistsByNameAsync(string name);
         Task<bool> ExistsAsync(int employmentTypeId);
         Task AddAsync(EmploymentType employmentType);

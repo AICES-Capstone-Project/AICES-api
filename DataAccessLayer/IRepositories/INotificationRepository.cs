@@ -13,6 +13,7 @@ namespace DataAccessLayer.IRepositories
         Task<IEnumerable<Notification>> GetByUserIdAsync(int userId);
         Task MarkAsReadAsync(int notifId);
         Task<Notification?> GetByIdAsync(int notifId);
+        Task<Notification?> GetForUpdateAsync(int notifId);
         Task UpdateAsync(Notification notification);
 
     }

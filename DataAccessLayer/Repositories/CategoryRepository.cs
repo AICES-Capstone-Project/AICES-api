@@ -68,6 +68,12 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(c => c.CategoryId == id);
         }
 
+        public async Task<Category?> GetForUpdateAsync(int id)
+        {
+            return await _context.Categories
+                .FirstOrDefaultAsync(c => c.CategoryId == id);
+        }
+
         public async Task AddAsync(Category category)
         {
             await _context.Categories.AddAsync(category);

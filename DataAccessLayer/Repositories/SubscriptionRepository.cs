@@ -69,6 +69,13 @@ namespace DataAccessLayer.Repositories
             return await query.FirstOrDefaultAsync(s => s.SubscriptionId == id);
         }
 
+        public async Task<Subscription?> GetForUpdateAsync(int id)
+        {
+            return await _context.Subscriptions
+                .Where(s => s.IsActive)
+                .FirstOrDefaultAsync(s => s.SubscriptionId == id);
+        }
+
         public async Task<Subscription> AddAsync(Subscription subscription)
         {
             await _context.Subscriptions.AddAsync(subscription);

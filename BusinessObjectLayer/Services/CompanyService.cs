@@ -634,7 +634,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var companyRepo = _uow.GetRepository<ICompanyRepository>();
-                var company = await companyRepo.GetByIdAsync(companyUser.CompanyId.Value);
+                var company = await companyRepo.GetForUpdateAsync(companyUser.CompanyId.Value);
                 if (company == null)
                 {
                     return new ServiceResponse
@@ -737,7 +737,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 var companyRepo = _uow.GetRepository<ICompanyRepository>();
-                var company = await companyRepo.GetByIdAsync(id);
+                var company = await companyRepo.GetForUpdateAsync(id);
                 if (company == null)
                 {
                     return new ServiceResponse
@@ -858,7 +858,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var companyRepo = _uow.GetRepository<ICompanyRepository>();
-                var company = await companyRepo.GetByIdAsync(companyUser.CompanyId.Value);
+                var company = await companyRepo.GetForUpdateAsync(companyUser.CompanyId.Value);
                 if (company == null)
                 {
                     return new ServiceResponse
@@ -921,7 +921,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> DeleteAsync(int id)
         {
             var companyRepo = _uow.GetRepository<ICompanyRepository>();
-            var company = await companyRepo.GetByIdAsync(id);
+            var company = await companyRepo.GetForUpdateAsync(id);
             if (company == null)
             {
                 return new ServiceResponse
@@ -988,7 +988,7 @@ namespace BusinessObjectLayer.Services
 
                 // Get company
                 var companyRepo = _uow.GetRepository<ICompanyRepository>();
-                var company = await companyRepo.GetByIdAsync(companyId);
+                var company = await companyRepo.GetForUpdateAsync(companyId);
                 if (company == null)
                 {
                     return new ServiceResponse
@@ -1200,7 +1200,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var companyRepo = _uow.GetRepository<ICompanyRepository>();
-                var company = await companyRepo.GetByIdAsync(companyUser.CompanyId.Value);
+                var company = await companyRepo.GetForUpdateAsync(companyUser.CompanyId.Value);
 
                 if (company == null)
                 {

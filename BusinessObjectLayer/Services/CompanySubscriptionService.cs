@@ -298,7 +298,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
             var companySubscriptionRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
-            var companySubscription = await companySubscriptionRepo.GetByIdAsync(id);
+            var companySubscription = await companySubscriptionRepo.GetForUpdateAsync(id);
             if (companySubscription == null)
             {
                 return new ServiceResponse

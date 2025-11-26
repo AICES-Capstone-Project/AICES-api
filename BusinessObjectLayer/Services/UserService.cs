@@ -177,7 +177,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateUserAsync(int id, UserRequest request)
         {
             var userRepo = _uow.GetRepository<IUserRepository>();
-            var user = await userRepo.GetByIdAsync(id);
+            var user = await userRepo.GetForUpdateAsync(id);
             if (user == null)
             {
                 return new ServiceResponse
@@ -230,7 +230,7 @@ namespace BusinessObjectLayer.Services
                 var profileRepo = _uow.GetRepository<IProfileRepository>();
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 
-                var user = await userRepo.GetByIdAsync(id);
+                var user = await userRepo.GetForUpdateAsync(id);
                 if (user == null)
                 {
                     return new ServiceResponse
@@ -292,7 +292,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 var userRepo = _uow.GetRepository<IUserRepository>();
-                var user = await userRepo.GetByIdAsync(id);
+                var user = await userRepo.GetForUpdateAsync(id);
                 if (user == null)
                 {
                     return new ServiceResponse

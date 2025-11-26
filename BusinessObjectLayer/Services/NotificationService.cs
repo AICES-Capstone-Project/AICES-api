@@ -118,7 +118,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> GetByIdAndMarkAsReadAsync(int userId, int notifId)
         {
             var notifRepo = _uow.GetRepository<INotificationRepository>();
-            var notif = await notifRepo.GetByIdAsync(notifId);
+            var notif = await notifRepo.GetForUpdateAsync(notifId);
 
             if (notif == null || notif.UserId != userId)
             {

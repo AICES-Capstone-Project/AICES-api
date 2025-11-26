@@ -29,6 +29,13 @@ namespace DataAccessLayer.Repositories
         public async Task<ParsedResumes?> GetByIdAsync(int resumeId)
         {
             return await _context.ParsedResumes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(pr => pr.ResumeId == resumeId);
+        }
+
+        public async Task<ParsedResumes?> GetForUpdateAsync(int resumeId)
+        {
+            return await _context.ParsedResumes
                 .FirstOrDefaultAsync(pr => pr.ResumeId == resumeId);
         }
 

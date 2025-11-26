@@ -11,6 +11,7 @@ namespace DataAccessLayer.IRepositories
     {
         Task<IEnumerable<JobSkill>> GetAllAsync();
         Task<JobSkill?> GetByIdAsync(int id);
+        Task<JobSkill?> GetForUpdateAsync(int id);
         Task AddAsync(JobSkill jobSkill);
         void Update(JobSkill jobSkill);
         void Delete(JobSkill jobSkill);
