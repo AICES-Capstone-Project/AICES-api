@@ -109,6 +109,15 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<Payment?> GetByIdWithTransactionsAsync(int paymentId)
+        {
+            return await _context.Payments
+                .AsNoTracking()
+                .Where(p => p.PaymentId == paymentId && p.IsActive)
+                .Include(p => p.Transactions)
+                .FirstOrDefaultAsync();
+        }
+
     }
 
 

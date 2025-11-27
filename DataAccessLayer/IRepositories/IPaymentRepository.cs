@@ -19,6 +19,7 @@ namespace DataAccessLayer.IRepositories
         Task<List<Payment>> GetPendingBeforeAsync(DateTime cutoff);
         Task<List<Payment>> GetPaymentsByCompanyAsync(int companyId);
         Task<Payment?> GetPaymentDetailByIdAsync(int paymentId, int companyId);
+        Task<Payment?> GetByIdWithTransactionsAsync(int paymentId);
 
     }
 

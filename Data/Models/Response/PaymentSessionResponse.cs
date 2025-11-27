@@ -12,6 +12,7 @@ namespace Data.Models.Response
         public string? StripeSubscriptionId { get; set; }
         public int? ComSubId { get; set; }
         public string? SubscriptionName { get; set; }
+        public TransactionResponse? Transaction { get; set; }
     }
 }
 

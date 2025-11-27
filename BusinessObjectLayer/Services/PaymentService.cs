@@ -742,12 +742,26 @@ namespace BusinessObjectLayer.Services
                 Payment? payment = null;
                 if (paymentId > 0)
                 {
-                    payment = await paymentRepo.GetByIdAsync(paymentId);
+                    // Try with companyId first if available
+                    if (companyId > 0)
+                    {
+                        payment = await paymentRepo.GetPaymentDetailByIdAsync(paymentId, companyId);
+                    }
+                    // Fallback: get payment with transactions without companyId filter
+                    if (payment == null)
+                    {
+                        payment = await paymentRepo.GetByIdWithTransactionsAsync(paymentId);
+                    }
                 }
                 else if (companyId > 0)
                 {
                     // Fallback: get latest pending payment for company
                     payment = await paymentRepo.GetLatestPendingByCompanyAsync(companyId);
+                    // Load transactions if payment found
+                    if (payment != null && payment.Transactions == null)
+                    {
+                        payment = await paymentRepo.GetByIdWithTransactionsAsync(payment.PaymentId);
+                    }
                 }
 
                 if (payment == null)
@@ -787,6 +801,9 @@ namespace BusinessObjectLayer.Services
 
                 var subscriptionName = companySub?.Subscription?.Name;
 
+                // Get the latest transaction
+                var transaction = payment.Transactions?.OrderByDescending(t => t.TransactionTime).FirstOrDefault();
+
                 var response = new PaymentSessionResponse
                 {
                     PaymentId = payment.PaymentId,
@@ -796,7 +813,18 @@ namespace BusinessObjectLayer.Services
                     SessionStatus = session.Status ?? "unknown",
                     StripeSubscriptionId = stripeSubscriptionId,
                     ComSubId = payment.ComSubId ?? companySub?.ComSubId,
-                    SubscriptionName = subscriptionName
+                    SubscriptionName = subscriptionName,
+                    Transaction = transaction != null ? new TransactionResponse
+                    {
+                        TransactionId = transaction.TransactionId,
+                        TransactionRef = transaction.TransactionRef,
+                        Gateway = transaction.Gateway,
+                        Amount = transaction.Amount,
+                        Currency = transaction.Currency,
+                        PayerName = transaction.PayerName,
+                        BankCode = transaction.BankCode,
+                        TransactionTime = transaction.TransactionTime
+                    } : null
                 };
 
                 return new ServiceResponse
