@@ -116,9 +116,8 @@ namespace BusinessObjectLayer.Services
             var payment = new Payment
             {
                 CompanyId = companyId,
+                ComSubId = null,
                 PaymentStatus = PaymentStatusEnum.Pending,
-
-               
             };
             await paymentRepo.AddAsync(payment);
             await _uow.SaveChangesAsync();
@@ -254,6 +253,7 @@ namespace BusinessObjectLayer.Services
 
                 var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+                var paymentRepo = _uow.GetRepository<IPaymentRepository>();
                 var authRepo = _uow.GetRepository<IAuthRepository>();
                 
                 var existing = await companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubscriptionId);
@@ -270,13 +270,26 @@ namespace BusinessObjectLayer.Services
                     CompanyId = companyId,
                     SubscriptionId = subscriptionId,
                     StartDate = now,
-                    EndDate = now.AddDays(subscriptionEntity?.DurationDays ?? 30),
+                    EndDate = now.AddDays(subscriptionEntity?.DurationDays ?? 0),
                     SubscriptionStatus = SubscriptionStatusEnum.Active,
                     StripeSubscriptionId = stripeSubscriptionId
                 };
 
                 await companySubRepo.AddAsync(companySubscription);
                 await _uow.SaveChangesAsync();
+
+                // Update payment with ComSubId if paymentId exists in metadata
+                int.TryParse(session.Metadata?.GetValueOrDefault("paymentId") ?? "0", out int paymentId);
+                if (paymentId > 0)
+                {
+                    var payment = await paymentRepo.GetForUpdateAsync(paymentId);
+                    if (payment != null)
+                    {
+                        payment.ComSubId = companySubscription.ComSubId;
+                        await paymentRepo.UpdateAsync(payment);
+                        await _uow.SaveChangesAsync();
+                    }
+                }
 
                 var admins = await authRepo.GetUsersByRoleAsync("System_Admin");
                 foreach (var admin in admins)
@@ -339,6 +352,10 @@ namespace BusinessObjectLayer.Services
                     {
                         payment.PaymentStatus = PaymentStatusEnum.Paid;
                         payment.InvoiceUrl = invoiceUrl;
+                        if (companySub != null)
+                        {
+                            payment.ComSubId = companySub.ComSubId;
+                        }
                         await paymentRepo.UpdateAsync(payment);
                     }
                     else
@@ -346,12 +363,8 @@ namespace BusinessObjectLayer.Services
                         payment = new Payment
                         {
                             CompanyId = companyIdToUse.Value,
+                            ComSubId = companySub?.ComSubId,
                             PaymentStatus = PaymentStatusEnum.Paid,
-
-                            CreatedAt = DateTime.UtcNow,
-                            IsActive = true,
-
-
                             InvoiceUrl = invoiceUrl
                         };
                         await paymentRepo.AddAsync(payment);

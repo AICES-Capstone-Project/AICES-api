@@ -142,6 +142,14 @@ namespace DataAccessLayer
                 .HasForeignKey(p => p.CompanyId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // CompanySubscription - Payment
+            modelBuilder.Entity<CompanySubscription>()
+                .HasMany(cs => cs.Payments)
+                .WithOne(p => p.CompanySubscription)
+                .HasForeignKey(p => p.ComSubId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
             // Payment - Transactions
             modelBuilder.Entity<Payment>()
                 .HasMany(p => p.Transactions)

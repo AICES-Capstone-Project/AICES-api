@@ -34,6 +34,7 @@ namespace Data.Entities
         // Navigation
         public Company Company { get; set; } = null!;
         public Subscription Subscription { get; set; } = null!;
+        public ICollection<Payment>? Payments { get; set; }
     }
 }
 

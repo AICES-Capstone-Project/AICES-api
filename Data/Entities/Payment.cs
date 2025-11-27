@@ -19,6 +19,9 @@ namespace Data.Entities
         [ForeignKey("Company")]
         public int CompanyId { get; set; }
 
+        [ForeignKey("CompanySubscription")]
+        public int? ComSubId { get; set; }
+
         [MaxLength(500)]
         public string? InvoiceUrl { get; set; }
 
@@ -26,6 +29,7 @@ namespace Data.Entities
 
         // Navigation
         public Company Company { get; set; } = null!;
+        public CompanySubscription? CompanySubscription { get; set; }
         public ICollection<Transaction>? Transactions { get; set; }
     }
 }
