@@ -704,6 +704,127 @@ namespace BusinessObjectLayer.Services
             };
         }
 
+        public async Task<ServiceResponse> GetPaymentBySessionIdAsync(string sessionId)
+        {
+            if (string.IsNullOrWhiteSpace(sessionId))
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Validation,
+                    Message = "Session ID is required."
+                };
+            }
+
+            try
+            {
+                var sessionService = new SessionService();
+                var session = await sessionService.GetAsync(sessionId, new SessionGetOptions
+                {
+                    Expand = new List<string> { "subscription" }
+                });
+
+                if (session == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Stripe session not found."
+                    };
+                }
+
+                var paymentRepo = _uow.GetRepository<IPaymentRepository>();
+                var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+                var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+
+                // Get payment from metadata
+                int.TryParse(session.Metadata?.GetValueOrDefault("paymentId") ?? "0", out int paymentId);
+                int.TryParse(session.Metadata?.GetValueOrDefault("companyId") ?? "0", out int companyId);
+
+                Payment? payment = null;
+                if (paymentId > 0)
+                {
+                    payment = await paymentRepo.GetByIdAsync(paymentId);
+                }
+                else if (companyId > 0)
+                {
+                    // Fallback: get latest pending payment for company
+                    payment = await paymentRepo.GetLatestPendingByCompanyAsync(companyId);
+                }
+
+                if (payment == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Payment not found for this session."
+                    };
+                }
+
+                // Get CompanySubscription if exists
+                CompanySubscription? companySub = null;
+                string? stripeSubscriptionId = null;
+
+                if (session.Subscription != null)
+                {
+                    if (session.Subscription is Stripe.Subscription subObject)
+                    {
+                        stripeSubscriptionId = subObject.Id;
+                    }
+                    else
+                    {
+                        stripeSubscriptionId = session.Subscription.ToString();
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(stripeSubscriptionId))
+                {
+                    companySub = await companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubscriptionId);
+                }
+                else if (payment.ComSubId.HasValue)
+                {
+                    // Try to get by ComSubId if available
+                    companySub = await companySubRepo.GetByIdAsync(payment.ComSubId.Value);
+                }
+
+                var subscriptionName = companySub?.Subscription?.Name;
+
+                var response = new PaymentSessionResponse
+                {
+                    PaymentId = payment.PaymentId,
+                    CompanyId = payment.CompanyId,
+                    PaymentStatus = payment.PaymentStatus,
+                    InvoiceUrl = payment.InvoiceUrl,
+                    SessionStatus = session.Status ?? "unknown",
+                    StripeSubscriptionId = stripeSubscriptionId,
+                    ComSubId = payment.ComSubId ?? companySub?.ComSubId,
+                    SubscriptionName = subscriptionName
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Payment session retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (StripeException ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Stripe error: {ex.Message}"
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Error retrieving payment session: {ex.Message}"
+                };
+            }
+        }
+
         // ===================================================
         // 3. CANCEL SUBSCRIPTION
         // ===================================================

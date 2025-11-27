@@ -42,6 +42,13 @@ namespace API.Controllers
             return ControllerResponse.Response(result);
         }
 
+        [HttpGet("stripe/session")]
+        public async Task<IActionResult> GetPaymentBySessionId([FromQuery] string sessionId)
+        {
+            var result = await _paymentService.GetPaymentBySessionIdAsync(sessionId);
+            return ControllerResponse.Response(result);
+        }
+
     }
 
 
