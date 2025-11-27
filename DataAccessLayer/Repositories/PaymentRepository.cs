@@ -86,6 +86,29 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<Payment>> GetPaymentsByCompanyAsync(int companyId)
+        {
+            return await _context.Payments
+                .AsNoTracking()
+                .Where(p => p.CompanyId == companyId && p.IsActive)
+                .Include(p => p.CompanySubscription)
+                    .ThenInclude(cs => cs.Subscription)
+                .Include(p => p.Transactions)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<Payment?> GetPaymentDetailByIdAsync(int paymentId, int companyId)
+        {
+            return await _context.Payments
+                .AsNoTracking()
+                .Where(p => p.PaymentId == paymentId && p.CompanyId == companyId && p.IsActive)
+                .Include(p => p.CompanySubscription)
+                    .ThenInclude(cs => cs.Subscription)
+                .Include(p => p.Transactions)
+                .FirstOrDefaultAsync();
+        }
+
     }
 
 

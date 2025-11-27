@@ -564,7 +564,7 @@ namespace BusinessObjectLayer.Services
 
 
 
-        public async Task<ServiceResponse> GetPaymentHistoryAsync(ClaimsPrincipal userClaims, int page, int pageSize)
+        public async Task<ServiceResponse> GetPaymentsAsync(ClaimsPrincipal userClaims)
         {
             var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
             var paymentRepo = _uow.GetRepository<IPaymentRepository>();
@@ -581,47 +581,92 @@ namespace BusinessObjectLayer.Services
 
             int companyId = companyUser.CompanyId.Value;
 
-            var payments = await paymentRepo.GetPaymentHistoryByCompanyAsync(companyId, page, pageSize);
-            var total = await paymentRepo.GetTotalPaymentsByCompanyAsync(companyId);
+            var payments = await paymentRepo.GetPaymentsByCompanyAsync(companyId);
 
-            var responseList = payments.Select(p => new PaymentHistoryResponse
+            var responseList = payments.Select(p =>
             {
-                PaymentId = p.PaymentId,
-                Status = p.PaymentStatus,
-                CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
-                TotalAmount = p.Transactions?.Sum(t => t.Amount) ?? 0,
-
-                SubscriptionName = p.Company?.CompanySubscriptions?
-                    .OrderByDescending(cs => cs.CreatedAt)
-                    .FirstOrDefault()?.Subscription?.Name ?? "",
-
-                DurationDays = p.Company?.CompanySubscriptions?
-                    .OrderByDescending(cs => cs.CreatedAt)
-                    .FirstOrDefault()?.Subscription?.DurationDays ?? 0,
-
-                Transactions = p.Transactions?.Select(t => new TransactionItem
+                var transaction = p.Transactions?.OrderByDescending(t => t.TransactionTime).FirstOrDefault();
+                return new PaymentListResponse
                 {
-                    TransactionId = t.TransactionId,
-                    Amount = t.Amount,
-                    Gateway = t.Gateway,
-                    ResponseCode = t.ResponseCode,
-                    ResponseMessage = t.ResponseMessage,
-                    TransactionTime = t.TransactionTime
-                }).ToList() ?? new List<TransactionItem>()
+                    PaymentId = p.PaymentId,
+                    CompanyId = p.CompanyId,
+                    ComSubId = p.ComSubId,
+                    PaymentStatus = p.PaymentStatus,
+                    SubscriptionStatus = p.CompanySubscription?.SubscriptionStatus,
+                    Amount = transaction?.Amount ?? 0,
+                    Currency = transaction?.Currency,
+                    SubscriptionName = p.CompanySubscription?.Subscription?.Name,
+                    StartDate = p.CompanySubscription?.StartDate,
+                    EndDate = p.CompanySubscription?.EndDate,
+                    TransactionTime = transaction?.TransactionTime
+                };
             })
             .ToList();
 
             return new ServiceResponse
             {
                 Status = SRStatus.Success,
-                Message = "Payment history retrieved successfully.",
-                Data = new
+                Message = "Payments retrieved successfully.",
+                Data = responseList
+            };
+        }
+
+        public async Task<ServiceResponse> GetPaymentDetailAsync(ClaimsPrincipal userClaims, int paymentId)
+        {
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var paymentRepo = _uow.GetRepository<IPaymentRepository>();
+            
+            var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
+            if (userIdClaim == null)
+                return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
+
+            int userId = int.Parse(userIdClaim);
+
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+            if (companyUser == null || companyUser.CompanyId == null)
+                return new ServiceResponse { Status = SRStatus.Error, Message = "User is not associated with any company." };
+
+            int companyId = companyUser.CompanyId.Value;
+
+            var payment = await paymentRepo.GetPaymentDetailByIdAsync(paymentId, companyId);
+            if (payment == null)
+                return new ServiceResponse { Status = SRStatus.NotFound, Message = "Payment not found." };
+
+            var transaction = payment.Transactions?.OrderByDescending(t => t.TransactionTime).FirstOrDefault();
+            
+            var response = new PaymentDetailResponse
+            {
+                PaymentId = payment.PaymentId,
+                CompanyId = payment.CompanyId,
+                ComSubId = payment.ComSubId,
+                PaymentStatus = payment.PaymentStatus,
+                InvoiceUrl = payment.InvoiceUrl,
+                Transaction = transaction != null ? new TransactionDetail
                 {
-                    TotalPages = (int)Math.Ceiling(total / (double)pageSize),
-                    CurrentPage = page,
-                    PageSize = pageSize,
-                    Payments = responseList
-                }
+                    TransactionId = transaction.TransactionId,
+                    TransactionRef = transaction.TransactionRef,
+                    Gateway = transaction.Gateway,
+                    Amount = transaction.Amount,
+                    Currency = transaction.Currency,
+                    PayerName = transaction.PayerName,
+                    BankCode = transaction.BankCode,
+                    TransactionTime = transaction.TransactionTime
+                } : null,
+                CompanySubscription = payment.CompanySubscription != null ? new CompanySubscriptionDetail
+                {
+                    SubscriptionId = payment.CompanySubscription.SubscriptionId,
+                    Name = payment.CompanySubscription.Subscription?.Name ?? string.Empty,
+                    StartDate = payment.CompanySubscription.StartDate,
+                    EndDate = payment.CompanySubscription.EndDate,
+                    Status = payment.CompanySubscription.SubscriptionStatus
+                } : null
+            };
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "Payment detail retrieved successfully.",
+                Data = response
             };
         }
 

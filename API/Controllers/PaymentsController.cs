@@ -26,15 +26,22 @@ namespace API.Controllers
             return ControllerResponse.Response(result);
         }
 
-        [HttpGet("history")]
+        [HttpGet]
         [Authorize(Roles = "HR_Manager")]
-        public async Task<IActionResult> GetPaymentHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetPayments()
         {
-            var result = await _paymentService.GetPaymentHistoryAsync(User, page, pageSize);
+            var result = await _paymentService.GetPaymentsAsync(User);
             return ControllerResponse.Response(result);
         }
 
-        // ...removed: moved to SubscriptionController...
+        [HttpGet("{paymentId}")]
+        [Authorize(Roles = "HR_Manager")]
+        public async Task<IActionResult> GetPaymentDetail(int paymentId)
+        {
+            var result = await _paymentService.GetPaymentDetailAsync(User, paymentId);
+            return ControllerResponse.Response(result);
+        }
+
     }
 
 

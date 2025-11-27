@@ -17,6 +17,8 @@ namespace DataAccessLayer.IRepositories
         Task<int> GetTotalPaymentsByCompanyAsync(int companyId);
         Task<Payment?> GetLatestPendingByCompanyAsync(int companyId);
         Task<List<Payment>> GetPendingBeforeAsync(DateTime cutoff);
+        Task<List<Payment>> GetPaymentsByCompanyAsync(int companyId);
+        Task<Payment?> GetPaymentDetailByIdAsync(int paymentId, int companyId);
 
     }
 
