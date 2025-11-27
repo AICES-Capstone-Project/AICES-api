@@ -1,5 +1,6 @@
 using Data.Enum;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -45,7 +46,8 @@ namespace BusinessObjectLayer.BackgroundJobs
         private async Task CheckAndFailTimedOutResumesAsync()
         {
             using var scope = _scopeFactory.CreateScope();
-            var parsedResumeRepository = scope.ServiceProvider.GetRequiredService<IParsedResumeRepository>();
+            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var parsedResumeRepository = uow.GetRepository<IParsedResumeRepository>();
 
             // Calculate cutoff time (2 minutes ago)
             var cutoff = DateTime.UtcNow.AddMinutes(-2);
@@ -63,26 +65,37 @@ namespace BusinessObjectLayer.BackgroundJobs
 
             _logger.LogInformation($"⚠️ Found {timedOutResumes.Count} timed-out resume(s).");
 
-            // Update each resume to Failed status
-            int updatedCount = 0;
-            foreach (var resume in timedOutResumes)
+            await uow.BeginTransactionAsync();
+            try
             {
-                try
+                // Update each resume to Failed status
+                int updatedCount = 0;
+                foreach (var resume in timedOutResumes)
                 {
-                    resume.ResumeStatus = ResumeStatusEnum.Failed;
-                    await parsedResumeRepository.UpdateAsync(resume);
-                    updatedCount++;
+                    try
+                    {
+                        resume.ResumeStatus = ResumeStatusEnum.Failed;
+                        await parsedResumeRepository.UpdateAsync(resume);
+                        updatedCount++;
 
-                    _logger.LogInformation(
-                        $"❌ Resume {resume.ResumeId} (QueueJobId: {resume.QueueJobId}) marked as Failed due to timeout.");
+                        _logger.LogInformation(
+                            $"❌ Resume {resume.ResumeId} (QueueJobId: {resume.QueueJobId}) marked as Failed due to timeout.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"❌ Failed to update resume {resume.ResumeId}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"❌ Failed to update resume {resume.ResumeId}");
-                }
+
+                // Save all changes to the database
+                await uow.CommitTransactionAsync();
+                _logger.LogInformation($"✅ Successfully updated {updatedCount}/{timedOutResumes.Count} timed-out resume(s) to Failed status.");
             }
-
-            _logger.LogInformation($"✅ Successfully updated {updatedCount}/{timedOutResumes.Count} timed-out resume(s) to Failed status.");
+            catch (Exception ex)
+            {
+                await uow.RollbackTransactionAsync();
+                _logger.LogError(ex, $"❌ Failed to save changes to database. Transaction rolled back.");
+            }
         }
     }
 }

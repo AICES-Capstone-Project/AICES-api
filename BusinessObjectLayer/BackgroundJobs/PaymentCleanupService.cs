@@ -1,5 +1,6 @@
 using Data.Enum;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -45,7 +46,8 @@ namespace BusinessObjectLayer.BackgroundJobs
         private async Task CheckAndFailTimedOutPaymentsAsync()
         {
             using var scope = _scopeFactory.CreateScope();
-            var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
+            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var paymentRepository = uow.GetRepository<IPaymentRepository>();
 
             // Calculate cutoff time (15 minutes ago)
             var cutoff = DateTime.UtcNow.AddMinutes(-15);
@@ -63,26 +65,37 @@ namespace BusinessObjectLayer.BackgroundJobs
 
             _logger.LogInformation($"⚠️ Found {timedOutPayments.Count} timed-out payment(s).");
 
-            // Update each payment to Failed status
-            int updatedCount = 0;
-            foreach (var payment in timedOutPayments)
+            await uow.BeginTransactionAsync();
+            try
             {
-                try
+                // Update each payment to Failed status
+                int updatedCount = 0;
+                foreach (var payment in timedOutPayments)
                 {
-                    payment.PaymentStatus = PaymentStatusEnum.Failed;
-                    await paymentRepository.UpdateAsync(payment);
-                    updatedCount++;
+                    try
+                    {
+                        payment.PaymentStatus = PaymentStatusEnum.Failed;
+                        await paymentRepository.UpdateAsync(payment);
+                        updatedCount++;
 
-                    _logger.LogInformation(
-                        $"❌ Payment {payment.PaymentId} (CompanyId: {payment.CompanyId}) marked as Failed due to timeout.");
+                        _logger.LogInformation(
+                            $"❌ Payment {payment.PaymentId} (CompanyId: {payment.CompanyId}) marked as Failed due to timeout.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"❌ Failed to update payment {payment.PaymentId}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"❌ Failed to update payment {payment.PaymentId}");
-                }
+
+                // Save all changes to the database
+                await uow.CommitTransactionAsync();
+                _logger.LogInformation($"✅ Successfully updated {updatedCount}/{timedOutPayments.Count} timed-out payment(s) to Failed status.");
             }
-
-            _logger.LogInformation($"✅ Successfully updated {updatedCount}/{timedOutPayments.Count} timed-out payment(s) to Failed status.");
+            catch (Exception ex)
+            {
+                await uow.RollbackTransactionAsync();
+                _logger.LogError(ex, $"❌ Failed to save changes to database. Transaction rolled back.");
+            }
         }
     }
 }
