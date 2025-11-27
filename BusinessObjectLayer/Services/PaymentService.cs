@@ -487,7 +487,6 @@ namespace BusinessObjectLayer.Services
                     if (cs != null)
                     {
                         cs.SubscriptionStatus = SubscriptionStatusEnum.Canceled;
-                        cs.IsActive = false;
                         await companySubRepo.UpdateAsync(cs);
                         await _uow.SaveChangesAsync();
                     }
