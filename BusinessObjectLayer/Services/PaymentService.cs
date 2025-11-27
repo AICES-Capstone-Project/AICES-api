@@ -341,21 +341,67 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var companyIdToUse = companySub?.CompanyId ?? companyIdFromMetadata;
+                var now = DateTime.UtcNow;
+                var invoiceUrl = await GetInvoiceUrlAsync(invoice);
+                
+                // Determine if this is a renewal
+                CompanySubscription? targetCompanySub = companySub;
+                bool isRenewal = false;
+                
+                if (companySub != null)
+                {
+                    var subDef = await subscriptionRepo.GetByIdAsync(companySub.SubscriptionId);
+                    var durationDays = subDef?.DurationDays ?? 30;
+                    var expectedEndDate = companySub.StartDate.AddDays(durationDays);
+                    
+                    // Check if this is a renewal (subscription is expiring or expired)
+                    // Renewal happens when: now is at or past endDate, or very close to it (within 1 day)
+                    isRenewal = now >= companySub.EndDate.AddDays(-1);
+                    
+                    // Check if this is the initial payment (recently created, EndDate matches expected)
+                    var isInitialPayment = Math.Abs((companySub.EndDate - expectedEndDate).TotalDays) < 1;
+                    isRenewal = isRenewal && !isInitialPayment;
+                    
+                    if (isRenewal)
+                    {
+                        // This is a renewal - follow business rule:
+                        // 1. Mark old subscription as Expired
+                        companySub.SubscriptionStatus = SubscriptionStatusEnum.Expired;
+                        await companySubRepo.UpdateAsync(companySub);
+                        await _uow.SaveChangesAsync();
+                        
+                        // 2. Create new CompanySubscription (like checkout)
+                        targetCompanySub = new CompanySubscription
+                        {
+                            CompanyId = companySub.CompanyId,
+                            SubscriptionId = companySub.SubscriptionId,
+                            StartDate = now,
+                            EndDate = now.AddDays(durationDays),
+                            SubscriptionStatus = SubscriptionStatusEnum.Active,
+                            StripeSubscriptionId = stripeSubId
+                        };
+                        await companySubRepo.AddAsync(targetCompanySub);
+                        await _uow.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        // This is the initial payment - just update status to Active
+                        companySub.SubscriptionStatus = SubscriptionStatusEnum.Active;
+                        await companySubRepo.UpdateAsync(companySub);
+                        await _uow.SaveChangesAsync();
+                    }
+                }
 
+                // Create/update Payment and Transaction (linked to the appropriate CompanySubscription)
                 if (companyIdToUse.HasValue)
                 {
                     var payment = await GetPaymentFromInvoiceMetadataAsync(metadataSnapshot, companyIdToUse);
-
-                    var invoiceUrl = await GetInvoiceUrlAsync(invoice);
 
                     if (payment != null)
                     {
                         payment.PaymentStatus = PaymentStatusEnum.Paid;
                         payment.InvoiceUrl = invoiceUrl;
-                        if (companySub != null)
-                        {
-                            payment.ComSubId = companySub.ComSubId;
-                        }
+                        payment.ComSubId = targetCompanySub?.ComSubId;
                         await paymentRepo.UpdateAsync(payment);
                     }
                     else
@@ -363,7 +409,7 @@ namespace BusinessObjectLayer.Services
                         payment = new Payment
                         {
                             CompanyId = companyIdToUse.Value,
-                            ComSubId = companySub?.ComSubId,
+                            ComSubId = targetCompanySub?.ComSubId,
                             PaymentStatus = PaymentStatusEnum.Paid,
                             InvoiceUrl = invoiceUrl
                         };
@@ -371,6 +417,7 @@ namespace BusinessObjectLayer.Services
                     }
                     await _uow.SaveChangesAsync();
 
+                    // Create new Transaction (for both initial and renewal)
                     await transactionRepo.AddAsync(new Transaction
                     {
                         PaymentId = payment.PaymentId,
@@ -378,22 +425,9 @@ namespace BusinessObjectLayer.Services
                         Currency = "USD",
                         Gateway = TransactionGatewayEnum.StripePayment,
                         ResponseCode = "SUCCESS",
-                        ResponseMessage = $"Invoice {invoice.Id} paid",
-                        TransactionTime = DateTime.UtcNow,
+                        ResponseMessage = isRenewal ? $"Renewal invoice {invoice.Id} paid" : $"Invoice {invoice.Id} paid",
+                        TransactionTime = now,
                     });
-                    await _uow.SaveChangesAsync();
-                }
-
-                // Update companySub nếu tồn tại (cho renewal)
-                if (companySub != null)
-                {
-                    var subDef = await subscriptionRepo.GetByIdAsync(companySub.SubscriptionId);
-                    var now = DateTime.UtcNow;
-                    var extendFrom = companySub.EndDate > now ? companySub.EndDate : now;
-
-                    companySub.EndDate = extendFrom.AddDays(subDef?.DurationDays ?? 30);
-                    companySub.SubscriptionStatus = SubscriptionStatusEnum.Active;
-                    await companySubRepo.UpdateAsync(companySub);
                     await _uow.SaveChangesAsync();
                 }
 
@@ -738,7 +772,6 @@ namespace BusinessObjectLayer.Services
 
                 // Cancel ngay lập tức: mất quyền truy cập ngay
                 companySubscription.SubscriptionStatus = SubscriptionStatusEnum.Canceled;
-                companySubscription.IsActive = false;
                 await companySubRepo.UpdateAsync(companySubscription);
                 await _uow.SaveChangesAsync();
 
