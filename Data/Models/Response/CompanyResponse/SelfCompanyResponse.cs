@@ -14,6 +14,7 @@ namespace Data.Models.Response
         public string? LogoUrl { get; set; }
         public CompanyStatusEnum CompanyStatus { get; set; }
         public string? RejectionReason { get; set; }
+        public string? ManagerName { get; set; }
         public List<CompanyDocumentResponse> Documents { get; set; } = new List<CompanyDocumentResponse>();
     }
 

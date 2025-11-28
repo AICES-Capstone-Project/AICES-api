@@ -411,6 +411,13 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Get manager name (HR_Manager role)
+                string? managerName = null;
+                var members = await companyUserRepo.GetApprovedAndInvitedMembersByCompanyIdAsync(companyUser.CompanyId.Value);
+                var manager = members.FirstOrDefault(m => 
+                    m.User?.Role?.RoleName == "HR_Manager" || m.User?.RoleId == 4);
+                managerName = manager?.User?.Profile?.FullName;
+
                 var companyResponse = new SelfCompanyResponse
                 {
                     CompanyId = company.CompanyId,
@@ -422,6 +429,7 @@ namespace BusinessObjectLayer.Services
                     LogoUrl = company.LogoUrl,
                     CompanyStatus = company.CompanyStatus,
                     RejectionReason = company.RejectReason,
+                    ManagerName = managerName,
                     Documents = company.CompanyDocuments?.Select(d => new CompanyDocumentResponse
                     {
                         DocumentType = d.DocumentType ?? "",
