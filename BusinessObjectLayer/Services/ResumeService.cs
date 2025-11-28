@@ -52,7 +52,7 @@ namespace BusinessObjectLayer.Services
                 var jobRepo = _uow.GetRepository<IJobRepository>();
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
-                
+                var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
                 // Validate job exists
                 var job = await jobRepo.GetJobByIdAsync(jobId);
                 if (job == null)
@@ -97,6 +97,28 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.Forbidden,
                         Message = "This jobId not exists in your company."
+                    };
+                }
+
+                // Check if company has an active subscription
+                var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+                
+                if (companySubscription == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Your company does not have an active subscription. Please subscribe to a plan to upload resumes."
+                    };
+                }
+
+                // Check if subscription is Active (not just Pending)
+                if (companySubscription.SubscriptionStatus != SubscriptionStatusEnum.Active)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Your company subscription is not active. Please wait for activation or contact support."
                     };
                 }
 
