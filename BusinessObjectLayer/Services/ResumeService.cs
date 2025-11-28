@@ -122,7 +122,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Check resume limit before uploading
+                // Check resume limit before uploading (early check for fast fail)
                 var limitCheck = await _resumeLimitService.CheckResumeLimitAsync(companyId);
                 if (limitCheck.Status != SRStatus.Success)
                 {
@@ -170,6 +170,16 @@ namespace BusinessObjectLayer.Services
                 await _uow.BeginTransactionAsync();
                 try
                 {
+                    // Check resume limit again inside transaction to prevent race condition
+                    // This ensures atomicity when multiple uploads happen simultaneously
+                    // Uses InTransaction method to see records created in current transaction
+                    var limitCheckInTransaction = await _resumeLimitService.CheckResumeLimitInTransactionAsync(companyId);
+                    if (limitCheckInTransaction.Status != SRStatus.Success)
+                    {
+                        await _uow.RollbackTransactionAsync();
+                        return limitCheckInTransaction;
+                    }
+
                     // Create ParsedResume record
                     var parsedResume = new ParsedResumes
                     {

@@ -99,6 +99,18 @@ namespace DataAccessLayer.Repositories
                     && pr.CreatedAt.Value >= hoursAgo)
                 .CountAsync();
         }
+
+        public async Task<int> CountResumesInLastHoursInTransactionAsync(int companyId, int hours)
+        {
+            var hoursAgo = DateTime.UtcNow.AddHours(-hours);
+            // No AsNoTracking() to see records created in current transaction
+            return await _context.ParsedResumes
+                .Where(pr => pr.CompanyId == companyId
+                    && pr.IsActive
+                    && pr.CreatedAt.HasValue
+                    && pr.CreatedAt.Value >= hoursAgo)
+                .CountAsync();
+        }
     }
 }
 

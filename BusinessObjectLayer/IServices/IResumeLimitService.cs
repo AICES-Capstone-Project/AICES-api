@@ -6,6 +6,7 @@ namespace BusinessObjectLayer.IServices
     public interface IResumeLimitService
     {
         Task<ServiceResponse> CheckResumeLimitAsync(int companyId);
+        Task<ServiceResponse> CheckResumeLimitInTransactionAsync(int companyId);
     }
 }
 
