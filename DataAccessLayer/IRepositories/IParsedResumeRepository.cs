@@ -15,6 +15,8 @@ namespace DataAccessLayer.IRepositories
         Task<List<ParsedResumes>> GetPendingBeforeAsync(DateTime cutoff);
         Task<int> CountResumesInLastHoursAsync(int companyId, int hours);
         Task<int> CountResumesInLastHoursInTransactionAsync(int companyId, int hours);
+        Task<int> CountResumesSinceDateAsync(int companyId, DateTime startDate, int hours);
+        Task<int> CountResumesSinceDateInTransactionAsync(int companyId, DateTime startDate, int hours);
     }
 }
 

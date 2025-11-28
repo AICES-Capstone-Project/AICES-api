@@ -8,9 +8,11 @@ using DataAccessLayer.IRepositories;
 using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Concurrent;
 using System.ComponentModel.Design;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 
 namespace BusinessObjectLayer.Services
 {
@@ -21,6 +23,9 @@ namespace BusinessObjectLayer.Services
         private readonly RedisHelper _redisHelper;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IResumeLimitService _resumeLimitService;
+        
+        // Application-level lock per company to prevent race conditions
+        private static readonly ConcurrentDictionary<int, SemaphoreSlim> _companyLocks = new();
 
         public ResumeService(
             IUnitOfWork uow,
@@ -167,76 +172,94 @@ namespace BusinessObjectLayer.Services
                 // Generate queue job ID
                 var queueJobId = Guid.NewGuid().ToString();
 
-                await _uow.BeginTransactionAsync();
+                // Get or create semaphore for this company to prevent concurrent uploads
+                var semaphore = _companyLocks.GetOrAdd(companyId, _ => new SemaphoreSlim(1, 1));
+                
+                await semaphore.WaitAsync();
                 try
                 {
-                    // Check resume limit again inside transaction to prevent race condition
-                    // This ensures atomicity when multiple uploads happen simultaneously
-                    // Uses InTransaction method to see records created in current transaction
-                    var limitCheckInTransaction = await _resumeLimitService.CheckResumeLimitInTransactionAsync(companyId);
-                    if (limitCheckInTransaction.Status != SRStatus.Success)
+                    await _uow.BeginTransactionAsync();
+                    try
+                    {
+                        // Check resume limit before creating record to fail fast
+                        var limitCheckInTransaction = await _resumeLimitService.CheckResumeLimitInTransactionAsync(companyId);
+                        if (limitCheckInTransaction.Status != SRStatus.Success)
+                        {
+                            await _uow.RollbackTransactionAsync();
+                            return limitCheckInTransaction;
+                        }
+
+                        // Create ParsedResume record
+                        var parsedResume = new ParsedResumes
+                        {
+                            CompanyId = companyUser.CompanyId.Value,
+                            JobId = jobId,
+                            QueueJobId = queueJobId,
+                            FileUrl = fileUrl,
+                            ResumeStatus = ResumeStatusEnum.Pending
+                        };
+
+                        await parsedResumeRepo.CreateAsync(parsedResume);
+                        await _uow.SaveChangesAsync(); // Get ResumeId
+
+                        // Check limit again AFTER saving to ensure we don't exceed limit
+                        // This catches race conditions where multiple requests save simultaneously
+                        var limitCheckAfterSave = await _resumeLimitService.CheckResumeLimitInTransactionAsync(companyId);
+                        if (limitCheckAfterSave.Status != SRStatus.Success)
+                        {
+                            await _uow.RollbackTransactionAsync();
+                            return limitCheckAfterSave;
+                        }
+
+                        // Prepare criteria data for queue
+                        var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
+                        {
+                            criteriaId = c.CriteriaId,
+                            name = c.Name,
+                            weight = c.Weight
+                        }).ToList() ?? new List<CriteriaQueueResponse>();
+
+                        // Push job to Redis queue with requirements and criteria
+                        var jobData = new ResumeQueueJobResponse
+                        {
+                            resumeId = parsedResume.ResumeId,
+                            queueJobId = queueJobId,
+                            jobId = jobId,
+                            fileUrl = fileUrl,
+                            requirements = job.Requirements,
+                            criteria = criteriaData
+                        };
+
+                        var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
+                        if (!pushed)
+                        {
+                            // Log warning but don't fail the request
+                            Console.WriteLine($"Warning: Failed to push job to Redis queue for resumeId: {parsedResume.ResumeId}");
+                        }
+
+                        await _uow.CommitTransactionAsync();
+
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Success,
+                            Message = "Resume uploaded successfully.",
+                            Data = new ResumeUploadResponse
+                            {
+                                ResumeId = parsedResume.ResumeId,
+                                QueueJobId = queueJobId,
+                                Status = ResumeStatusEnum.Pending
+                            }
+                        };
+                    }
+                    catch
                     {
                         await _uow.RollbackTransactionAsync();
-                        return limitCheckInTransaction;
+                        throw;
                     }
-
-                    // Create ParsedResume record
-                    var parsedResume = new ParsedResumes
-                    {
-                        CompanyId = companyUser.CompanyId.Value,
-                        JobId = jobId,
-                        QueueJobId = queueJobId,
-                        FileUrl = fileUrl,
-                        ResumeStatus = ResumeStatusEnum.Pending
-                    };
-
-                    await parsedResumeRepo.CreateAsync(parsedResume);
-                    await _uow.SaveChangesAsync(); // Get ResumeId
-
-                // Prepare criteria data for queue
-                var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
-                {
-                    criteriaId = c.CriteriaId,
-                    name = c.Name,
-                    weight = c.Weight
-                }).ToList() ?? new List<CriteriaQueueResponse>();
-
-                    // Push job to Redis queue with requirements and criteria
-                    var jobData = new ResumeQueueJobResponse
-                    {
-                        resumeId = parsedResume.ResumeId,
-                        queueJobId = queueJobId,
-                        jobId = jobId,
-                        fileUrl = fileUrl,
-                        requirements = job.Requirements,
-                        criteria = criteriaData
-                    };
-
-                    var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
-                    if (!pushed)
-                    {
-                        // Log warning but don't fail the request
-                        Console.WriteLine($"Warning: Failed to push job to Redis queue for resumeId: {parsedResume.ResumeId}");
-                    }
-
-                    await _uow.CommitTransactionAsync();
-
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Success,
-                        Message = "Resume uploaded successfully.",
-                        Data = new ResumeUploadResponse
-                        {
-                            ResumeId = parsedResume.ResumeId,
-                            QueueJobId = queueJobId,
-                            Status = ResumeStatusEnum.Pending
-                        }
-                    };
                 }
-                catch
+                finally
                 {
-                    await _uow.RollbackTransactionAsync();
-                    throw;
+                    semaphore.Release();
                 }
             }
             catch (Exception ex)

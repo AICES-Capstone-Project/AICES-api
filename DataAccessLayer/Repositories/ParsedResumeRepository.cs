@@ -111,6 +111,34 @@ namespace DataAccessLayer.Repositories
                     && pr.CreatedAt.Value >= hoursAgo)
                 .CountAsync();
         }
+
+        public async Task<int> CountResumesSinceDateAsync(int companyId, DateTime startDate, int hours)
+        {
+            var hoursAgo = DateTime.UtcNow.AddHours(-hours);
+            var effectiveStartDate = startDate > hoursAgo ? startDate : hoursAgo;
+            
+            return await _context.ParsedResumes
+                .AsNoTracking()
+                .Where(pr => pr.CompanyId == companyId
+                    && pr.IsActive
+                    && pr.CreatedAt.HasValue
+                    && pr.CreatedAt.Value >= effectiveStartDate)
+                .CountAsync();
+        }
+
+        public async Task<int> CountResumesSinceDateInTransactionAsync(int companyId, DateTime startDate, int hours)
+        {
+            var hoursAgo = DateTime.UtcNow.AddHours(-hours);
+            var effectiveStartDate = startDate > hoursAgo ? startDate : hoursAgo;
+            
+            // No AsNoTracking() to see records created in current transaction
+            return await _context.ParsedResumes
+                .Where(pr => pr.CompanyId == companyId
+                    && pr.IsActive
+                    && pr.CreatedAt.HasValue
+                    && pr.CreatedAt.Value >= effectiveStartDate)
+                .CountAsync();
+        }
     }
 }
 

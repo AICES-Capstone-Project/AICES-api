@@ -105,6 +105,19 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<CompanySubscription?> GetAnyActiveSubscriptionForUpdateByCompanyAsync(int companyId)
+        {
+            var now = DateTime.UtcNow;
+            // No AsNoTracking() and use FOR UPDATE to lock row
+            return await _context.CompanySubscriptions
+                .Include(cs => cs.Subscription)
+                .Where(cs => cs.CompanyId == companyId
+                    && (cs.SubscriptionStatus == SubscriptionStatusEnum.Active || cs.SubscriptionStatus == SubscriptionStatusEnum.Pending)
+                    && cs.IsActive
+                    && cs.EndDate > now)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<CompanySubscription> AddAsync(CompanySubscription companySubscription)
         {
             await _context.CompanySubscriptions.AddAsync(companySubscription);
