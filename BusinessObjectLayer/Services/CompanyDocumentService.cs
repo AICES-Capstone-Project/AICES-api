@@ -1,15 +1,12 @@
 ﻿using BusinessObjectLayer.IServices;
-using CloudinaryDotNet;
-using CloudinaryDotNet.Actions;
+using BusinessObjectLayer.Common;
 using Data.Entities;
 using DataAccessLayer.IRepositories;
 using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace BusinessObjectLayer.Services
@@ -17,14 +14,14 @@ namespace BusinessObjectLayer.Services
     public class CompanyDocumentService : ICompanyDocumentService
     {
         private readonly IUnitOfWork _uow;
-        private readonly Common.CloudinaryHelper _cloudinaryHelper;
+        private readonly GoogleCloudStorageHelper _storageHelper;
 
         public CompanyDocumentService(
             IUnitOfWork uow,
-            Common.CloudinaryHelper cloudinaryHelper)
+            GoogleCloudStorageHelper storageHelper)
         {
             _uow = uow;
-            _cloudinaryHelper = cloudinaryHelper;
+            _storageHelper = storageHelper;
         }
 
         public async Task<List<CompanyDocument>> UploadAndSaveDocumentsAsync(
@@ -44,18 +41,25 @@ namespace BusinessObjectLayer.Services
                     ? documentTypes[i]
                     : "General";
 
-                // Upload file to Cloudinary
-                var upload = await UploadFileAsync(file, "companies/documents");
-                if (upload.Success)
+                // Upload file to Google Cloud Storage
+                var uploadResult = await _storageHelper.UploadFileAsync(file, "companies/documents");
+                if (uploadResult.Status == Data.Enum.SRStatus.Success && uploadResult.Data != null)
                 {
-                    var document = new CompanyDocument
+                    // Extract URL from ServiceResponse.Data
+                    dynamic? data = uploadResult.Data;
+                    string? url = data?.Url?.ToString();
+                    
+                    if (!string.IsNullOrEmpty(url))
                     {
-                        CompanyId = companyId,
-                        DocumentType = documentType,
-                        FileUrl = upload.Url
-                    };
+                        var document = new CompanyDocument
+                        {
+                            CompanyId = companyId,
+                            DocumentType = documentType,
+                            FileUrl = url
+                        };
 
-                    documents.Add(document);
+                        documents.Add(document);
+                    }
                 }
             }
 
@@ -98,12 +102,6 @@ namespace BusinessObjectLayer.Services
             {
                 return false;
             }
-        }
-
-                // Private helper method for uploading files
-        private async Task<(bool Success, string? Url, string? ErrorMessage)> UploadFileAsync(IFormFile file, string folder)
-        {
-            return await _cloudinaryHelper.UploadCompanyDocumentAsync(file);
         }
     }
 }
