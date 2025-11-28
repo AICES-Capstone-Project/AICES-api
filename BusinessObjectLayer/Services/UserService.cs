@@ -109,7 +109,7 @@ namespace BusinessObjectLayer.Services
             };
         }
 
-        public async Task<ServiceResponse> CreateUserAsync(UserRequest request)
+        public async Task<ServiceResponse> CreateUserAsync(CreateUserRequest request)
         {
             var userRepo = _uow.GetRepository<IUserRepository>();
             
@@ -174,7 +174,7 @@ namespace BusinessObjectLayer.Services
                 throw;
             }
         }
-        public async Task<ServiceResponse> UpdateUserAsync(int id, UserRequest request)
+        public async Task<ServiceResponse> UpdateUserAsync(int id, UpdateUserRequest request)
         {
             var userRepo = _uow.GetRepository<IUserRepository>();
             var user = await userRepo.GetForUpdateAsync(id);
@@ -187,24 +187,14 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            if (user.Email != request.Email && await userRepo.EmailExistsAsync(request.Email))
-            {
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "Email already exists."
-                };
-            }
-
             await _uow.BeginTransactionAsync();
             try
             {
-                user.Email = request.Email;
-                user.RoleId = request.RoleId;
+                if (request.RoleId.HasValue)
+                    user.RoleId = request.RoleId.Value;
+
                 if (!string.IsNullOrEmpty(request.Password))
-                {
                     user.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
-                }
 
                 await userRepo.UpdateAsync(user);
                 await _uow.CommitTransactionAsync();

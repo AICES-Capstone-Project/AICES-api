@@ -11,10 +11,10 @@ namespace BusinessObjectLayer.IServices
 {
     public interface IUserService
     {
-        Task<ServiceResponse> CreateUserAsync(UserRequest request);
+        Task<ServiceResponse> CreateUserAsync(CreateUserRequest request);
         Task<ServiceResponse> GetUserByIdAsync(int id);
         Task<ServiceResponse> GetUsersAsync(int page = 1, int pageSize = 10, string? search = null);
-        Task<ServiceResponse> UpdateUserAsync(int id, UserRequest request);
+        Task<ServiceResponse> UpdateUserAsync(int id, UpdateUserRequest request);
         Task<ServiceResponse> SoftDeleteAsync(int id);
         Task<ServiceResponse> UpdateUserStatusAsync(int id, UserStatusEnum status);
         

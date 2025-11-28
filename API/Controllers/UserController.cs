@@ -20,7 +20,7 @@ namespace API.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateUser([FromBody] UserRequest request)
+        public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
         {
             var serviceResponse = await _userService.CreateUserAsync(request);
             return ControllerResponse.Response(serviceResponse);
@@ -41,7 +41,7 @@ namespace API.Controllers
         }
 
         [HttpPatch("{id}")]
-        public async Task<IActionResult> UpdateUser(int id, [FromBody] UserRequest request)
+        public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserRequest request)
         {
             var serviceResponse = await _userService.UpdateUserAsync(id, request);
             return ControllerResponse.Response(serviceResponse);
