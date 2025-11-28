@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +12,7 @@ namespace DataAccessLayer.IRepositories
         Task AddAsync(Notification notification);
         Task<IEnumerable<Notification>> GetByUserIdAsync(int userId);
         Task MarkAsReadAsync(int notifId);
+        Task MarkAllAsReadByUserIdAsync(int userId);
         Task<Notification?> GetByIdAsync(int notifId);
         Task<Notification?> GetForUpdateAsync(int notifId);
         Task UpdateAsync(Notification notification);

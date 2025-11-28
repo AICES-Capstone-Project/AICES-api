@@ -1055,10 +1055,10 @@ namespace BusinessObjectLayer.Services
                             if (creatorUserId.HasValue)
                             {
                                 await _notificationService.CreateAsync(
-                                    creatorUserId.Value,
-                                    NotificationTypeEnum.CompanyApproved,
-                                    $"Your company '{company.Name}' has been approved ✅",
-                                    "Congratulations! Your company has been approved by the system manager."
+                                    userId: creatorUserId.Value,
+                                    type: NotificationTypeEnum.Company,
+                                    message: $"Your company has been approved",
+                                    detail: $"Congratulations! Your company '{company.Name}' has been approved by the admin."
                                 );
                             }
 
@@ -1093,10 +1093,10 @@ namespace BusinessObjectLayer.Services
                         if (creatorUserId.HasValue)
                         {
                             await _notificationService.CreateAsync(
-                                creatorUserId.Value,
-                                NotificationTypeEnum.CompanyRejected,
-                                $"Your company '{company.Name}' has been rejected ❌",
-                                $"Reason: {rejectionReason ?? "No reason provided."}"
+                                userId: creatorUserId.Value,
+                                type: NotificationTypeEnum.Company,
+                                message: $"Your company has been rejected",
+                                detail: $"Reason: {rejectionReason ?? "No reason provided."}"
                             );
                         }
 
@@ -1123,11 +1123,11 @@ namespace BusinessObjectLayer.Services
                         if (creatorUserId.HasValue)
                         {
                             await _notificationService.CreateAsync(
-                                creatorUserId.Value,
-                                NotificationTypeEnum.CompanySuspended,
-                                $"Your company '{company.Name}' has been suspended ⚠️",
-                                "Your company has been temporarily suspended. Please contact support for more details."
-                            );
+                                userId: creatorUserId.Value,
+                                type: NotificationTypeEnum.Company,
+                                message: $"Your company has been suspended",
+                                detail: $"Your company has been temporarily suspended. Please contact support for more details."
+                            );  
                         }
 
                         return new ServiceResponse

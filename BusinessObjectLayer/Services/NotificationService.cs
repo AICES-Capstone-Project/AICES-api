@@ -79,15 +79,84 @@ namespace BusinessObjectLayer.Services
             };
         }
 
-        public async Task<ServiceResponse> MarkAsReadAsync(int notifId)
+        public async Task<ServiceResponse> MarkAsReadAsync(ClaimsPrincipal user, int notifId)
         {
+            var userIdClaim = Common.ClaimUtils.GetUserIdClaim(user);
+
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "User not authenticated."
+                };
+            }
+
+            if (!int.TryParse(userIdClaim, out int userId))
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "Invalid user ID format."
+                };
+            }
+
             var notifRepo = _uow.GetRepository<INotificationRepository>();
-            await notifRepo.MarkAsReadAsync(notifId);
-            await _uow.SaveChangesAsync();
+            var notif = await notifRepo.GetForUpdateAsync(notifId);
+
+            if (notif == null || notif.UserId != userId)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "Notification not found or access denied."
+                };
+            }
+
+            if (!notif.IsRead)
+            {
+                notif.IsRead = true;
+                await notifRepo.UpdateAsync(notif);
+                await _uow.SaveChangesAsync();
+            }
+
             return new ServiceResponse
             {
                 Status = SRStatus.Success,
                 Message = "Notification marked as read."
+            };
+        }
+
+        public async Task<ServiceResponse> MarkAllAsReadAsync(ClaimsPrincipal user)
+        {
+            var userIdClaim = Common.ClaimUtils.GetUserIdClaim(user);
+
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "User not authenticated."
+                };
+            }
+
+            if (!int.TryParse(userIdClaim, out int userId))
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "Invalid user ID format."
+                };
+            }
+
+            var notifRepo = _uow.GetRepository<INotificationRepository>();
+            await notifRepo.MarkAllAsReadByUserIdAsync(userId);
+            await _uow.SaveChangesAsync();
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "All notifications marked as read."
             };
         }
         public async Task<ServiceResponse> GetMyNotificationsAsync(ClaimsPrincipal user)

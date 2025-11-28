@@ -1,4 +1,4 @@
-﻿using Data.Enum;
+using Data.Enum;
 using Data.Models.Response;
 using System;
 using System.Collections.Generic;
@@ -14,7 +14,8 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> CreateAsync(int userId, NotificationTypeEnum type, string message, string? detail = null);
         Task<ServiceResponse> GetByUserIdAsync(int userId);
         Task<ServiceResponse> GetMyNotificationsAsync(ClaimsPrincipal user);
-        Task<ServiceResponse> MarkAsReadAsync(int notifId);
+        Task<ServiceResponse> MarkAsReadAsync(ClaimsPrincipal user, int notifId);
+        Task<ServiceResponse> MarkAllAsReadAsync(ClaimsPrincipal user);
         Task<ServiceResponse> GetByIdAndMarkAsReadAsync(int userId, int notifId);
         Task<ServiceResponse> GetNotificationDetailAsync(ClaimsPrincipal user, int notifId);
     }

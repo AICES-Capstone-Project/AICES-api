@@ -1,4 +1,4 @@
-﻿using API.Common;
+using API.Common;
 using BusinessObjectLayer.IServices;
 using Data.Models.Request;
 using Microsoft.AspNetCore.Authorization;
@@ -26,26 +26,33 @@ namespace API.Controllers
             return ControllerResponse.Response(response);
         }
 
-        [HttpGet("{userId}")]
-        public async Task<IActionResult> GetByUserId(int userId)
-        {
-            var response = await _notificationService.GetByUserIdAsync(userId);
-            return ControllerResponse.Response(response);
-        }
+        // [HttpGet("{userId}")]
+        // public async Task<IActionResult> GetByUserId(int userId)
+        // {
+        //     var response = await _notificationService.GetByUserIdAsync(userId);
+        //     return ControllerResponse.Response(response);
+        // }
 
         [HttpPost("mark-as-read/{notifId}")]
         public async Task<IActionResult> MarkAsRead(int notifId)
         {
-            var response = await _notificationService.MarkAsReadAsync(notifId);
+            var response = await _notificationService.MarkAsReadAsync(User, notifId);
             return ControllerResponse.Response(response);
         }
 
-        [HttpGet("detail/{notifId}")]
-        public async Task<IActionResult> GetNotificationDetail(int notifId)
+        [HttpPost("mark-all-as-read")]
+        public async Task<IActionResult> MarkAllAsRead()
         {
-            var response = await _notificationService.GetNotificationDetailAsync(User, notifId);
+            var response = await _notificationService.MarkAllAsReadAsync(User);
             return ControllerResponse.Response(response);
         }
+
+        // [HttpGet("detail/{notifId}")]
+        // public async Task<IActionResult> GetNotificationDetail(int notifId)
+        // {
+        //     var response = await _notificationService.GetNotificationDetailAsync(User, notifId);
+        //     return ControllerResponse.Response(response);
+        // }
 
         /// <summary>
         /// Test endpoint: Gửi thông báo cho một userId cụ thể để test SignalR

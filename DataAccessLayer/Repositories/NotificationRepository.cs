@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -39,6 +39,23 @@ namespace DataAccessLayer.Repositories
             {
                 notif.IsRead = true;
                 _context.Notifications.Update(notif);
+            }
+        }
+
+        public async Task MarkAllAsReadByUserIdAsync(int userId)
+        {
+            var notifs = await _context.Notifications
+                .Where(n => n.UserId == userId && !n.IsRead)
+                .ToListAsync();
+
+            if (notifs.Count > 0)
+            {
+                foreach (var notif in notifs)
+                {
+                    notif.IsRead = true;
+                }
+
+                _context.Notifications.UpdateRange(notifs);
             }
         }
 

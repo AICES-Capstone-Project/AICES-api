@@ -704,6 +704,7 @@ namespace BusinessObjectLayer.Services
                     Requirements = job.Requirements,
                     CategoryName = job.Specialization?.Category?.Name,
                     SpecializationName = job.Specialization?.Name,
+                    JobStatus = job.JobStatus,
                     EmploymentTypes = job.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
                     Skills = job.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
                     Criteria = job.Criteria?.Select(c => new CriteriaResponse
