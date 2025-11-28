@@ -20,17 +20,20 @@ namespace BusinessObjectLayer.Services
         private readonly GoogleCloudStorageHelper _storageHelper;
         private readonly RedisHelper _redisHelper;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IResumeLimitService _resumeLimitService;
 
         public ResumeService(
             IUnitOfWork uow,
             GoogleCloudStorageHelper storageHelper,
             RedisHelper redisHelper,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            IResumeLimitService resumeLimitService)
         {
             _uow = uow;
             _storageHelper = storageHelper;
             _redisHelper = redisHelper;
             _httpContextAccessor = httpContextAccessor;
+            _resumeLimitService = resumeLimitService;
         }
 
         public async Task<ServiceResponse> UploadResumeAsync(int jobId, IFormFile file)
@@ -95,6 +98,13 @@ namespace BusinessObjectLayer.Services
                         Status = SRStatus.Forbidden,
                         Message = "This jobId not exists in your company."
                     };
+                }
+
+                // Check resume limit before uploading
+                var limitCheck = await _resumeLimitService.CheckResumeLimitAsync(companyId);
+                if (limitCheck.Status != SRStatus.Success)
+                {
+                    return limitCheck;
                 }
 
                 var extension = Path.GetExtension(file.FileName).ToLowerInvariant();

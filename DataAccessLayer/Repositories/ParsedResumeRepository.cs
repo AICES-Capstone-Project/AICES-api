@@ -87,6 +87,18 @@ namespace DataAccessLayer.Repositories
                          && x.IsActive)
                 .ToListAsync();
         }
+
+        public async Task<int> CountResumesInLastHoursAsync(int companyId, int hours)
+        {
+            var hoursAgo = DateTime.UtcNow.AddHours(-hours);
+            return await _context.ParsedResumes
+                .AsNoTracking()
+                .Where(pr => pr.CompanyId == companyId
+                    && pr.IsActive
+                    && pr.CreatedAt.HasValue
+                    && pr.CreatedAt.Value >= hoursAgo)
+                .CountAsync();
+        }
     }
 }
 

@@ -13,6 +13,7 @@ namespace DataAccessLayer.IRepositories
         Task<List<ParsedResumes>> GetByJobIdAsync(int jobId);
         Task<ParsedResumes?> GetByJobIdAndResumeIdAsync(int jobId, int resumeId);
         Task<List<ParsedResumes>> GetPendingBeforeAsync(DateTime cutoff);
+        Task<int> CountResumesInLastHoursAsync(int companyId, int hours);
     }
 }
 

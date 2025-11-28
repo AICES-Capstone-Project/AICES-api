@@ -279,6 +279,7 @@ builder.Services.AddScoped<IJobSkillService, JobSkillService>();
 builder.Services.AddScoped<ICriteriaService, CriteriaService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IResumeLimitService, BusinessObjectLayer.Services.UsageLimits.ResumeLimitService>();
 builder.Services.AddScoped<IResumeService, ResumeService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
