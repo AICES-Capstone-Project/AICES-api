@@ -153,6 +153,108 @@ namespace BusinessObjectLayer.Services
             };
         }
 
+        // ===================================================
+        // 1.5. CREATE SETUP INTENT (Stripe Elements flow)
+        // ===================================================
+        public async Task<ServiceResponse> CreateSetupIntentAsync(CheckoutRequest request, ClaimsPrincipal userClaims)
+        {
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+            var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            var paymentRepo = _uow.GetRepository<IPaymentRepository>();
+            var companyRepo = _uow.GetRepository<ICompanyRepository>();
+            
+            var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
+            if (userIdClaim == null)
+                return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
+
+            var userId = int.Parse(userIdClaim);
+
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+            if (companyUser == null || companyUser.CompanyId == null)
+                return new ServiceResponse { Status = SRStatus.Error, Message = "You must join a company before purchasing a subscription." };
+
+            int companyId = companyUser.CompanyId.Value;
+
+            var subscription = await subscriptionRepo.GetByIdAsync(request.SubscriptionId);
+            if (subscription == null)
+                return new ServiceResponse { Status = SRStatus.NotFound, Message = "Subscription not found" };
+
+            var existingCompanySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            if (existingCompanySubscription != null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Validation,
+                    Message = "Your company already has an active subscription. Please cancel or wait for it to expire before purchasing another plan."
+                };
+            }
+
+            // Get priceId
+            string stripePriceId = !string.IsNullOrWhiteSpace(subscription.StripePriceId) 
+                ? subscription.StripePriceId
+                : Environment.GetEnvironmentVariable("STRIPE__PRICE_DEFAULT")
+                  ?? throw new Exception($"Stripe price id not configured for subscription '{subscription.Name}' (ID: {subscription.SubscriptionId}). Please set StripePriceId in database or configure STRIPE__PRICE_DEFAULT in environment variables.");
+
+            // Ensure company has Stripe customer
+            var company = await companyRepo.GetByIdAsync(companyId);
+            if (company == null)
+                return new ServiceResponse { Status = SRStatus.NotFound, Message = "Company not found" };
+
+            var customerId = company.StripeCustomerId;
+            var customerService = new CustomerService();
+
+            if (string.IsNullOrEmpty(customerId))
+            {
+                var companyUserEntity = await companyUserRepo.GetCompanyUserByUserIdAsync(userId);
+                string email = companyUserEntity?.User?.Email ?? null;
+
+                var cust = await customerService.CreateAsync(new CustomerCreateOptions
+                {
+                    Email = email,
+                    Metadata = new Dictionary<string, string> { { "companyId", companyId.ToString() } }
+                });
+                company.StripeCustomerId = cust.Id;
+                await companyRepo.UpdateAsync(company);
+                await _uow.SaveChangesAsync();
+                customerId = cust.Id;
+            }
+
+            // Create a pending payment record
+            var payment = new Payment
+            {
+                CompanyId = companyId,
+                ComSubId = null,
+                PaymentStatus = PaymentStatusEnum.Pending,
+            };
+            await paymentRepo.AddAsync(payment);
+            await _uow.SaveChangesAsync();
+
+            // Create SetupIntent with metadata
+            var setupIntentService = new SetupIntentService();
+            var setupIntentOptions = new SetupIntentCreateOptions
+            {
+                Customer = customerId,
+                PaymentMethodTypes = new List<string> { "card" },
+                Metadata = new Dictionary<string, string>
+                {
+                    { "companyId", companyId.ToString() },
+                    { "subscriptionId", subscription.SubscriptionId.ToString() },
+                    { "paymentId", payment.PaymentId.ToString() },
+                    { "priceId", stripePriceId }
+                }
+            };
+
+            var setupIntent = await setupIntentService.CreateAsync(setupIntentOptions);
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "Setup intent created",
+                Data = new { clientSecret = setupIntent.ClientSecret }
+            };
+        }
+
 
         // ===================================================
         // 2. HANDLE STRIPE WEBHOOK
@@ -174,7 +276,122 @@ namespace BusinessObjectLayer.Services
             }
 
             // ============================================================
-            // 1) checkout.session.completed
+            // 1) setup_intent.succeeded (Stripe Elements flow)
+            // ============================================================
+            if (stripeEvent.Type == "setup_intent.succeeded")
+            {
+                var setupIntent = stripeEvent.Data.Object as Stripe.SetupIntent;
+                if (setupIntent == null)
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "SetupIntent object missing." };
+
+                if (string.IsNullOrEmpty(setupIntent.PaymentMethodId))
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "SetupIntent has no PaymentMethodId." };
+
+                if (setupIntent.Metadata == null || setupIntent.Metadata.Count == 0)
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "SetupIntent has no metadata." };
+
+                int.TryParse(setupIntent.Metadata.GetValueOrDefault("companyId") ?? "0", out int companyId);
+                int.TryParse(setupIntent.Metadata.GetValueOrDefault("subscriptionId") ?? "0", out int subscriptionId);
+                string priceId = setupIntent.Metadata.GetValueOrDefault("priceId") ?? string.Empty;
+
+                if (companyId == 0 || subscriptionId == 0 || string.IsNullOrEmpty(priceId))
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "Missing required metadata in SetupIntent." };
+
+                var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+                var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+                var paymentRepo = _uow.GetRepository<IPaymentRepository>();
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+
+                // Check if subscription already exists (idempotency)
+                var existingSubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+                if (existingSubscription != null)
+                {
+                    return new ServiceResponse { Status = SRStatus.Success, Message = "Company already has an active subscription." };
+                }
+
+                // Create Stripe subscription
+                var stripeSubscriptionService = new Stripe.SubscriptionService();
+                var subscriptionCreateOptions = new Stripe.SubscriptionCreateOptions
+                {
+                    Customer = setupIntent.CustomerId,
+                    DefaultPaymentMethod = setupIntent.PaymentMethodId,
+                    Items = new List<Stripe.SubscriptionItemOptions>
+                    {
+                        new Stripe.SubscriptionItemOptions
+                        {
+                            Price = priceId
+                        }
+                    },
+                    Metadata = setupIntent.Metadata
+                };
+
+                Stripe.Subscription stripeSubscription;
+                try
+                {
+                    stripeSubscription = await stripeSubscriptionService.CreateAsync(subscriptionCreateOptions);
+                }
+                catch (Exception ex)
+                {
+                    return new ServiceResponse 
+                    { 
+                        Status = SRStatus.Error, 
+                        Message = $"Failed to create Stripe subscription: {ex.Message}" 
+                    };
+                }
+
+                var subscriptionEntity = await subscriptionRepo.GetByIdAsync(subscriptionId);
+                if (subscriptionEntity == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.NotFound, Message = "Subscription not found." };
+                }
+
+                var now = DateTime.UtcNow;
+
+                // Create CompanySubscription
+                var companySubscription = new CompanySubscription
+                {
+                    CompanyId = companyId,
+                    SubscriptionId = subscriptionId,
+                    StartDate = now,
+                    EndDate = now.AddDays(subscriptionEntity.DurationDays),
+                    SubscriptionStatus = SubscriptionStatusEnum.Active,
+                    StripeSubscriptionId = stripeSubscription.Id
+                };
+
+                await companySubRepo.AddAsync(companySubscription);
+                await _uow.SaveChangesAsync();
+
+                // Update payment record
+                int.TryParse(setupIntent.Metadata.GetValueOrDefault("paymentId") ?? "0", out int paymentId);
+                if (paymentId > 0)
+                {
+                    var payment = await paymentRepo.GetForUpdateAsync(paymentId);
+                    if (payment != null)
+                    {
+                        payment.ComSubId = companySubscription.ComSubId;
+                        payment.PaymentStatus = PaymentStatusEnum.Paid;
+                        await paymentRepo.UpdateAsync(payment);
+                        await _uow.SaveChangesAsync();
+                    }
+                }
+
+                // Notify admins
+                var admins = await authRepo.GetUsersByRoleAsync("System_Admin");
+                foreach (var admin in admins)
+                {
+                    await _notificationService.CreateAsync(
+                        admin.UserId,
+                        NotificationTypeEnum.Subscription,
+                        "A company subscribed",
+                        $"Company {companyId} subscribed to {subscriptionEntity.Name} (stripeSub: {stripeSubscription.Id})"
+                    );
+                }
+
+                return new ServiceResponse { Status = SRStatus.Success, Message = "setup_intent.succeeded handled - subscription created." };
+            }
+
+            // ============================================================
+            // 1.5) checkout.session.completed (Legacy - kept for backward compatibility)
             // ============================================================
             if (stripeEvent.Type == "checkout.session.completed")
             {

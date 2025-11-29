@@ -1,4 +1,4 @@
-﻿using API.Common;
+using API.Common;
 using BusinessObjectLayer.IServices;
 using Data.Models.Request;
 using Microsoft.AspNetCore.Authorization;
@@ -23,6 +23,14 @@ namespace API.Controllers
         public async Task<IActionResult> CreateCheckout([FromBody] CheckoutRequest request)
         {
             var result = await _paymentService.CreateCheckoutSessionAsync(request, User);
+            return ControllerResponse.Response(result);
+        }
+
+        [Authorize(Roles = "HR_Manager")]
+        [HttpPost("create-setup-intent")]
+        public async Task<IActionResult> CreateSetupIntent([FromBody] CheckoutRequest request)
+        {
+            var result = await _paymentService.CreateSetupIntentAsync(request, User);
             return ControllerResponse.Response(result);
         }
 
