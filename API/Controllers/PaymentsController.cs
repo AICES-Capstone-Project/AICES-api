@@ -48,8 +48,5 @@ namespace API.Controllers
             var result = await _paymentService.GetPaymentBySessionIdAsync(sessionId);
             return ControllerResponse.Response(result);
         }
-
     }
-
-
 }

@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
@@ -126,34 +126,24 @@ namespace BusinessObjectLayer.Services
             {
                 { "companyId", companyId.ToString() },
                 { "subscriptionId", subscription.SubscriptionId.ToString() },
-                { "paymentId", payment.PaymentId.ToString() }
+                { "paymentId", payment.PaymentId.ToString() },
+                { "priceId", stripePriceId }
             };
 
             var options = new SessionCreateOptions
             {
-                Mode = "subscription",
+                Mode = "setup", // CHỈ setup payment method
+                PaymentMethodTypes = new List<string> { "card" },
                 Customer = customerId,
+
                 SuccessUrl = $"{domain}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
                 CancelUrl = $"{domain}/payment/cancel",
-                Metadata = metadata,
-                SubscriptionData = new SessionSubscriptionDataOptions
-                {
-                    Metadata = new Dictionary<string, string>(metadata)
-                },
-                LineItems = new List<SessionLineItemOptions>
-        {
-            new SessionLineItemOptions
-            {
-                Price = stripePriceId,
-                Quantity = 1
-            }
-        }
+
+                Metadata = metadata
             };
 
             var sessionService = new SessionService();
             var session = await sessionService.CreateAsync(options);
-
-            // We can add paymentId into session metadata? Stripe session metadata is already set; we could store mapping in our DB if needed.
 
             return new ServiceResponse
             {
@@ -194,68 +184,121 @@ namespace BusinessObjectLayer.Services
 
                 int.TryParse(session.Metadata?.GetValueOrDefault("companyId") ?? "0", out int companyId);
                 int.TryParse(session.Metadata?.GetValueOrDefault("subscriptionId") ?? "0", out int subscriptionId);
-
-                // Lấy subscription ID từ session
-                // Trong Stripe.NET, session.Subscription có thể là string ID hoặc Subscription object
-                string stripeSubscriptionId = null;
-                
-                if (session.Subscription != null)
-                {
-                    // Kiểm tra type và lấy ID
-                    if (session.Subscription is Stripe.Subscription subObject)
-                    {
-                        stripeSubscriptionId = subObject.Id;
-                    }
-                    else
-                    {
-                        // Nếu là string, convert sang string
-                        stripeSubscriptionId = session.Subscription.ToString();
-                    }
-                }
-
-                // Nếu vẫn không có, thử retrieve session với expand
-                if (string.IsNullOrEmpty(stripeSubscriptionId))
-                {
-                    try
-                    {
-                        var sessionService = new SessionService();
-                        var expandedSession = await sessionService.GetAsync(session.Id, new SessionGetOptions
-                        {
-                            Expand = new List<string> { "subscription" }
-                        });
-                        
-                        if (expandedSession.Subscription != null)
-                        {
-                            if (expandedSession.Subscription is Stripe.Subscription sub)
-                            {
-                                stripeSubscriptionId = sub.Id;
-                            }
-                            else
-                            {
-                                stripeSubscriptionId = expandedSession.Subscription.ToString();
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log error nhưng không throw
-                        Console.WriteLine($"Error retrieving session with expand: {ex.Message}");
-                    }
-                }
-
-                if (string.IsNullOrEmpty(stripeSubscriptionId))
-                {
-                    // Trả về Error để Stripe biết có vấn đề và có thể retry
-                    // Hoặc log để debug vì đây là trường hợp không bình thường
-                    Console.WriteLine($"[Webhook Error] checkout.session.completed - Session {session.Id} has no subscription ID. Session mode: {session.Mode}");
-                    return new ServiceResponse { Status = SRStatus.Error, Message = "Session has no subscription id. Cannot process payment." };
-                }
+                string priceId = session.Metadata?.GetValueOrDefault("priceId") ?? string.Empty;
 
                 var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
                 var paymentRepo = _uow.GetRepository<IPaymentRepository>();
                 var authRepo = _uow.GetRepository<IAuthRepository>();
-                
+
+                string stripeSubscriptionId = null;
+
+                // Nếu session mode là "setup", tạo subscription từ setup intent
+                if (session.Mode == "setup")
+                {
+                    // Lấy SetupIntentId từ session
+                    if (string.IsNullOrEmpty(session.SetupIntentId))
+                    {
+                        return new ServiceResponse 
+                        { 
+                            Status = SRStatus.Error, 
+                            Message = "Session has no SetupIntentId. Cannot create subscription." 
+                        };
+                    }
+
+                    // Lấy SetupIntent để lấy PaymentMethodId
+                    var setupIntentService = new SetupIntentService();
+                    var setupIntent = await setupIntentService.GetAsync(session.SetupIntentId);
+                    
+                    if (string.IsNullOrEmpty(setupIntent.PaymentMethodId))
+                    {
+                        return new ServiceResponse 
+                        { 
+                            Status = SRStatus.Error, 
+                            Message = "SetupIntent has no PaymentMethodId. Cannot create subscription." 
+                        };
+                    }
+
+                    if (string.IsNullOrEmpty(priceId))
+                    {
+                        return new ServiceResponse 
+                        { 
+                            Status = SRStatus.Error, 
+                            Message = "PriceId not found in session metadata. Cannot create subscription." 
+                        };
+                    }
+
+                    // Tạo subscription
+                    var stripeSubscriptionService = new Stripe.SubscriptionService();
+                    var subscriptionCreateOptions = new Stripe.SubscriptionCreateOptions
+                    {
+                        Customer = session.CustomerId,
+                        DefaultPaymentMethod = setupIntent.PaymentMethodId,
+                        Items = new List<Stripe.SubscriptionItemOptions>
+                        {
+                            new Stripe.SubscriptionItemOptions
+                            {
+                                Price = priceId
+                            }
+                        },
+                        Metadata = session.Metadata
+                    };
+
+                    var stripeSubscription = await stripeSubscriptionService.CreateAsync(subscriptionCreateOptions);
+                    stripeSubscriptionId = stripeSubscription.Id;
+                }
+                else
+                {
+                    // Nếu session mode là "subscription" (legacy flow), lấy subscription ID từ session
+                    if (session.Subscription != null)
+                    {
+                        if (session.Subscription is Stripe.Subscription subObject)
+                        {
+                            stripeSubscriptionId = subObject.Id;
+                        }
+                        else
+                        {
+                            stripeSubscriptionId = session.Subscription.ToString();
+                        }
+                    }
+
+                    // Nếu vẫn không có, thử retrieve session với expand
+                    if (string.IsNullOrEmpty(stripeSubscriptionId))
+                    {
+                        try
+                        {
+                            var sessionService = new SessionService();
+                            var expandedSession = await sessionService.GetAsync(session.Id, new SessionGetOptions
+                            {
+                                Expand = new List<string> { "subscription" }
+                            });
+                            
+                            if (expandedSession.Subscription != null)
+                            {
+                                if (expandedSession.Subscription is Stripe.Subscription sub)
+                                {
+                                    stripeSubscriptionId = sub.Id;
+                                }
+                                else
+                                {
+                                    stripeSubscriptionId = expandedSession.Subscription.ToString();
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error retrieving session with expand: {ex.Message}");
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(stripeSubscriptionId))
+                    {
+                        Console.WriteLine($"[Webhook Error] checkout.session.completed - Session {session.Id} has no subscription ID. Session mode: {session.Mode}");
+                        return new ServiceResponse { Status = SRStatus.Error, Message = "Session has no subscription id. Cannot process payment." };
+                    }
+                }
+
+                // Kiểm tra xem subscription đã được xử lý chưa
                 var existing = await companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubscriptionId);
                 if (existing != null)
                 {
@@ -263,6 +306,11 @@ namespace BusinessObjectLayer.Services
                 }
                 
                 var subscriptionEntity = await subscriptionRepo.GetByIdAsync(subscriptionId);
+                if (subscriptionEntity == null)
+                {
+                    return new ServiceResponse { Status = SRStatus.NotFound, Message = "Subscription not found." };
+                }
+
                 var now = DateTime.UtcNow;
 
                 var companySubscription = new CompanySubscription
@@ -270,7 +318,7 @@ namespace BusinessObjectLayer.Services
                     CompanyId = companyId,
                     SubscriptionId = subscriptionId,
                     StartDate = now,
-                    EndDate = now.AddDays(subscriptionEntity?.DurationDays ?? 0),
+                    EndDate = now.AddDays(subscriptionEntity.DurationDays),
                     SubscriptionStatus = SubscriptionStatusEnum.Active,
                     StripeSubscriptionId = stripeSubscriptionId
                 };
@@ -286,6 +334,7 @@ namespace BusinessObjectLayer.Services
                     if (payment != null)
                     {
                         payment.ComSubId = companySubscription.ComSubId;
+                        payment.PaymentStatus = PaymentStatusEnum.Paid;
                         await paymentRepo.UpdateAsync(payment);
                         await _uow.SaveChangesAsync();
                     }
@@ -298,7 +347,7 @@ namespace BusinessObjectLayer.Services
                         admin.UserId,
                         NotificationTypeEnum.Subscription,
                         "A company subscribed",
-                        $"Company {companyId} subscribed to {subscriptionEntity?.Name} (stripeSub: {stripeSubscriptionId})"
+                        $"Company {companyId} subscribed to {subscriptionEntity.Name} (stripeSub: {stripeSubscriptionId})"
                     );
                 }
 
