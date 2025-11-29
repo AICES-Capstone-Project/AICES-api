@@ -10,6 +10,18 @@ namespace Data.Models.Response
     {
         public int CompanyId { get; set; }
         public string Name { get; set; } = string.Empty;
+        public string? Address { get; set; }
+        public string? LogoUrl { get; set; }
+        public string? CompanyStatus { get; set; }
+        public int CreatedBy { get; set; }
+        public int? ApprovalBy { get; set; }
+        public DateTime? CreatedAt { get; set; }
+    }
+
+    public class CompanyDetailResponse
+    {
+        public int CompanyId { get; set; }
+        public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? Address { get; set; }
         public string? WebsiteUrl { get; set; }

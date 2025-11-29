@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DataAccessLayer.Repositories
 {
-    public class ParsedResumeRepository : IParsedResumeRepository
+    public class ParsedResumeRepository :   IParsedResumeRepository
     {
         private readonly AICESDbContext _context;
 

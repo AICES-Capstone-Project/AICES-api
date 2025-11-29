@@ -137,15 +137,11 @@ namespace BusinessObjectLayer.Services
                 {
                     CompanyId = c.CompanyId,
                     Name = c.Name,
-                    Description = c.Description,
                     Address = c.Address,
-                    WebsiteUrl = c.Website,
-                    TaxCode = c.TaxCode,
                     LogoUrl = c.LogoUrl,
                     CompanyStatus = c.CompanyStatus.ToString(),
                     CreatedBy = c.CreatedBy,
                     ApprovalBy = c.ApprovedBy,
-                    RejectionReason = c.RejectReason,
                     CreatedAt = c.CreatedAt
                 }).ToList();
 
@@ -191,7 +187,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var companyResponse = new CompanyResponse
+                var companyResponse = new CompanyDetailResponse
                 {
                     CompanyId = company.CompanyId,
                     Name = company.Name,
