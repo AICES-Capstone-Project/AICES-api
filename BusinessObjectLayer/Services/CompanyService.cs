@@ -1002,15 +1002,91 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Only allow Approved, Rejected, or Suspended
-                if (status != CompanyStatusEnum.Approved &&
-                    status != CompanyStatusEnum.Rejected &&
-                    status != CompanyStatusEnum.Suspended)
+                // Get current status
+                var currentStatus = company.CompanyStatus;
+
+                // Validate status transition based on current status
+                bool isValidTransition = false;
+                string transitionErrorMessage = "";
+
+                switch (currentStatus)
+                {
+                    case CompanyStatusEnum.Pending:
+                        // Pending -> Rejected, Approved, Suspended
+                        if (status == CompanyStatusEnum.Rejected || 
+                            status == CompanyStatusEnum.Approved || 
+                            status == CompanyStatusEnum.Suspended)
+                        {
+                            isValidTransition = true;
+                        }
+                        else
+                        {
+                            transitionErrorMessage = "From Pending status, only Rejected, Approved, or Suspended statuses are allowed.";
+                        }
+                        break;
+
+                    case CompanyStatusEnum.Approved:
+                        // Approved -> Suspended
+                        if (status == CompanyStatusEnum.Suspended)
+                        {
+                            isValidTransition = true;
+                        }
+                        else
+                        {
+                            transitionErrorMessage = "From Approved status, only Suspended status is allowed.";
+                        }
+                        break;
+
+                    case CompanyStatusEnum.Rejected:
+                        // Rejected -> Approved, Suspended
+                        if (status == CompanyStatusEnum.Approved || 
+                            status == CompanyStatusEnum.Suspended)
+                        {
+                            isValidTransition = true;
+                        }
+                        else
+                        {
+                            transitionErrorMessage = "From Rejected status, only Approved or Suspended statuses are allowed.";
+                        }
+                        break;
+
+                    case CompanyStatusEnum.Suspended:
+                        // Suspended -> Approved
+                        if (status == CompanyStatusEnum.Approved)
+                        {
+                            isValidTransition = true;
+                        }
+                        else
+                        {
+                            transitionErrorMessage = "From Suspended status, only Approved status is allowed.";
+                        }
+                        break;
+
+                    case CompanyStatusEnum.Canceled:
+                        transitionErrorMessage = "Cannot change status from Canceled status.";
+                        break;
+
+                    default:
+                        transitionErrorMessage = $"Invalid current status: {currentStatus}.";
+                        break;
+                }
+
+                if (!isValidTransition)
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = "Invalid company status. Only Approved, Rejected, or Suspended statuses are allowed."
+                        Message = transitionErrorMessage
+                    };
+                }
+
+                // Check if status is actually changing
+                if (currentStatus == status)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Company is already in the requested status."
                     };
                 }
 

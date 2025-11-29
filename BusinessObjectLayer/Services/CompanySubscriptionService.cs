@@ -7,6 +7,7 @@ using DataAccessLayer.UnitOfWork;
 using Data.Enum;
 using System;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace BusinessObjectLayer.Services
@@ -325,6 +326,57 @@ namespace BusinessObjectLayer.Services
                 await _uow.RollbackTransactionAsync();
                 throw;
             }
+        }
+
+        public async Task<ServiceResponse> GetCurrentSubscriptionAsync(ClaimsPrincipal userClaims)
+        {
+            var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
+            if (userIdClaim == null)
+                return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
+
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            
+            var userId = int.Parse(userIdClaim);
+
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+            if (companyUser == null || companyUser.CompanyId == null)
+                return new ServiceResponse { Status = SRStatus.Error, Message = "You must join a company to view subscription." };
+
+            int companyId = companyUser.CompanyId.Value;
+
+            // Lấy subscription hiện tại (Active hoặc Pending và chưa hết hạn)
+            var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            
+            if (companySubscription == null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "No active subscription found for your company.",
+                    Data = null
+                };
+            }
+
+            var response = new CurrentSubscriptionResponse
+            {
+                SubscriptionName = companySubscription.Subscription?.Name ?? string.Empty,
+                Description = companySubscription.Subscription?.Description,
+                Price = companySubscription.Subscription?.Price ?? 0,
+                DurationDays = companySubscription.Subscription?.DurationDays ?? 0,
+                ResumeLimit = companySubscription.Subscription?.ResumeLimit ?? 0,
+                HoursLimit = companySubscription.Subscription?.HoursLimit ?? 0,
+                StartDate = companySubscription.StartDate,
+                EndDate = companySubscription.EndDate,
+                SubscriptionStatus = companySubscription.SubscriptionStatus
+            };
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "Current subscription retrieved successfully.",
+                Data = response
+            };
         }
     }
 }

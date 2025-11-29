@@ -1,4 +1,4 @@
-﻿using Data.Enum;
+using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using System;
@@ -18,7 +18,6 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetPaymentDetailAsync(ClaimsPrincipal user, int paymentId);
         Task<ServiceResponse> GetPaymentBySessionIdAsync(string sessionId);
         Task<ServiceResponse> CancelSubscriptionAsync(ClaimsPrincipal userClaims);
-        Task<ServiceResponse> GetCurrentSubscriptionAsync(ClaimsPrincipal userClaims);
     }
 
 }

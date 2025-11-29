@@ -1,5 +1,6 @@
 using Data.Models.Request;
 using Data.Models.Response;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace BusinessObjectLayer.IServices
@@ -11,6 +12,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> CreateAsync(CreateCompanySubscriptionRequest request);
         Task<ServiceResponse> UpdateAsync(int id, CompanySubscriptionRequest request);
         Task<ServiceResponse> SoftDeleteAsync(int id);
+        Task<ServiceResponse> GetCurrentSubscriptionAsync(ClaimsPrincipal userClaims);
     }
 }
 

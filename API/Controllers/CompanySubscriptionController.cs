@@ -11,10 +11,12 @@ namespace API.Controllers
     public class CompanySubscriptionController : ControllerBase
     {
         private readonly IPaymentService _paymentService;
+        private readonly ICompanySubscriptionService _companySubscriptionService;
 
-        public CompanySubscriptionController(IPaymentService paymentService)
+        public CompanySubscriptionController(IPaymentService paymentService, ICompanySubscriptionService companySubscriptionService)
         {
             _paymentService = paymentService;
+            _companySubscriptionService = companySubscriptionService;
         }
 
         [HttpPost("cancel")]
@@ -29,7 +31,7 @@ namespace API.Controllers
         [Authorize(Roles = "HR_Manager")]
         public async Task<IActionResult> GetCurrentSubscription()
         {
-            var result = await _paymentService.GetCurrentSubscriptionAsync(User);
+            var result = await _companySubscriptionService.GetCurrentSubscriptionAsync(User);
             return ControllerResponse.Response(result);
         }
     }
