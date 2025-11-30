@@ -13,7 +13,6 @@ namespace BusinessObjectLayer.IServices
     public interface IPaymentService
     {
         Task<ServiceResponse> CreateCheckoutSessionAsync(CheckoutRequest request, ClaimsPrincipal userClaims);
-        Task<ServiceResponse> CreateSetupIntentAsync(CheckoutRequest request, ClaimsPrincipal userClaims);
         Task<ServiceResponse> HandleWebhookAsync(string json, string signature);
         Task<ServiceResponse> GetPaymentsAsync(ClaimsPrincipal user);
         Task<ServiceResponse> GetPaymentDetailAsync(ClaimsPrincipal user, int paymentId);
