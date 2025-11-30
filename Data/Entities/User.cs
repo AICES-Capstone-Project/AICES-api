@@ -1,4 +1,4 @@
-﻿using Data.Entities.Base;
+using Data.Entities.Base;
 using Data.Enum;
 using System;
 using System.Collections.Generic;
@@ -35,5 +35,7 @@ namespace Data.Entities
         public ICollection<RefreshToken>? RefreshTokens { get; set; }
         public ICollection<Notification>? Notifications { get; set; }
         public ICollection<Blog>? Blogs { get; set; }
+        public ICollection<Invitation>? SentInvitations { get; set; }
+        public ICollection<Invitation>? ReceivedInvitations { get; set; }
     }
 }

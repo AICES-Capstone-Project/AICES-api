@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using Data.Enum;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -49,6 +49,7 @@ namespace DataAccessLayer
         // Communication & Reporting
         public virtual DbSet<Notification> Notifications { get; set; }
         public virtual DbSet<Blog> Blogs { get; set; }
+        public virtual DbSet<Invitation> Invitations { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -310,6 +311,20 @@ namespace DataAccessLayer
                 .HasForeignKey(b => b.UserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // User - Invitations (as Sender)
+            modelBuilder.Entity<Invitation>()
+                .HasOne(i => i.Sender)
+                .WithMany(u => u.SentInvitations)
+                .HasForeignKey(i => i.SenderId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // User - Invitations (as Receiver)
+            modelBuilder.Entity<Invitation>()
+                .HasOne(i => i.Receiver)
+                .WithMany(u => u.ReceivedInvitations)
+                .HasForeignKey(i => i.ReceiverId)
+                .OnDelete(DeleteBehavior.NoAction);
+
             // ===== GLOBAL CASCADE DELETE PREVENTION =====
             
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
@@ -370,6 +385,12 @@ namespace DataAccessLayer
             // Configure enum conversion for TransactionGateway
             modelBuilder.Entity<Transaction>()
                 .Property(t => t.Gateway)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            // Configure enum conversion for InvitationStatus
+            modelBuilder.Entity<Invitation>()
+                .Property(i => i.InvitationStatus)
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
