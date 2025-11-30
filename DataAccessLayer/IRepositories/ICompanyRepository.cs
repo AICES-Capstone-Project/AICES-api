@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +9,7 @@ namespace DataAccessLayer.IRepositories
 {
     public interface ICompanyRepository
     {
-        Task<IEnumerable<Company>> GetAllAsync(bool includeInactive = false);
+        Task<IEnumerable<Company>> GetAllAsync();
         Task<List<Company>> GetCompaniesAsync(int page, int pageSize, string? search = null);
         Task<int> GetTotalCompaniesAsync(string? search = null);
         Task<List<Company>> GetPublicCompaniesAsync();

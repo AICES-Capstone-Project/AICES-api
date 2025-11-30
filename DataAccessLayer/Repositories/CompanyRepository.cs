@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using Data.Enum;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
@@ -19,14 +19,12 @@ namespace DataAccessLayer.Repositories
             _context = context;
         }
 
-        public async Task<IEnumerable<Company>> GetAllAsync(bool includeInactive = false)
+        public async Task<IEnumerable<Company>> GetAllAsync()
         {
-            var query = _context.Companies.AsNoTracking().AsQueryable();
-
-            if (!includeInactive)
-                query = query.Where(c => c.IsActive);
-
-            return await query.ToListAsync();
+            return await _context.Companies
+                .AsNoTracking()
+                .Where(c => c.IsActive)
+                .ToListAsync();
         }
 
         public async Task<List<Company>> GetCompaniesAsync(int page, int pageSize, string? search = null)
