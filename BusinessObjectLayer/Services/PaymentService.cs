@@ -314,124 +314,116 @@ namespace BusinessObjectLayer.Services
                 if (invoice == null)
                     return new ServiceResponse { Status = SRStatus.Error, Message = "Invoice missing." };
 
-                // Dùng reflection để tương thích với nhiều phiên bản Stripe.Net khác nhau.
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
                 var paymentRepo = _uow.GetRepository<IPaymentRepository>();
                 var transactionRepo = _uow.GetRepository<ITransactionRepository>();
                 var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
-                
-                var stripeSubId = GetInvoiceSubscriptionId(invoice);
-                if (string.IsNullOrEmpty(stripeSubId))
-                    return new ServiceResponse { Status = SRStatus.Error, Message = "Invoice missing subscription id." };
 
-                long amountPaidCents = invoice.AmountPaid;
-                int amountPaid = (int)amountPaidCents;
+                // Stripe subscription ID
+                var stripeSubId =
+                    invoice.Parent?.SubscriptionDetails?.SubscriptionId
+                    ?? invoice.Lines?.Data.FirstOrDefault()?.Parent?.SubscriptionItemDetails?.Subscription;
 
-                var companySub = await companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubId);
+                if (stripeSubId == null)
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "Missing subscription id." };
 
-                // Lấy metadata để xử lý payment ngay cả khi companySub chưa tồn tại
-                var metadataSnapshot = ExtractInvoiceMetadata(invoice);
-                int? companyIdFromMetadata = null;
-                if (metadataSnapshot != null && metadataSnapshot.TryGetValue("companyId", out var companyIdStr))
+                // Tìm subscription hiện tại trong DB
+                var currentSub = await companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubId.ToString());
+
+                // Load metadata
+                var metadata =
+                    invoice.Lines?.Data?[0]?.Metadata
+                    ?? invoice.Parent?.SubscriptionDetails?.Metadata
+                    ?? invoice.Metadata;
+                int.TryParse(metadata?.GetValueOrDefault("companyId"), out int companyId);
+                int.TryParse(metadata?.GetValueOrDefault("subscriptionId"), out int subscriptionId);
+                int.TryParse(metadata?.GetValueOrDefault("paymentId"), out int initialPaymentId);
+
+                var subscriptionDef = await subscriptionRepo.GetByIdAsync(subscriptionId);
+                if (subscriptionDef == null)
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "Subscription definition missing." };
+
+                // Stripe timestamp chuẩn
+                var line = invoice?.Lines?.Data.FirstOrDefault();
+                var periodStart = line?.Period?.Start;
+                var periodEnd = line?.Period?.End;
+
+                // Determine if this is renewal or initial payment
+                bool isInitial = invoice.BillingReason == "subscription_create";
+                bool isRenewal = invoice.BillingReason == "subscription_cycle";
+
+                bool isCanceledBefore = currentSub != null && currentSub.SubscriptionStatus == SubscriptionStatusEnum.Canceled;
+
+                if (isCanceledBefore)
                 {
-                    if (int.TryParse(companyIdStr, out var companyId))
-                    {
-                        companyIdFromMetadata = companyId;
-                    }
+                    // Không tạo renew
+                    return new ServiceResponse { Status = SRStatus.Success, Message = "Subscription was canceled; renewal ignored." };
                 }
 
-                var companyIdToUse = companySub?.CompanyId ?? companyIdFromMetadata;
-                var now = DateTime.UtcNow;
-                var invoiceUrl = await GetInvoiceUrlAsync(invoice);
-                
-                // Determine if this is a renewal
-                CompanySubscription? targetCompanySub = companySub;
-                bool isRenewal = false;
-                
-                if (companySub != null)
+                CompanySubscription newSub = null;
+
+                if (isInitial)
                 {
-                    var subDef = await subscriptionRepo.GetByIdAsync(companySub.SubscriptionId);
-                    var durationDays = subDef?.DurationDays ?? 30;
-                    var expectedEndDate = companySub.StartDate.AddDays(durationDays);
-                    
-                    // Check if this is a renewal (subscription is expiring or expired)
-                    // Renewal happens when: now is at or past endDate, or very close to it (within 1 day)
-                    isRenewal = now >= companySub.EndDate.AddDays(-1);
-                    
-                    // Check if this is the initial payment (recently created, EndDate matches expected)
-                    var isInitialPayment = Math.Abs((companySub.EndDate - expectedEndDate).TotalDays) < 1;
-                    isRenewal = isRenewal && !isInitialPayment;
-                    
-                    if (isRenewal)
+                    // Initial payment
+                    newSub = new CompanySubscription
                     {
-                        // This is a renewal - follow business rule:
-                        // 1. Mark old subscription as Expired
-                        companySub.SubscriptionStatus = SubscriptionStatusEnum.Expired;
-                        await companySubRepo.UpdateAsync(companySub);
-                        await _uow.SaveChangesAsync();
-                        
-                        // 2. Create new CompanySubscription (like checkout)
-                        targetCompanySub = new CompanySubscription
-                        {
-                            CompanyId = companySub.CompanyId,
-                            SubscriptionId = companySub.SubscriptionId,
-                            StartDate = now,
-                            EndDate = now.AddDays(durationDays),
-                            SubscriptionStatus = SubscriptionStatusEnum.Active,
-                            StripeSubscriptionId = stripeSubId
-                        };
-                        await companySubRepo.AddAsync(targetCompanySub);
-                        await _uow.SaveChangesAsync();
-                    }
-                    else
-                    {
-                        // This is the initial payment - just update status to Active
-                        companySub.SubscriptionStatus = SubscriptionStatusEnum.Active;
-                        await companySubRepo.UpdateAsync(companySub);
-                        await _uow.SaveChangesAsync();
-                    }
+                        CompanyId = companyId,
+                        SubscriptionId = subscriptionId,
+                        StripeSubscriptionId = stripeSubId,
+                        StartDate = periodStart.Value,
+                        EndDate = periodEnd.Value,
+                        SubscriptionStatus = SubscriptionStatusEnum.Active
+                    };
+                    await companySubRepo.AddAsync(newSub);
+                    await _uow.SaveChangesAsync();
                 }
-
-                // Create/update Payment and Transaction (linked to the appropriate CompanySubscription)
-                if (companyIdToUse.HasValue)
+                else if (isRenewal)
                 {
-                    var payment = await GetPaymentFromInvoiceMetadataAsync(metadataSnapshot, companyIdToUse);
-
-                    if (payment != null)
-                    {
-                        payment.PaymentStatus = PaymentStatusEnum.Paid;
-                        payment.InvoiceUrl = invoiceUrl;
-                        payment.ComSubId = targetCompanySub?.ComSubId;
-                        await paymentRepo.UpdateAsync(payment);
-                    }
-                    else
-                    {
-                        payment = new Payment
-                        {
-                            CompanyId = companyIdToUse.Value,
-                            ComSubId = targetCompanySub?.ComSubId,
-                            PaymentStatus = PaymentStatusEnum.Paid,
-                            InvoiceUrl = invoiceUrl
-                        };
-                        await paymentRepo.AddAsync(payment);
-                    }
+                    // Renewal
+                    currentSub.SubscriptionStatus = SubscriptionStatusEnum.Expired;
+                    await companySubRepo.UpdateAsync(currentSub);
                     await _uow.SaveChangesAsync();
 
-                    // Create new Transaction (for both initial and renewal)
-                    await transactionRepo.AddAsync(new Transaction
+                    newSub = new CompanySubscription
                     {
-                        PaymentId = payment.PaymentId,
-                        Amount = amountPaid,
-                        Currency = "USD",
-                        Gateway = TransactionGatewayEnum.StripePayment,
-                        ResponseCode = "SUCCESS",
-                        ResponseMessage = isRenewal ? $"Renewal invoice {invoice.Id} paid" : $"Invoice {invoice.Id} paid",
-                        TransactionTime = now,
-                    });
+                        CompanyId = companyId,
+                        SubscriptionId = subscriptionId,
+                        StripeSubscriptionId = stripeSubId,
+                        StartDate = periodStart.Value,
+                        EndDate = periodEnd.Value,
+                        SubscriptionStatus = SubscriptionStatusEnum.Active
+                    };
+
+                    await companySubRepo.AddAsync(newSub);
                     await _uow.SaveChangesAsync();
                 }
 
-                return new ServiceResponse { Status = SRStatus.Success, Message = "invoice.payment_succeeded handled." };
+                // Tạo Payment mới
+                var payment = new Payment
+                {
+                    CompanyId = companyId,
+                    ComSubId = newSub.ComSubId,
+                    PaymentStatus = PaymentStatusEnum.Paid,
+                    InvoiceUrl = invoice.HostedInvoiceUrl
+                };
+                await paymentRepo.AddAsync(payment);
+                await _uow.SaveChangesAsync();
+
+                // Tạo Transaction mới
+                await transactionRepo.AddAsync(new Transaction
+                {
+                    PaymentId = payment.PaymentId,
+                    Amount = (int)invoice.AmountPaid,
+                    Currency = invoice.Currency,
+                    Gateway = TransactionGatewayEnum.StripePayment,
+                    ResponseCode = "SUCCESS",
+                    ResponseMessage = isInitial ? "Initial payment" : "Renewal payment",
+                    TransactionTime = DateTime.UtcNow
+                });
+
+                await _uow.SaveChangesAsync();
+
+                return new ServiceResponse { Status = SRStatus.Success, Message = "invoice.payment_succeeded processed." };
             }
 
             // ============================================================
