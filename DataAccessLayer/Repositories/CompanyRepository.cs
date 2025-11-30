@@ -46,7 +46,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<CompanyResponse>> GetCompaniesWithCreatorAsync(int page, int pageSize, string? search = null)
+        public async Task<List<CompanyResponse>> GetCompaniesWithCreatorAsync(int page, int pageSize, string? search = null, CompanyStatusEnum? status = null)
         {
             var query = _context.Companies.AsNoTracking().AsQueryable();
 
@@ -55,6 +55,11 @@ namespace DataAccessLayer.Repositories
                 query = query.Where(c => c.Name.Contains(search) ||
                                        (c.Description != null && c.Description.Contains(search)) ||
                                        (c.Address != null && c.Address.Contains(search)));
+            }
+
+            if (status.HasValue)
+            {
+                query = query.Where(c => c.CompanyStatus == status.Value);
             }
 
             return await query
@@ -83,7 +88,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalCompaniesAsync(string? search = null)
+        public async Task<int> GetTotalCompaniesAsync(string? search = null, CompanyStatusEnum? status = null)
         {
             var query = _context.Companies.AsNoTracking().AsQueryable();
 
@@ -92,6 +97,11 @@ namespace DataAccessLayer.Repositories
                 query = query.Where(c => c.Name.Contains(search) || 
                                        (c.Description != null && c.Description.Contains(search)) ||
                                        (c.Address != null && c.Address.Contains(search)));
+            }
+
+            if (status.HasValue)
+            {
+                query = query.Where(c => c.CompanyStatus == status.Value);
             }
 
             return await query.CountAsync();

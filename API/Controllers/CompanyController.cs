@@ -89,9 +89,9 @@ namespace API.Controllers
 
         [HttpGet]
         [Authorize(Roles = "System_Admin, System_Manager, System_Staff")]
-        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
+        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] CompanyStatusEnum? status = null)
         {
-            var serviceResponse = await _companyService.GetAllAsync(page, pageSize, search);
+            var serviceResponse = await _companyService.GetAllAsync(page, pageSize, search, status);
             return ControllerResponse.Response(serviceResponse);
         }
 

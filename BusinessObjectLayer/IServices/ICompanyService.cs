@@ -1,4 +1,4 @@
-﻿using Data.Enum;
+using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
 using System;
@@ -13,7 +13,7 @@ namespace BusinessObjectLayer.IServices
     {
         Task<ServiceResponse> GetPublicAsync();
         Task<ServiceResponse> GetPublicByIdAsync(int id);
-        Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null);
+        Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null, CompanyStatusEnum? status = null);
         Task<ServiceResponse> GetByIdAsync(int id);
         Task<ServiceResponse> GetSelfCompanyAsync();
         Task<ServiceResponse> SelfCreateAsync(CompanyRequest request);

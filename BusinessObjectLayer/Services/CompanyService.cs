@@ -125,13 +125,13 @@ namespace BusinessObjectLayer.Services
         }
 
         // Get all companies with pagination and search (for admins)
-        public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null)
+        public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null, CompanyStatusEnum? status = null)
         {
             try
             {
                 var companyRepo = _uow.GetRepository<ICompanyRepository>();
-                var companies = await companyRepo.GetCompaniesWithCreatorAsync(page, pageSize, search);
-                var total = await companyRepo.GetTotalCompaniesAsync(search);
+                var companies = await companyRepo.GetCompaniesWithCreatorAsync(page, pageSize, search, status);
+                var total = await companyRepo.GetTotalCompaniesAsync(search, status);
 
                 return new ServiceResponse
                 {
