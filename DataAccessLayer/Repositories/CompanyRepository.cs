@@ -1,5 +1,6 @@
 using Data.Entities;
 using Data.Enum;
+using Data.Models.Response;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -45,6 +46,43 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<CompanyResponse>> GetCompaniesWithCreatorAsync(int page, int pageSize, string? search = null)
+        {
+            var query = _context.Companies.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(c => c.Name.Contains(search) ||
+                                       (c.Description != null && c.Description.Contains(search)) ||
+                                       (c.Address != null && c.Address.Contains(search)));
+            }
+
+            return await query
+                .OrderByDescending(c => c.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(c => new CompanyResponse
+                {
+                    CompanyId = c.CompanyId,
+                    Name = c.Name,
+                    Address = c.Address,
+                    LogoUrl = c.LogoUrl,
+                    CompanyStatus = c.CompanyStatus.ToString(),
+                    CreatedBy = _context.Users
+                        .Where(u => u.UserId == c.CreatedBy)
+                        .Select(u => u.Profile != null ? u.Profile.FullName : null)
+                        .FirstOrDefault(),
+                    ApprovalBy = c.ApprovedBy != null
+                        ? _context.Users
+                            .Where(u => u.UserId == c.ApprovedBy)
+                            .Select(u => u.Profile != null ? u.Profile.FullName : null)
+                            .FirstOrDefault()
+                        : null,
+                    CreatedAt = c.CreatedAt
+                })
+                .ToListAsync();
+        }
+
         public async Task<int> GetTotalCompaniesAsync(string? search = null)
         {
             var query = _context.Companies.AsNoTracking().AsQueryable();
@@ -85,6 +123,44 @@ namespace DataAccessLayer.Repositories
                         .ThenInclude(u => u.Role)
                 .Include(c => c.CompanyDocuments)
                 .FirstOrDefaultAsync(c => c.CompanyId == id);
+        }
+
+        public async Task<CompanyDetailResponse?> GetByIdWithCreatorAsync(int id)
+        {
+            return await _context.Companies
+                .AsNoTracking()
+                .Where(c => c.CompanyId == id)
+                .Select(c => new CompanyDetailResponse
+                {
+                    CompanyId = c.CompanyId,
+                    Name = c.Name,
+                    Description = c.Description,
+                    Address = c.Address,
+                    WebsiteUrl = c.Website,
+                    TaxCode = c.TaxCode,
+                    LogoUrl = c.LogoUrl,
+                    CompanyStatus = c.CompanyStatus.ToString(),
+                    CreatedBy = _context.Users
+                        .Where(u => u.UserId == c.CreatedBy)
+                        .Select(u => u.Profile != null ? u.Profile.FullName : null)
+                        .FirstOrDefault(),
+                    ApprovalBy = c.ApprovedBy != null
+                        ? _context.Users
+                            .Where(u => u.UserId == c.ApprovedBy)
+                            .Select(u => u.Profile != null ? u.Profile.FullName : null)
+                            .FirstOrDefault()
+                        : null,
+                    RejectionReason = c.RejectReason,
+                    CreatedAt = c.CreatedAt,
+                    Documents = c.CompanyDocuments != null 
+                        ? c.CompanyDocuments.Select(d => new CompanyDocumentResponse
+                        {
+                            DocumentType = d.DocumentType ?? string.Empty,
+                            FileUrl = d.FileUrl ?? string.Empty
+                        }).ToList() 
+                        : new List<CompanyDocumentResponse>()
+                })
+                .FirstOrDefaultAsync();
         }
 
         public async Task<Company?> GetForUpdateAsync(int id)

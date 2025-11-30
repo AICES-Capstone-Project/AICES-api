@@ -130,20 +130,8 @@ namespace BusinessObjectLayer.Services
             try
             {
                 var companyRepo = _uow.GetRepository<ICompanyRepository>();
-                var companies = await companyRepo.GetCompaniesAsync(page, pageSize, search);
+                var companies = await companyRepo.GetCompaniesWithCreatorAsync(page, pageSize, search);
                 var total = await companyRepo.GetTotalCompaniesAsync(search);
-
-                var companyResponses = companies.Select(c => new CompanyResponse
-                {
-                    CompanyId = c.CompanyId,
-                    Name = c.Name,
-                    Address = c.Address,
-                    LogoUrl = c.LogoUrl,
-                    CompanyStatus = c.CompanyStatus.ToString(),
-                    CreatedBy = c.CreatedBy,
-                    ApprovalBy = c.ApprovedBy,
-                    CreatedAt = c.CreatedAt
-                }).ToList();
 
                 return new ServiceResponse
                 {
@@ -151,7 +139,7 @@ namespace BusinessObjectLayer.Services
                     Message = "Companies retrieved successfully.",
                     Data = new PaginatedCompanyResponse
                     {
-                        Companies = companyResponses,
+                        Companies = companies,
                         TotalPages = (int)Math.Ceiling(total / (double)pageSize),
                         CurrentPage = page,
                         PageSize = pageSize
@@ -176,7 +164,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 var companyRepo = _uow.GetRepository<ICompanyRepository>();
-                var company = await companyRepo.GetByIdAsync(id);
+                var company = await companyRepo.GetByIdWithCreatorAsync(id);
 
                 if (company == null)
                 {
@@ -187,32 +175,11 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var companyResponse = new CompanyDetailResponse
-                {
-                    CompanyId = company.CompanyId,
-                    Name = company.Name,
-                    Description = company.Description,
-                    Address = company.Address,
-                    WebsiteUrl = company.Website,
-                    TaxCode = company.TaxCode,
-                    LogoUrl = company.LogoUrl,
-                    CompanyStatus = company.CompanyStatus.ToString(),
-                    CreatedBy = company.CreatedBy,
-                    ApprovalBy = company.ApprovedBy,
-                    RejectionReason = company.RejectReason,
-                    CreatedAt = company.CreatedAt,
-                    Documents = company.CompanyDocuments?.Select(d => new CompanyDocumentResponse
-                    {
-                        DocumentType = d.DocumentType ?? string.Empty,
-                        FileUrl = d.FileUrl ?? string.Empty
-                    }).ToList() ?? new List<CompanyDocumentResponse>()
-                };
-
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "Company retrieved successfully.",
-                    Data = companyResponse
+                    Data = company
                 };
             }
             catch (Exception ex)

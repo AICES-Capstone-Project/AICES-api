@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,8 +13,8 @@ namespace Data.Models.Response
         public string? Address { get; set; }
         public string? LogoUrl { get; set; }
         public string? CompanyStatus { get; set; }
-        public int CreatedBy { get; set; }
-        public int? ApprovalBy { get; set; }
+        public string? CreatedBy { get; set; }
+        public string? ApprovalBy { get; set; }
         public DateTime? CreatedAt { get; set; }
     }
 
@@ -28,8 +28,8 @@ namespace Data.Models.Response
         public string? TaxCode { get; set; }
         public string? LogoUrl { get; set; }
         public string? CompanyStatus { get; set; }
-        public int CreatedBy { get; set; }
-        public int? ApprovalBy { get; set; }
+        public string? CreatedBy { get; set; }
+        public string? ApprovalBy { get; set; }
         public string? RejectionReason { get; set; }
         public DateTime? CreatedAt { get; set; }
         public List<CompanyDocumentResponse> Documents { get; set; } = new List<CompanyDocumentResponse>();
