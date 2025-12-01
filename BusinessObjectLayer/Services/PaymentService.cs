@@ -517,10 +517,7 @@ namespace BusinessObjectLayer.Services
                         if (receiptNumber.Length > 8) receiptNumber = receiptNumber.Substring(0, 8);
                         if (receiptNumber.Length >= 4) receiptNumber = receiptNumber.Insert(4, "-");
                         
-                        // Lấy payment method từ invoice
-                        // Note: Stripe Invoice object không expose PaymentIntent/Charge trực tiếp
-                        // Để đơn giản, sử dụng "Card" mặc định
-                        // Nếu cần chi tiết, có thể expand invoice hoặc lấy từ charge/payment intent riêng
+                        
                         string paymentMethod = "Card";
                         
                         // Lấy date paid từ invoice
