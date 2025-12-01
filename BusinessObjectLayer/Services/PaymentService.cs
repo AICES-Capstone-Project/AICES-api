@@ -1,4 +1,5 @@
 using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.Services.Auth;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
@@ -28,15 +29,18 @@ namespace BusinessObjectLayer.Services
         private readonly IUnitOfWork _uow;
         private readonly StripeSettings _settings;
         private readonly INotificationService _notificationService;
+        private readonly IEmailService _emailService;
 
         public PaymentService(
             IUnitOfWork uow,
             INotificationService notificationService,
-            IOptions<StripeSettings> settings)
+            IOptions<StripeSettings> settings,
+            IEmailService emailService)
         {
             _uow = uow;
             _notificationService = notificationService;
             _settings = settings.Value;
+            _emailService = emailService;
         }
 
 
@@ -92,22 +96,41 @@ namespace BusinessObjectLayer.Services
 
             var customerId = company.StripeCustomerId;
             var customerService = new CustomerService();
+            
+            // Get user email
+            var companyUserEntity = await companyUserRepo.GetCompanyUserByUserIdAsync(userId);
+            string userEmail = companyUserEntity?.User?.Email;
 
             if (string.IsNullOrEmpty(customerId))
             {
-                // Try to set an email from user profile (falls back to null)
-                var companyUserEntity = await companyUserRepo.GetCompanyUserByUserIdAsync(userId);
-                string email = companyUserEntity?.User?.Email ?? null;
-
+                // Create new customer with email
                 var cust = await customerService.CreateAsync(new CustomerCreateOptions
                 {
-                    Email = email,
+                    Email = userEmail,
                     Metadata = new Dictionary<string, string> { { "companyId", companyId.ToString() } }
                 });
                 company.StripeCustomerId = cust.Id;
                 await companyRepo.UpdateAsync(company);
                 await _uow.SaveChangesAsync();
                 customerId = cust.Id;
+            }
+            else
+            {
+                // Customer already exists - update email if missing or different
+                var existingCustomer = await customerService.GetAsync(customerId);
+                if (existingCustomer != null && !string.IsNullOrWhiteSpace(userEmail))
+                {
+                    // Update email if customer doesn't have one or if it's different
+                    if (string.IsNullOrWhiteSpace(existingCustomer.Email) || 
+                        !existingCustomer.Email.Equals(userEmail, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var updateOptions = new CustomerUpdateOptions
+                        {
+                            Email = userEmail
+                        };
+                        await customerService.UpdateAsync(customerId, updateOptions);
+                    }
+                }
             }
 
             string domain = Environment.GetEnvironmentVariable("APPURL__CLIENTURL") ?? "http://localhost:5173";
@@ -133,6 +156,7 @@ namespace BusinessObjectLayer.Services
             {
                 Mode = "subscription",
                 Customer = customerId,
+                CustomerEmail = userEmail, // Ensure email is passed to checkout for receipt delivery
                 SuccessUrl = $"{domain}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
                 CancelUrl = $"{domain}/payment/cancel",
                 Metadata = metadata,
@@ -476,6 +500,49 @@ namespace BusinessObjectLayer.Services
                     });
 
                     await _uow.SaveChangesAsync();
+                }
+
+                // Gửi receipt email nếu có customer email và amount_paid > 0
+                if (!string.IsNullOrWhiteSpace(invoice.CustomerEmail) && invoice.AmountPaid > 0)
+                {
+                    try
+                    {
+                        // Lấy subscription name từ metadata hoặc subscription entity
+                        string subscriptionName = subscriptionDef?.Name ?? "Subscription";
+                        decimal amountInDollars = (decimal)invoice.AmountPaid / 100; // Convert from cents to dollars
+                        string invoiceUrl = invoice.HostedInvoiceUrl ?? invoice.InvoicePdf ?? "";
+                        
+                        // Lấy receipt number từ invoice number
+                        string receiptNumber = invoice.Number ?? invoice.Id?.Replace("in_", "").Substring(0, Math.Min(8, invoice.Id?.Length ?? 8)) ?? "0000-0000";
+                        if (receiptNumber.Length > 8) receiptNumber = receiptNumber.Substring(0, 8);
+                        if (receiptNumber.Length >= 4) receiptNumber = receiptNumber.Insert(4, "-");
+                        
+                        // Lấy payment method từ invoice
+                        // Note: Stripe Invoice object không expose PaymentIntent/Charge trực tiếp
+                        // Để đơn giản, sử dụng "Card" mặc định
+                        // Nếu cần chi tiết, có thể expand invoice hoặc lấy từ charge/payment intent riêng
+                        string paymentMethod = "Card";
+                        
+                        // Lấy date paid từ invoice
+                        DateTime? datePaid = invoice.StatusTransitions?.PaidAt ?? invoice.EffectiveAt;
+
+                        await _emailService.SendReceiptEmailAsync(
+                            invoice.CustomerEmail,
+                            invoiceUrl,
+                            amountInDollars,
+                            invoice.Currency?.ToUpper() ?? "USD",
+                            subscriptionName,
+                            receiptNumber,
+                            paymentMethod,
+                            datePaid
+                        );
+                        Console.WriteLine($"[PaymentService] Receipt email sent for invoice {invoice.Id} to {invoice.CustomerEmail}");
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error nhưng không fail webhook
+                        Console.WriteLine($"[PaymentService] Error sending receipt email for {invoice.Id}: {ex.Message}");
+                    }
                 }
 
                 return new ServiceResponse { Status = SRStatus.Success, Message = "invoice.payment_succeeded processed." };
