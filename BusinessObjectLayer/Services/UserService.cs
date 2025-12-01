@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
@@ -122,6 +122,16 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
+            // Not allow creating users with roleId = 4 (HR_Manager) via this endpoint
+            if (request.RoleId == 4)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Forbidden,
+                    Message = "Cannot create user with HR_Manager role. Please use company registration flow."
+                };
+            }
+
             await _uow.BeginTransactionAsync();
             try
             {
@@ -184,6 +194,16 @@ namespace BusinessObjectLayer.Services
                 {
                     Status = SRStatus.Error,
                     Message = "User not found."
+                };
+            }
+
+            // Not allow updating to roleId = 4 (HR_Manager) or 5 (HR_Recruiter)
+            if (request.RoleId.HasValue && (request.RoleId.Value == 4 || request.RoleId.Value == 5))
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Forbidden,
+                    Message = "Cannot update user to HR_Manager or HR_Recruiter role."
                 };
             }
 
