@@ -16,6 +16,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null, CompanyStatusEnum? status = null);
         Task<ServiceResponse> GetByIdAsync(int id);
         Task<ServiceResponse> GetSelfCompanyAsync();
+        Task<ServiceResponse> GetRejectedSelfCompanyAsync();
         Task<ServiceResponse> SelfCreateAsync(CompanyRequest request);
         Task<ServiceResponse> UpdateSelfCompanyAsync(CompanyRequest request);
         Task<ServiceResponse> CreateAsync(CompanyRequest request);

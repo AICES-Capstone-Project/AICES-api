@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Data.Entities;
@@ -317,88 +317,17 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
-                // Get current user ID from claims
-                var user = _httpContextAccessor.HttpContext?.User;
-                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+                var (userResult, companyUser, company, managerName) = await GetSelfCompanyContextAsync(
+                    requireApprovedJoinStatus: true,
+                    requireRejectedCompanyStatus: false,
+                    requireNotAppliedJoinStatusForRejected: false);
 
-                if (string.IsNullOrEmpty(userIdClaim))
+                if (userResult != null)
                 {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Unauthorized,
-                        Message = "User not authenticated."
-                    };
+                    return userResult;
                 }
 
-                int userId = int.Parse(userIdClaim);
-
-                // Get company user to find associated company
-                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
-                var companyRepo = _uow.GetRepository<ICompanyRepository>();
-                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
-                if (companyUser == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Company user not found."
-                    };
-                }
-
-                if (companyUser.CompanyId == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "You are not associated with any company."
-                    };
-                }
-
-                if (companyUser.JoinStatus != JoinStatusEnum.Approved)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Forbidden,
-                        Message = "Only approved or invited members can access company information."
-                    };
-                }
-
-                var company = await companyRepo.GetByIdAsync(companyUser.CompanyId.Value);
-
-                if (company == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Company not found."
-                    };
-                }
-
-                // Get manager name (HR_Manager role)
-                string? managerName = null;
-                var members = await companyUserRepo.GetApprovedAndInvitedMembersByCompanyIdAsync(companyUser.CompanyId.Value);
-                var manager = members.FirstOrDefault(m => 
-                    m.User?.Role?.RoleName == "HR_Manager" || m.User?.RoleId == 4);
-                managerName = manager?.User?.Profile?.FullName;
-
-                var companyResponse = new SelfCompanyResponse
-                {
-                    CompanyId = company.CompanyId,
-                    Name = company.Name,
-                    Description = company.Description,
-                    Address = company.Address,
-                    WebsiteUrl = company.Website,
-                    TaxCode = company.TaxCode,
-                    LogoUrl = company.LogoUrl,
-                    CompanyStatus = company.CompanyStatus,
-                    RejectionReason = company.RejectReason,
-                    ManagerName = managerName,
-                    Documents = company.CompanyDocuments?.Select(d => new CompanyDocumentResponse
-                    {
-                        DocumentType = d.DocumentType ?? "",
-                        FileUrl = d.FileUrl ?? ""
-                    }).ToList() ?? new List<CompanyDocumentResponse>()
-                };
+                var companyResponse = BuildSelfCompanyResponse(company, managerName);
 
                 return new ServiceResponse
                 {
@@ -417,6 +346,155 @@ namespace BusinessObjectLayer.Services
                     Message = "An error occurred while retrieving your company."
                 };
             }
+        }
+
+        // Get self company when status is Rejected (for HR recruiter after rejection)
+        public async Task<ServiceResponse> GetRejectedSelfCompanyAsync()
+        {
+            try
+            {
+                var (userResult, companyUser, company, managerName) = await GetSelfCompanyContextAsync(
+                    requireApprovedJoinStatus: false,
+                    requireRejectedCompanyStatus: true,
+                    requireNotAppliedJoinStatusForRejected: true);
+
+                if (userResult != null)
+                {
+                    return userResult;
+                }
+
+                var companyResponse = BuildSelfCompanyResponse(company, managerName);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Rejected company profile retrieved successfully.",
+                    Data = companyResponse
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get rejected self company error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving your rejected company."
+                };
+            }
+        }
+
+        /// <summary>
+        /// Shared context loader for self-company endpoints.
+        /// </summary>
+        private async Task<(ServiceResponse? userResult, CompanyUser companyUser, Company company, string? managerName)>
+            GetSelfCompanyContextAsync(bool requireApprovedJoinStatus, bool requireRejectedCompanyStatus, bool requireNotAppliedJoinStatusForRejected)
+        {
+            // Get current user ID from claims
+            var user = _httpContextAccessor.HttpContext?.User;
+            var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return (new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "User not authenticated."
+                }, null!, null!, null);
+            }
+
+            int userId = int.Parse(userIdClaim);
+
+            // Get company user to find associated company
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var companyRepo = _uow.GetRepository<ICompanyRepository>();
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+            if (companyUser == null)
+            {
+                return (new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "Company user not found."
+                }, null!, null!, null);
+            }
+
+            if (companyUser.CompanyId == null)
+            {
+                return (new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "You are not associated with any company."
+                }, null!, null!, null);
+            }
+
+            if (requireApprovedJoinStatus && companyUser.JoinStatus != JoinStatusEnum.Approved)
+            {
+                return (new ServiceResponse
+                {
+                    Status = SRStatus.Forbidden,
+                    Message = "Only approved or invited members can access company information."
+                }, null!, null!, null);
+            }
+
+            var company = await companyRepo.GetByIdAsync(companyUser.CompanyId.Value);
+
+            if (company == null)
+            {
+                return (new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "Company not found."
+                }, null!, null!, null);
+            }
+
+            if (requireRejectedCompanyStatus && company.CompanyStatus != CompanyStatusEnum.Rejected)
+            {
+                return (new ServiceResponse
+                {
+                    Status = SRStatus.Forbidden,
+                    Message = "This endpoint is only available when your company status is Rejected."
+                }, null!, null!, null);
+            }
+
+            if (requireNotAppliedJoinStatusForRejected && companyUser.JoinStatus != JoinStatusEnum.NotApplied)
+            {
+                return (new ServiceResponse
+                {
+                    Status = SRStatus.Forbidden,
+                    Message = "This endpoint is only available when your join status is NotApplied."
+                }, null!, null!, null);
+            }
+
+            // Get manager name (HR_Manager role)
+            string? managerName = null;
+            var members = await companyUserRepo.GetApprovedAndInvitedMembersByCompanyIdAsync(companyUser.CompanyId.Value);
+            var manager = members.FirstOrDefault(m =>
+                m.User?.Role?.RoleName == "HR_Manager" || m.User?.RoleId == 4);
+            managerName = manager?.User?.Profile?.FullName;
+
+            return (null, companyUser, company, managerName);
+        }
+
+        private static SelfCompanyResponse BuildSelfCompanyResponse(Company company, string? managerName)
+        {
+            return new SelfCompanyResponse
+            {
+                CompanyId = company.CompanyId,
+                Name = company.Name,
+                Description = company.Description,
+                Address = company.Address,
+                WebsiteUrl = company.Website,
+                TaxCode = company.TaxCode,
+                LogoUrl = company.LogoUrl,
+                CompanyStatus = company.CompanyStatus,
+                RejectionReason = company.RejectReason,
+                ManagerName = managerName,
+                Documents = company.CompanyDocuments?.Select(d => new CompanyDocumentResponse
+                {
+                    DocumentType = d.DocumentType ?? "",
+                    FileUrl = d.FileUrl ?? ""
+                }).ToList() ?? new List<CompanyDocumentResponse>()
+            };
         }
         
         // Create company (HR user creates for themselves)

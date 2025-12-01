@@ -202,15 +202,6 @@ namespace BusinessObjectLayer.Services
                         await parsedResumeRepo.CreateAsync(parsedResume);
                         await _uow.SaveChangesAsync(); // Get ResumeId
 
-                        // Check limit again AFTER saving to ensure we don't exceed limit
-                        // This catches race conditions where multiple requests save simultaneously
-                        var limitCheckAfterSave = await _resumeLimitService.CheckResumeLimitInTransactionAsync(companyId);
-                        if (limitCheckAfterSave.Status != SRStatus.Success)
-                        {
-                            await _uow.RollbackTransactionAsync();
-                            return limitCheckAfterSave;
-                        }
-
                         // Prepare criteria data for queue
                         var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
                         {
@@ -347,9 +338,13 @@ namespace BusinessObjectLayer.Services
                     await _uow.SaveChangesAsync();
 
                     // 4. Save AI Score
-                    string? aiExplanationString = request.AIExplanation is string s
-                        ? s
-                        : JsonSerializer.Serialize(request.AIExplanation);
+                    string? aiExplanationString = request.AIExplanation switch
+                    {
+                        string s => s,
+                        System.Text.Json.JsonElement je => je.GetString() ?? je.GetRawText(),
+                        null => null,
+                        _ => request.AIExplanation.ToString()
+                    };
 
                     var aiScore = new AIScores
                     {

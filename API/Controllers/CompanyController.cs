@@ -41,6 +41,11 @@ namespace API.Controllers
             _companyService = companyService;
         }
 
+        [HttpGet("rejected")]
+        [Authorize(Roles = "HR_Recruiter")]
+        public async Task<IActionResult> GetRejectedSelfCompany() =>
+            ControllerResponse.Response(await _companyService.GetRejectedSelfCompanyAsync());
+
         [HttpGet("profile")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetSelfCompany() =>
