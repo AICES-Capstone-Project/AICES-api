@@ -19,6 +19,9 @@ namespace Data.Entities
         [ForeignKey("User")]
         public int UserId { get; set; }
 
+        [ForeignKey("Invitation")]
+        public int? InvitationId { get; set; }
+
         public NotificationTypeEnum Type { get; set; }
 
         public string? Message { get; set; }
@@ -29,6 +32,7 @@ namespace Data.Entities
 
         // Navigation
         public User User { get; set; } = null!;
+        public Invitation? Invitation { get; set; }
     }
 }
 

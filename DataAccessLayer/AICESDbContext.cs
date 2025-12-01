@@ -325,6 +325,22 @@ namespace DataAccessLayer
                 .HasForeignKey(i => i.ReceiverId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // Company - Invitations
+            modelBuilder.Entity<Invitation>()
+                .HasOne(i => i.Company)
+                .WithMany(c => c.Invitations)
+                .HasForeignKey(i => i.CompanyId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Invitation - Notifications
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.Invitation)
+                .WithMany(i => i.Notifications)
+                .HasForeignKey(n => n.InvitationId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
             // ===== GLOBAL CASCADE DELETE PREVENTION =====
             
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())

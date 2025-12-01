@@ -481,7 +481,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                if (companyUser.JoinStatus != JoinStatusEnum.Approved && companyUser.JoinStatus != JoinStatusEnum.Invited)
+                if (companyUser.JoinStatus != JoinStatusEnum.Approved)
                 {
                     return new ServiceResponse
                     {
@@ -674,7 +674,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                if (companyUser.JoinStatus != JoinStatusEnum.Approved && companyUser.JoinStatus != JoinStatusEnum.Invited)
+                if (companyUser.JoinStatus != JoinStatusEnum.Approved)
                 {
                     return new ServiceResponse
                     {
@@ -857,7 +857,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                if (companyUser.JoinStatus != JoinStatusEnum.Approved && companyUser.JoinStatus != JoinStatusEnum.Invited)
+                if (companyUser.JoinStatus != JoinStatusEnum.Approved)
                 {
                     return new ServiceResponse
                     {

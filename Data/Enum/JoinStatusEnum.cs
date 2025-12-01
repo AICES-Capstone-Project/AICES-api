@@ -11,6 +11,5 @@ namespace Data.Enum
         NotApplied ,
         Pending ,
         Approved ,
-        Invited 
     }
 }

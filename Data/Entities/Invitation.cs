@@ -18,6 +18,9 @@ namespace Data.Entities
         [ForeignKey("Receiver")]
         public int ReceiverId { get; set; }
 
+        [ForeignKey("Company")]
+        public int? CompanyId { get; set; }
+
         [Required, MaxLength(255)]
         public string Email { get; set; } = string.Empty;
 
@@ -26,5 +29,7 @@ namespace Data.Entities
         // Navigation
         public User Sender { get; set; } = null!;
         public User Receiver { get; set; } = null!;
+        public Company? Company { get; set; }
+        public ICollection<Notification>? Notifications { get; set; }
     }
 }

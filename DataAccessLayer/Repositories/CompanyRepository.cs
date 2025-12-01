@@ -59,7 +59,7 @@ namespace DataAccessLayer.Repositories
 
             if (status.HasValue)
             {
-                query = query.Where(c => c.CompanyStatus == status.Value);
+                query = query.Where(c => c.CompanyStatus == status.Value && c.IsActive);
             }
 
             return await query
@@ -101,7 +101,7 @@ namespace DataAccessLayer.Repositories
 
             if (status.HasValue)
             {
-                query = query.Where(c => c.CompanyStatus == status.Value);
+                query = query.Where(c => c.CompanyStatus == status.Value  && c.IsActive);
             }
 
             return await query.CountAsync();

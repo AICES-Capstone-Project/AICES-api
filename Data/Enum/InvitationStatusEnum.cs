@@ -11,6 +11,7 @@ namespace Data.Enum
         Pending,
         Accepted,
         Declined,
-        Expired
+        Expired,
+        Cancelled
     }
 }

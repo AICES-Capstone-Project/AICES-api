@@ -49,5 +49,6 @@ namespace Data.Entities
         public ICollection<ParsedResumes>? ParsedResumes { get; set; }
         public ICollection<Payment>? Payments { get; set; }
         public ICollection<CompanyDocument>? CompanyDocuments { get; set; }
+        public ICollection<Invitation>? Invitations { get; set; }
     }
 }

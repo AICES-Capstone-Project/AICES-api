@@ -14,6 +14,7 @@ namespace Data.Enum
         Subscription,
         Company,
         System,
+        Invitation,
         // // ===== COMPANY RECRUITER =====
         // HR_Recruiter_CompanyRejected,
         // HR_Recruiter_ResumeUploaded,

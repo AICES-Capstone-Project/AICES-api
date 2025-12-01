@@ -91,7 +91,7 @@ namespace DataAccessLayer.Repositories
                 .Include(cu => cu.User)
                     .ThenInclude(u => u.Role)
                 .Where(cu => cu.CompanyId == companyId && cu.IsActive && cu.User != null && 
-                    (cu.JoinStatus == JoinStatusEnum.Approved || cu.JoinStatus == JoinStatusEnum.Invited))
+                    (cu.JoinStatus == JoinStatusEnum.Approved))
                 .ToListAsync();
         }
     }

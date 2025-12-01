@@ -615,10 +615,10 @@ namespace BusinessObjectLayer.Services.Auth
                         AvatarUrl = user.Profile?.AvatarUrl,
                         JoinStatus = (user.RoleId == 4 || user.RoleId == 5) ? user.CompanyUser?.JoinStatus.ToString() : null,
                         CompanyName = (user.RoleId == 4 || user.RoleId == 5) && 
-                            (user.CompanyUser?.JoinStatus == JoinStatusEnum.Approved || user.CompanyUser?.JoinStatus == JoinStatusEnum.Invited) 
+                            (user.CompanyUser?.JoinStatus == JoinStatusEnum.Approved) 
                             ? user.CompanyUser?.Company?.Name : null,
                         CompanyStatus = (user.RoleId == 4 || user.RoleId == 5) && 
-                            (user.CompanyUser?.JoinStatus == JoinStatusEnum.Approved || user.CompanyUser?.JoinStatus == JoinStatusEnum.Invited) 
+                            (user.CompanyUser?.JoinStatus == JoinStatusEnum.Approved) 
                             ? user.CompanyUser?.Company?.CompanyStatus.ToString() : null,
                     }
                 };
