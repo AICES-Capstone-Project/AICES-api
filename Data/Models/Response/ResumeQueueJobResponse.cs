@@ -11,6 +11,16 @@ namespace Data.Models.Response
         public string fileUrl { get; set; } = string.Empty;
         public string? requirements { get; set; }
         public List<CriteriaQueueResponse> criteria { get; set; } = new();
+        
+        /// <summary>
+        /// Processing mode: "parse" for first upload, "rescore" for re-analysis
+        /// </summary>
+        public string mode { get; set; } = "parse";
+        
+        /// <summary>
+        /// Parsed resume data (JSON) - only used when mode = "rescore"
+        /// </summary>
+        public object? parsedData { get; set; }
     }
 
     /// <summary>

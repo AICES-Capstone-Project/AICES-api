@@ -16,15 +16,26 @@ namespace Data.Models.Response
         public DateTime? CreatedAt { get; set; }
 
         // From ParsedCandidates
+        public int CandidateId { get; set; }
         public string FullName { get; set; } = "Unknown";
         public string Email { get; set; } = "N/A";
         public string? PhoneNumber { get; set; }
 
-        // From AIScores
-        public decimal? TotalResumeScore { get; set; }
-        public string? AIExplanation { get; set; }
+        // All AI Scores for this candidate (ordered by CreatedAt descending - newest first)
+        public List<AIScoreResponse> AIScores { get; set; } = new();
+    }
 
-        // From AIScoreDetail (array)
+    /// <summary>
+    /// AI Score information including score details
+    /// </summary>
+    public class AIScoreResponse
+    {
+        public int ScoreId { get; set; }
+        public decimal TotalResumeScore { get; set; }
+        public string? AIExplanation { get; set; }
+        public DateTime? CreatedAt { get; set; }
+        
+        // Score details for each criterion
         public List<ResumeScoreDetailResponse> ScoreDetails { get; set; } = new();
     }
 

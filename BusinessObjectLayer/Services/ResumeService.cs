@@ -218,7 +218,8 @@ namespace BusinessObjectLayer.Services
                             jobId = jobId,
                             fileUrl = fileUrl,
                             requirements = job.Requirements,
-                            criteria = criteriaData
+                            criteria = criteriaData,
+                            mode = "parse"
                         };
 
                         var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
@@ -275,6 +276,178 @@ namespace BusinessObjectLayer.Services
                         Status = ResumeStatusEnum.Failed
                     }
                 };;
+            }
+        }
+
+        public async Task<ServiceResponse> ResendResumeAsync(int jobId, int resumeId)
+        {
+            try
+            {
+                // Get current user and company
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+                
+                if (companyUser == null || companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company not found for user."
+                    };
+                }
+
+                // Validate job exists and belongs to company
+                var job = await jobRepo.GetJobByIdAsync(jobId);
+                if (job == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Job not found."
+                    };
+                }
+
+                if (job.CompanyId != companyUser.CompanyId.Value)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You do not have permission to resend this resume."
+                    };
+                }
+
+                // Get resume with parsed data
+                var resume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
+                if (resume == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Resume not found."
+                    };
+                }
+
+                // Check if resume has been parsed (must have Data)
+                if (string.IsNullOrEmpty(resume.Data))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Resume has not been parsed yet. Cannot rescore."
+                    };
+                }
+
+                // Check if resume status is Completed
+                if (resume.ResumeStatus != ResumeStatusEnum.Completed)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = $"Cannot rescore resume with status '{resume.ResumeStatus}'. Only 'Completed' resumes can be rescored."
+                    };
+                }
+
+                // Generate new queue job ID
+                var newQueueJobId = Guid.NewGuid().ToString();
+
+                // Prepare criteria data for queue
+                var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
+                {
+                    criteriaId = c.CriteriaId,
+                    name = c.Name,
+                    weight = c.Weight
+                }).ToList() ?? new List<CriteriaQueueResponse>();
+
+                // Parse the existing resume data JSON
+                object? parsedData = null;
+                try
+                {
+                    parsedData = JsonSerializer.Deserialize<object>(resume.Data);
+                }
+                catch
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to parse existing resume data."
+                    };
+                }
+
+                // Push job to Redis queue with mode = "rescore" and parsedData
+                var jobData = new ResumeQueueJobResponse
+                {
+                    resumeId = resume.ResumeId,
+                    queueJobId = newQueueJobId,
+                    jobId = jobId,
+                    fileUrl = resume.FileUrl ?? string.Empty,
+                    requirements = job.Requirements,
+                    criteria = criteriaData,
+                    mode = "rescore",
+                    parsedData = parsedData
+                };
+
+                var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
+                if (!pushed)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to push job to Redis queue."
+                    };
+                }
+
+                await _uow.BeginTransactionAsync();
+                try
+                {
+                    // Update resume: new queueJobId and status = Pending
+                    resume.QueueJobId = newQueueJobId;
+                    resume.ResumeStatus = ResumeStatusEnum.Pending;
+                    await parsedResumeRepo.UpdateAsync(resume);
+                    await _uow.CommitTransactionAsync();
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Resume rescore initiated successfully.",
+                    Data = new ResumeUploadResponse
+                    {
+                        ResumeId = resume.ResumeId,
+                        QueueJobId = newQueueJobId,
+                        Status = ResumeStatusEnum.Pending
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error resending resume for rescore: {ex.Message}");
+                Console.WriteLine($"🔍 Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while resending the resume for rescore."
+                };
             }
         }
 
@@ -597,17 +770,25 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var candidate = resume.ParsedCandidates;
-                // Get the latest AIScore (most recent)
-                var aiScore = candidate?.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
-
-                var scoreDetails = aiScore?.AIScoreDetails?.Select(detail => new ResumeScoreDetailResponse
-                {
-                    CriteriaId = detail.CriteriaId,
-                    CriteriaName = detail.Criteria?.Name ?? "",
-                    Matched = detail.Matched,
-                    Score = detail.Score,
-                    AINote = detail.AINote
-                }).ToList() ?? new List<ResumeScoreDetailResponse>();
+                
+                // Get all AIScores for this candidate, ordered by CreatedAt descending (newest first)
+                var aiScoresResponse = candidate?.AIScores?
+                    .OrderByDescending(s => s.CreatedAt)
+                    .Select(aiScore => new AIScoreResponse
+                    {
+                        ScoreId = aiScore.ScoreId,
+                        TotalResumeScore = aiScore.TotalResumeScore,
+                        AIExplanation = aiScore.AIExplanation,
+                        CreatedAt = aiScore.CreatedAt,
+                        ScoreDetails = aiScore.AIScoreDetails?.Select(detail => new ResumeScoreDetailResponse
+                        {
+                            CriteriaId = detail.CriteriaId,
+                            CriteriaName = detail.Criteria?.Name ?? "",
+                            Matched = detail.Matched,
+                            Score = detail.Score,
+                            AINote = detail.AINote
+                        }).ToList() ?? new List<ResumeScoreDetailResponse>()
+                    }).ToList() ?? new List<AIScoreResponse>();
 
                 var response = new JobResumeDetailResponse
                 {
@@ -616,12 +797,11 @@ namespace BusinessObjectLayer.Services
                     FileUrl = resume.FileUrl ?? string.Empty,
                     Status = resume.ResumeStatus,
                     CreatedAt = resume.CreatedAt,
+                    CandidateId = candidate?.CandidateId ?? 0,
                     FullName = candidate?.FullName ?? "Unknown",
                     Email = candidate?.Email ?? "N/A",
                     PhoneNumber = candidate?.PhoneNumber,
-                    TotalResumeScore = aiScore?.TotalResumeScore,
-                    AIExplanation = aiScore?.AIExplanation,
-                    ScoreDetails = scoreDetails
+                    AIScores = aiScoresResponse
                 };
 
                 return new ServiceResponse
@@ -747,7 +927,8 @@ namespace BusinessObjectLayer.Services
                     jobId = resume.JobId,
                     fileUrl = resume.FileUrl ?? string.Empty,
                     requirements = job.Requirements,
-                    criteria = criteriaData
+                    criteria = criteriaData,
+                    mode = "parse"
                 };
 
                 var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);

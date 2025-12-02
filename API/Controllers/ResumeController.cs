@@ -29,6 +29,19 @@ namespace API.Controllers
         }
 
         /// <summary>
+        /// POST /api/jobs/{jobId}/resumes/{resumeId}/resend
+        /// Resend a completed resume for AI re-scoring (advanced analysis)
+        /// Uses existing parsed data, does not re-parse the resume
+        /// </summary>
+        [HttpPost("/api/jobs/{jobId}/resumes/{resumeId}/resend")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> ResendResume(int jobId, int resumeId)
+        {
+            var serviceResponse = await _resumeService.ResendResumeAsync(jobId, resumeId);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        /// <summary>
         /// Receive AI processing result callback from Python service
         /// </summary>
         [HttpPost("result/ai")]
