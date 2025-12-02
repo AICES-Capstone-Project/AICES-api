@@ -23,6 +23,14 @@ namespace API.Controllers
             var serviceResponse = await _dashboardService.GetTopCategorySpecByResumeCountAsync(top);
             return ControllerResponse.Response(serviceResponse);
         }
+
+        [HttpGet("summary")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> GetDashboardSummary()
+        {
+            var serviceResponse = await _dashboardService.GetDashboardSummaryAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
 

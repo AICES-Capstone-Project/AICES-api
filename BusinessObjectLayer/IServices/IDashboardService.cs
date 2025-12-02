@@ -10,6 +10,7 @@ namespace BusinessObjectLayer.IServices
     public interface IDashboardService
     {
         Task<ServiceResponse> GetTopCategorySpecByResumeCountAsync(int top = 10);
+        Task<ServiceResponse> GetDashboardSummaryAsync();
     }
 }
 
