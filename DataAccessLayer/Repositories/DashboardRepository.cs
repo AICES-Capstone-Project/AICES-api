@@ -1,3 +1,4 @@
+using Data.Enum;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -40,6 +41,39 @@ namespace DataAccessLayer.Repositories
                                .ToListAsync();
 
             return result.Select(x => (x.CategoryId, x.CategoryName, x.SpecializationId, x.SpecializationName, x.ResumeCount)).ToList();
+        }
+
+        public async Task<int> GetActiveJobsCountAsync(int companyId)
+        {
+            return await _context.Jobs
+                .AsNoTracking()
+                .Where(j => j.CompanyId == companyId 
+                         && j.IsActive 
+                         && j.JobStatus == JobStatusEnum.Published)
+                .CountAsync();
+        }
+
+        public async Task<int> GetTotalCandidatesCountAsync(int companyId)
+        {
+            // Count total employees (CompanyUser) currently working in the company
+            // Only count approved members (active employees)
+            return await _context.CompanyUsers
+                .AsNoTracking()
+                .Where(cu => cu.CompanyId == companyId 
+                          && cu.IsActive 
+                          && cu.JoinStatus == JoinStatusEnum.Approved)
+                .CountAsync();
+        }
+
+        public async Task<int> GetAiProcessedCountAsync(int companyId)
+        {
+            return await (from pr in _context.ParsedResumes
+                         join pc in _context.ParsedCandidates on pr.ResumeId equals pc.ResumeId
+                         join ais in _context.AIScores on pc.CandidateId equals ais.CandidateId
+                         where pr.CompanyId == companyId && pr.IsActive
+                         select pr.ResumeId)
+                         .Distinct()
+                         .CountAsync();
         }
     }
 }
