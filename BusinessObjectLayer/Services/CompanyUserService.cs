@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Response;
@@ -17,13 +17,16 @@ namespace BusinessObjectLayer.Services
     {
         private readonly IUnitOfWork _uow;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly INotificationService _notificationService;
 
         public CompanyUserService(
             IUnitOfWork uow,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            INotificationService notificationService)
         {
             _uow = uow;
             _httpContextAccessor = httpContextAccessor;
+            _notificationService = notificationService;
         }
 
         public async Task<ServiceResponse> CreateDefaultCompanyUserAsync(int userId)
@@ -162,6 +165,42 @@ namespace BusinessObjectLayer.Services
                 {
                     await _uow.RollbackTransactionAsync();
                     throw;
+                }
+
+                // After the join request is successfully marked as pending,
+                // notify all managers (roleId = 4) of this company.
+                try
+                {
+                    var members = await companyUserRepo.GetMembersByCompanyIdAsync(companyId);
+                    var managers = members
+                        .Where(m => m.User != null && m.User.RoleId == 4)
+                        .ToList();
+
+                    if (managers.Any())
+                    {
+                        var userRepo = _uow.GetRepository<IUserRepository>();
+                        var recruiterUser = await userRepo.GetByIdAsync(userId);
+
+                        var recruiterName = recruiterUser?.Profile?.FullName
+                            ?? recruiterUser?.Email
+                            ?? "A recruiter";
+
+                        foreach (var manager in managers)
+                        {
+                            await _notificationService.CreateAsync(
+                                userId: manager.UserId,
+                                type: NotificationTypeEnum.Company,
+                                message: $"New join request from {recruiterName}",
+                                detail: $"Recruiter {recruiterName} has requested to join your company '{company.Name}'."
+                            );
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log but do not fail the join request if notification fails
+                    Console.WriteLine($"Error sending join request notification to managers: {ex.Message}");
+                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 }
 
                 return new ServiceResponse { Status = SRStatus.Success, Message = "Join request sent." };
@@ -343,7 +382,46 @@ namespace BusinessObjectLayer.Services
                 return new ServiceResponse { Status = SRStatus.Forbidden, Message = "You cannot update join request status for other managers." };
             }
 
-            return await UpdateJoinRequestStatusAsync(companyUser.CompanyId.Value, comUserId, joinStatus);
+            var updateResult = await UpdateJoinRequestStatusAsync(companyUser.CompanyId.Value, comUserId, joinStatus);
+
+            // If update succeeded, notify the recruiter about the result
+            if (updateResult.Status == SRStatus.Success)
+            {
+                try
+                {
+                    var recruiterUserId = targetCompanyUser.UserId;
+                    var companyName = targetCompanyUser.Company?.Name ?? "the company";
+
+                    string message;
+                    string detail;
+
+                    if (joinStatus == JoinStatusEnum.Approved)
+                    {
+                        message = $"Your join request has been approved";
+                        detail = $"Your request to join '{companyName}' has been approved by the manager.";
+                    }
+                    else // joinStatus == JoinStatusEnum.NotApplied (treated as rejected)
+                    {
+                        message = $"Your join request has been rejected";
+                        detail = $"Your request to join '{companyName}' has been rejected by the manager.";
+                    }
+
+                    await _notificationService.CreateAsync(
+                        userId: recruiterUserId,
+                        type: NotificationTypeEnum.Company,
+                        message: message,
+                        detail: detail
+                    );
+                }
+                catch (Exception ex)
+                {
+                    // Log but do not fail the main operation if notification fails
+                    Console.WriteLine($"Error sending join request result notification to recruiter: {ex.Message}");
+                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                }
+            }
+
+            return updateResult;
         }
 
         public async Task<ServiceResponse> CancelJoinRequestAsync()

@@ -395,25 +395,46 @@ namespace BusinessObjectLayer.Services
                     // ============================================
                     // PHASE 3: POST-COMMIT OPERATIONS (Notifications)
                     // ============================================
-                    
-                    // try
-                    // {
-                    //     var admins = await authRepo.GetUsersByRoleAsync("System_Admin");
-                    //     foreach (var admin in admins)
-                    //     {
-                    //         await _notificationService.CreateAsync(
-                    //             admin.UserId,
-                    //             NotificationTypeEnum.JobCreated,
-                    //             $"A new job has been created: {job.Title}"
-                    //         );
-                    //     }
-                    //     Console.WriteLine($"Sent notification for new job: {job.Title}");
-                    // }
-                    // catch (Exception ex)
-                    // {
-                    //     Console.WriteLine($"Error sending notification: {ex.Message}");
-                    //     // Don't fail the whole operation if notification fails
-                    // }
+
+                    // If a recruiter (HR_Recruiter / roleId = 5) created the job,
+                    // notify all managers (HR_Manager / roleId = 4) in the same company
+                    // so they can review and approve it.
+                    if (user.Role?.RoleName == "HR_Recruiter" || user.RoleId == 5)
+                    {
+                        try
+                        {
+                            var members = await companyUserRepo.GetMembersByCompanyIdAsync(companyUser.CompanyId.Value);
+                            var managers = members
+                                .Where(m => m.User != null &&
+                                            (m.User.Role?.RoleName == "HR_Manager" || m.User.RoleId == 4))
+                                .ToList();
+
+                            if (managers.Any())
+                            {
+                                var recruiterName = user.Profile?.FullName
+                                    ?? user.Email
+                                    ?? "A recruiter";
+
+                                var companyName = companyUser.Company?.Name ?? "your company";
+
+                                foreach (var manager in managers)
+                                {
+                                    await _notificationService.CreateAsync(
+                                        userId: manager.UserId,
+                                        type: NotificationTypeEnum.Job,
+                                        message: $"New job created by {recruiterName}",
+                                        detail: $"Recruiter {recruiterName} has created a new job '{job.Title}' for '{companyName}'. Please review and approve it."
+                                    );
+                                }
+                            }
+                        }
+                        catch (Exception exNotif)
+                        {
+                            // Log but don't fail the whole operation if notification fails
+                            Console.WriteLine($"Error sending job creation notification to managers: {exNotif.Message}");
+                            Console.WriteLine($"Stack trace: {exNotif.StackTrace}");
+                        }
+                    }
 
                     return new ServiceResponse
                     {
