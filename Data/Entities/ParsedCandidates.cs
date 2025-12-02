@@ -21,9 +21,6 @@ namespace Data.Entities
         [ForeignKey("Job")]
         public int JobId { get; set; }
 
-        [ForeignKey("AIScores")]
-        public int ScoreId { get; set; }
-
         [Required, MaxLength(255)]
         public string FullName { get; set; } = string.Empty;
 
@@ -36,7 +33,7 @@ namespace Data.Entities
         // Navigation
         public ParsedResumes ParsedResumes { get; set; } = null!;
         public Job Job { get; set; } = null!;
-        public AIScores AIScores { get; set; } = null!;
+        public ICollection<AIScores> AIScores { get; set; } = new List<AIScores>();
         public RankingResults? RankingResult { get; set; }
     }
 }

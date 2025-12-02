@@ -23,20 +23,21 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.AIScores
                 .AsNoTracking()
-                .Include(ais => ais.AIScoreDetails)
+                .Include(ais => ais.AIScoreDetails!)
                     .ThenInclude(aisd => aisd.Criteria)
                 .FirstOrDefaultAsync(ais => ais.ScoreId == scoreId);
         }
 
         public async Task<AIScores?> GetByResumeIdAsync(int resumeId)
         {
-            return await _context.ParsedCandidates
+            var candidate = await _context.ParsedCandidates
                 .AsNoTracking()
-                .Where(pc => pc.ResumeId == resumeId)
-                .Select(pc => pc.AIScores)
-                .Include(ais => ais.AIScoreDetails)
-                    .ThenInclude(aisd => aisd.Criteria)
-                .FirstOrDefaultAsync();
+                .Include(pc => pc.AIScores)
+                    .ThenInclude(ais => ais.AIScoreDetails!)
+                        .ThenInclude(aisd => aisd.Criteria)
+                .FirstOrDefaultAsync(pc => pc.ResumeId == resumeId);
+
+            return candidate?.AIScores?.OrderByDescending(ais => ais.CreatedAt).FirstOrDefault();
         }
     }
 }

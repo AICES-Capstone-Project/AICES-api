@@ -337,7 +337,39 @@ namespace BusinessObjectLayer.Services
                     await parsedResumeRepo.UpdateAsync(parsedResume);
                     await _uow.SaveChangesAsync();
 
-                    // 4. Save AI Score
+                    // 4. Create/Update ParsedCandidate first
+                    var existingCandidate = await parsedCandidateRepo.GetByResumeIdAsync(parsedResume.ResumeId);
+
+                    var fullName = request.CandidateInfo?.FullName ?? "Unknown";
+                    var email = request.CandidateInfo?.Email ?? "unknown@example.com";
+                    var phone = request.CandidateInfo?.PhoneNumber;
+
+                    ParsedCandidates parsedCandidate;
+                    if (existingCandidate == null)
+                    {
+                        parsedCandidate = new ParsedCandidates
+                        {
+                            ResumeId = parsedResume.ResumeId,
+                            JobId = parsedResume.JobId,
+                            FullName = fullName,
+                            Email = email,
+                            PhoneNumber = phone
+                        };
+
+                        await parsedCandidateRepo.CreateAsync(parsedCandidate);
+                        await _uow.SaveChangesAsync(); // Get CandidateId
+                    }
+                    else
+                    {
+                        existingCandidate.FullName = fullName;
+                        existingCandidate.Email = email;
+                        existingCandidate.PhoneNumber = phone;
+
+                        await parsedCandidateRepo.UpdateAsync(existingCandidate);
+                        parsedCandidate = existingCandidate;
+                    }
+
+                    // 5. Save AI Score with CandidateId
                     string? aiExplanationString = request.AIExplanation switch
                     {
                         string s => s,
@@ -348,43 +380,13 @@ namespace BusinessObjectLayer.Services
 
                     var aiScore = new AIScores
                     {
+                        CandidateId = parsedCandidate.CandidateId,
                         TotalResumeScore = request.TotalResumeScore,
                         AIExplanation = aiExplanationString
                     };
 
                     await aiScoreRepo.CreateAsync(aiScore);
                     await _uow.SaveChangesAsync(); // Get ScoreId
-
-                    // 5. Create/Update ParsedCandidate
-                    var existingCandidate = await parsedCandidateRepo.GetByResumeIdAsync(parsedResume.ResumeId);
-
-                    var fullName = request.CandidateInfo?.FullName ?? "Unknown";
-                    var email = request.CandidateInfo?.Email ?? "unknown@example.com";
-                    var phone = request.CandidateInfo?.PhoneNumber;
-
-                    if (existingCandidate == null)
-                    {
-                        var parsedCandidate = new ParsedCandidates
-                        {
-                            ResumeId = parsedResume.ResumeId,
-                            JobId = parsedResume.JobId,
-                            ScoreId = aiScore.ScoreId,
-                            FullName = fullName,
-                            Email = email,
-                            PhoneNumber = phone
-                        };
-
-                        await parsedCandidateRepo.CreateAsync(parsedCandidate);
-                    }
-                    else
-                    {
-                        existingCandidate.ScoreId = aiScore.ScoreId;
-                        existingCandidate.FullName = fullName;
-                        existingCandidate.Email = email;
-                        existingCandidate.PhoneNumber = phone;
-
-                        await parsedCandidateRepo.UpdateAsync(existingCandidate);
-                    }
 
                     // 6. Save AIScoreDetail
                     var scoreDetails = request.AIScoreDetail.Select(detail => new AIScoreDetail
@@ -508,7 +510,7 @@ namespace BusinessObjectLayer.Services
                     ResumeId = resume.ResumeId,
                     Status = resume.ResumeStatus,
                     FullName = resume.ParsedCandidates?.FullName ?? "Unknown",
-                    TotalResumeScore = resume.ParsedCandidates?.AIScores?.TotalResumeScore
+                    TotalResumeScore = resume.ParsedCandidates?.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault()?.TotalResumeScore
                 }).ToList();
 
                 return new ServiceResponse
@@ -595,7 +597,8 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var candidate = resume.ParsedCandidates;
-                var aiScore = candidate?.AIScores;
+                // Get the latest AIScore (most recent)
+                var aiScore = candidate?.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
 
                 var scoreDetails = aiScore?.AIScoreDetails?.Select(detail => new ResumeScoreDetailResponse
                 {

@@ -15,6 +15,9 @@ namespace Data.Entities
         [Key]
         public int ScoreId { get; set; }
 
+        [ForeignKey("ParsedCandidates")]
+        public int CandidateId { get; set; }
+
         [Column(TypeName = "decimal(5,2)")]
         public decimal TotalResumeScore { get; set; } // Overall score (0-100)
 
@@ -22,7 +25,7 @@ namespace Data.Entities
 
         // Navigation
         public ICollection<AIScoreDetail>? AIScoreDetails { get; set; }
-        public ParsedCandidates? ParsedCandidate { get; set; }
+        public ParsedCandidates ParsedCandidate { get; set; } = null!;
     }
 }
 

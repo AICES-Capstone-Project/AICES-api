@@ -260,11 +260,11 @@ namespace DataAccessLayer
                 .HasForeignKey(pc => pc.JobId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // AIScores - ParsedCandidates (one-to-one)
+            // AIScores - ParsedCandidates (many-to-one)
             modelBuilder.Entity<AIScores>()
                 .HasOne(s => s.ParsedCandidate)
-                .WithOne(pc => pc.AIScores)
-                .HasForeignKey<ParsedCandidates>(pc => pc.ScoreId)
+                .WithMany(pc => pc.AIScores)
+                .HasForeignKey(s => s.CandidateId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             // AIScores - AIScoreDetail
