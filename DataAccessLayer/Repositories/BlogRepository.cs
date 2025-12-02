@@ -125,15 +125,17 @@ namespace DataAccessLayer.Repositories
             return await query.CountAsync();
         }
 
-        public void UpdateBlog(Blog blog)
+        public async Task UpdateAsync(Blog blog)
         {
             _context.Blogs.Update(blog);
+            await Task.CompletedTask;
         }
 
-        public void SoftDeleteBlog(Blog blog)
+        public async Task SoftDeleteAsync(Blog blog)
         {
             blog.IsActive = false;
             _context.Blogs.Update(blog);
+            await Task.CompletedTask;
         }
     }
 }

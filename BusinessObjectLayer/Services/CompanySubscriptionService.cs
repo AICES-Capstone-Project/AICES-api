@@ -95,7 +95,7 @@ namespace BusinessObjectLayer.Services
 
             var endDate = request.StartDate.AddDays(subscription.DurationDays);
 
-            var anyActiveSubscription = await companySubscriptionRepo.GetAnyActiveSubscriptionByCompanyAsync(request.CompanyId);
+            var anyActiveSubscription = await companySubscriptionRepo.GetActiveByCompanyIdAsync(request.CompanyId);
             if (anyActiveSubscription != null && anyActiveSubscription.SubscriptionId != request.SubscriptionId)
             {
                 return new ServiceResponse
@@ -346,7 +346,7 @@ namespace BusinessObjectLayer.Services
             int companyId = companyUser.CompanyId.Value;
 
             // Lấy subscription hiện tại (Active hoặc Pending và chưa hết hạn)
-            var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            var companySubscription = await companySubRepo.GetActiveByCompanyIdAsync(companyId);
             
             if (companySubscription == null)
             {

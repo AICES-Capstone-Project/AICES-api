@@ -88,7 +88,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalCompaniesAsync(string? search = null, CompanyStatusEnum? status = null)
+        public async Task<int> CountAsync(string? search = null, CompanyStatusEnum? status = null)
         {
             var query = _context.Companies.AsNoTracking().AsQueryable();
 
@@ -173,7 +173,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<Company?> GetForUpdateAsync(int id)
+        public async Task<Company?> GetByIdForUpdateAsync(int id)
         {
             return await _context.Companies
                 .Include(c => c.CompanyUsers!)
@@ -237,13 +237,6 @@ namespace DataAccessLayer.Repositories
 
             return true;
         }
-
-        public async Task AddCompanyUserAsync(CompanyUser companyUser)
-        {
-            await _context.CompanyUsers.AddAsync(companyUser);
-        }
-
-
 
     }
 }

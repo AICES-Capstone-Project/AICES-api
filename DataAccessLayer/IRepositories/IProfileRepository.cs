@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +11,7 @@ namespace DataAccessLayer.IRepositories
     {
         Task<Profile> AddAsync(Profile profile);
         Task<Profile?> GetByUserIdAsync(int userId);
-        Task<Profile?> GetForUpdateByUserIdAsync(int userId);
+        Task<Profile?> GetByUserIdForUpdateAsync(int userId);
         Task UpdateAsync(Profile profile);
     }
 }

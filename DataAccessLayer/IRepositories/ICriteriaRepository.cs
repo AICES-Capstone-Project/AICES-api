@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +9,7 @@ namespace DataAccessLayer.IRepositories
 {
     public interface ICriteriaRepository
     {
-        Task AddCriteriaAsync(List<Criteria> criteria);
+        Task AddRangeAsync(List<Criteria> criteria);
         Task DeleteByJobIdAsync(int jobId);
     }
 }

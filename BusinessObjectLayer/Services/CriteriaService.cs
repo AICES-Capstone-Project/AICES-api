@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
@@ -59,7 +59,7 @@ namespace BusinessObjectLayer.Services
             }).ToList();
 
             var criteriaRepo = _uow.GetRepository<ICriteriaRepository>();
-            await criteriaRepo.AddCriteriaAsync(criteria);
+            await criteriaRepo.AddRangeAsync(criteria);
             await _uow.SaveChangesAsync();
 
             return new ServiceResponse
@@ -87,7 +87,7 @@ namespace BusinessObjectLayer.Services
                 Weight = c.Weight
             }).ToList();
 
-            await criteriaRepo.AddCriteriaAsync(criteria);
+            await criteriaRepo.AddRangeAsync(criteria);
             await _uow.SaveChangesAsync();
 
             return new ServiceResponse

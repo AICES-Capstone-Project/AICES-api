@@ -96,7 +96,7 @@ namespace BusinessObjectLayer.Services.Auth
                 ExpiryDate = DateTime.UtcNow.AddDays(7) // 7 days
             };
 
-            await _tokenRepository.AddRefreshTokenAsync(refreshToken);
+            await _tokenRepository.AddAsync(refreshToken);
 
             return new AuthTokenResponse
             {
@@ -109,7 +109,7 @@ namespace BusinessObjectLayer.Services.Auth
         {
             try
             {
-                var storedToken = await _tokenRepository.GetRefreshTokenAsync(refreshToken);
+                var storedToken = await _tokenRepository.GetByTokenAsync(refreshToken);
                 if (storedToken == null)
                 {
                     return new ServiceResponse
@@ -131,7 +131,7 @@ namespace BusinessObjectLayer.Services.Auth
                 if (storedToken.ExpiryDate < DateTime.UtcNow)
                 {
                     storedToken.IsActive = false;
-                    await _tokenRepository.UpdateRefreshTokenAsync(storedToken);
+                    await _tokenRepository.UpdateAsync(storedToken);
 
                     return new ServiceResponse
                     {
@@ -149,7 +149,7 @@ namespace BusinessObjectLayer.Services.Auth
                     };
                 }
 
-                await _tokenRepository.RevokeAllRefreshTokensAsync(storedToken.UserId);
+                await _tokenRepository.RevokeAllByUserIdAsync(storedToken.UserId);
                 var tokens = await GenerateTokensAsync(storedToken.User);
 
                 return new ServiceResponse

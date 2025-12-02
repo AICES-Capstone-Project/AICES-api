@@ -4,8 +4,8 @@ namespace DataAccessLayer.IRepositories
 {
     public interface IAIScoreDetailRepository
     {
-        Task<AIScoreDetail> CreateAsync(AIScoreDetail aiScoreDetail);
-        Task<List<AIScoreDetail>> CreateRangeAsync(List<AIScoreDetail> aiScoreDetails);
+        Task<AIScoreDetail> AddAsync(AIScoreDetail aiScoreDetail);
+        Task<List<AIScoreDetail>> AddRangeAsync(List<AIScoreDetail> aiScoreDetails);
         Task<List<AIScoreDetail>> GetByScoreIdAsync(int scoreId);
     }
 }

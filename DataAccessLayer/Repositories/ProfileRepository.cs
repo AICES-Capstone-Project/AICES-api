@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -31,7 +31,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(p => p.UserId == userId);
         }
 
-        public async Task<Profile?> GetForUpdateByUserIdAsync(int userId)
+        public async Task<Profile?> GetByUserIdForUpdateAsync(int userId)
         {
             return await _context.Profiles
                 .FirstOrDefaultAsync(p => p.UserId == userId);

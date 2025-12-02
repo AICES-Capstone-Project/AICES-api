@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using Data.Enum;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
@@ -32,7 +32,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(p => p.PaymentId == id);
         }
 
-        public async Task<Payment?> GetForUpdateAsync(int id)
+        public async Task<Payment?> GetByIdForUpdateAsync(int id)
         {
             return await _context.Payments
                 .FirstOrDefaultAsync(p => p.PaymentId == id);
@@ -59,7 +59,7 @@ namespace DataAccessLayer.Repositories
         }
 
 
-        public async Task<int> GetTotalPaymentsByCompanyAsync(int companyId)
+        public async Task<int> CountByCompanyIdAsync(int companyId)
         {
             return await _context.Payments
                 .AsNoTracking()

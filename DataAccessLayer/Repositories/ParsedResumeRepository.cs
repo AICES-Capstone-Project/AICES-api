@@ -14,7 +14,7 @@ namespace DataAccessLayer.Repositories
             _context = context;
         }
 
-        public async Task<ParsedResumes> CreateAsync(ParsedResumes parsedResume)
+        public async Task<ParsedResumes> AddAsync(ParsedResumes parsedResume)
         {
             await _context.ParsedResumes.AddAsync(parsedResume);
             return parsedResume;
@@ -33,7 +33,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(pr => pr.ResumeId == resumeId);
         }
 
-        public async Task<ParsedResumes?> GetForUpdateAsync(int resumeId)
+        public async Task<ParsedResumes?> GetByIdForUpdateAsync(int resumeId)
         {
             return await _context.ParsedResumes
                 .FirstOrDefaultAsync(pr => pr.ResumeId == resumeId);
@@ -88,7 +88,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> CountResumesInLastHoursAsync(int companyId, int hours)
+        public async Task<int> CountByCompanyIdSinceAsync(int companyId, int hours)
         {
             var hoursAgo = DateTime.UtcNow.AddHours(-hours);
             return await _context.ParsedResumes
@@ -100,7 +100,7 @@ namespace DataAccessLayer.Repositories
                 .CountAsync();
         }
 
-        public async Task<int> CountResumesInLastHoursInTransactionAsync(int companyId, int hours)
+        public async Task<int> CountByCompanyIdSinceInTransactionAsync(int companyId, int hours)
         {
             var hoursAgo = DateTime.UtcNow.AddHours(-hours);
             // No AsNoTracking() to see records created in current transaction
@@ -112,7 +112,7 @@ namespace DataAccessLayer.Repositories
                 .CountAsync();
         }
 
-        public async Task<int> CountResumesSinceDateAsync(int companyId, DateTime startDate, int hours)
+        public async Task<int> CountByCompanyIdSinceDateAsync(int companyId, DateTime startDate, int hours)
         {
             var hoursAgo = DateTime.UtcNow.AddHours(-hours);
             var effectiveStartDate = startDate > hoursAgo ? startDate : hoursAgo;
@@ -126,7 +126,7 @@ namespace DataAccessLayer.Repositories
                 .CountAsync();
         }
 
-        public async Task<int> CountResumesSinceDateInTransactionAsync(int companyId, DateTime startDate, int hours)
+        public async Task<int> CountByCompanyIdSinceDateInTransactionAsync(int companyId, DateTime startDate, int hours)
         {
             var hoursAgo = DateTime.UtcNow.AddHours(-hours);
             var effectiveStartDate = startDate > hoursAgo ? startDate : hoursAgo;

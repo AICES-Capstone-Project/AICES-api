@@ -17,8 +17,8 @@ namespace DataAccessLayer.IRepositories
         Task<int> GetTotalBlogsAsync(string? search = null);
         Task<List<Blog>> GetBlogsByUserIdAsync(int userId, int page, int pageSize, string? search = null);
         Task<int> GetTotalBlogsByUserIdAsync(int userId, string? search = null);
-        void UpdateBlog(Blog blog);
-        void SoftDeleteBlog(Blog blog);
+        Task UpdateAsync(Blog blog);
+        Task SoftDeleteAsync(Blog blog);
     }
 }
 

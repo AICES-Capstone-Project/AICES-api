@@ -5,11 +5,11 @@ namespace DataAccessLayer.IRepositories
 {
     public interface ITokenRepository
     {
-        Task<RefreshToken> AddRefreshTokenAsync(RefreshToken refreshToken);
-        Task<RefreshToken?> GetRefreshTokenAsync(string token);
-        Task<RefreshToken?> GetRefreshTokenForUpdateAsync(string token);
-        Task UpdateRefreshTokenAsync(RefreshToken refreshToken);
-        Task RevokeAllRefreshTokensAsync(int userId);
+        Task<RefreshToken> AddAsync(RefreshToken refreshToken);
+        Task<RefreshToken?> GetByTokenAsync(string token);
+        Task<RefreshToken?> GetByTokenForUpdateAsync(string token);
+        Task UpdateAsync(RefreshToken refreshToken);
+        Task RevokeAllByUserIdAsync(int userId);
     }
 }
 

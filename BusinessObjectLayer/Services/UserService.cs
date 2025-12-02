@@ -34,7 +34,7 @@ namespace BusinessObjectLayer.Services
         {
             var userRepo = _uow.GetRepository<IUserRepository>();
             var users = await userRepo.GetUsersAsync(page, pageSize, search);
-            var total = await userRepo.GetTotalUsersAsync(search);
+            var total = await userRepo.CountAsync(search);
 
             var userResponses = users.Select(u => new UserResponse
             {
@@ -187,7 +187,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateUserAsync(int id, UpdateUserRequest request)
         {
             var userRepo = _uow.GetRepository<IUserRepository>();
-            var user = await userRepo.GetForUpdateAsync(id);
+            var user = await userRepo.GetByIdForUpdateAsync(id);
             if (user == null)
             {
                 return new ServiceResponse
@@ -240,7 +240,7 @@ namespace BusinessObjectLayer.Services
                 var profileRepo = _uow.GetRepository<IProfileRepository>();
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 
-                var user = await userRepo.GetForUpdateAsync(id);
+                var user = await userRepo.GetByIdForUpdateAsync(id);
                 if (user == null)
                 {
                     return new ServiceResponse
@@ -302,7 +302,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 var userRepo = _uow.GetRepository<IUserRepository>();
-                var user = await userRepo.GetForUpdateAsync(id);
+                var user = await userRepo.GetByIdForUpdateAsync(id);
                 if (user == null)
                 {
                     return new ServiceResponse

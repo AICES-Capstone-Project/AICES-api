@@ -59,7 +59,7 @@ namespace BusinessObjectLayer.Services
                 var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
                 // Validate job exists
-                var job = await jobRepo.GetJobByIdAsync(jobId);
+                var job = await jobRepo.GetByIdAsync(jobId);
                 if (job == null)
                 {
                     return new ServiceResponse
@@ -106,7 +106,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Check if company has an active subscription
-                var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+                var companySubscription = await companySubRepo.GetActiveByCompanyIdAsync(companyId);
                 
                 if (companySubscription == null)
                 {
@@ -199,7 +199,7 @@ namespace BusinessObjectLayer.Services
                             ResumeStatus = ResumeStatusEnum.Pending
                         };
 
-                        await parsedResumeRepo.CreateAsync(parsedResume);
+                        await parsedResumeRepo.AddAsync(parsedResume);
                         await _uow.SaveChangesAsync(); // Get ResumeId
 
                         // Prepare criteria data for queue
@@ -313,7 +313,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Validate job exists and belongs to company
-                var job = await jobRepo.GetJobByIdAsync(jobId);
+                var job = await jobRepo.GetByIdAsync(jobId);
                 if (job == null)
                 {
                     return new ServiceResponse
@@ -467,7 +467,7 @@ namespace BusinessObjectLayer.Services
                 var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
                 var parsedCandidateRepo = _uow.GetRepository<IParsedCandidateRepository>();
                 var aiScoreRepo = _uow.GetRepository<IAIScoreRepository>();
-                var aiScoreDetailRepo = _uow.GetRepository<IAIScoreDetailRepository>();
+                    var aiScoreDetailRepo = _uow.GetRepository<IAIScoreDetailRepository>();
                 
                 // 1. Find resume
                 var parsedResume = await parsedResumeRepo.GetByQueueJobIdAsync(request.QueueJobId);
@@ -529,7 +529,7 @@ namespace BusinessObjectLayer.Services
                             PhoneNumber = phone
                         };
 
-                        await parsedCandidateRepo.CreateAsync(parsedCandidate);
+                        await parsedCandidateRepo.AddAsync(parsedCandidate);
                         await _uow.SaveChangesAsync(); // Get CandidateId
                     }
                     else
@@ -558,7 +558,7 @@ namespace BusinessObjectLayer.Services
                         AIExplanation = aiExplanationString
                     };
 
-                    await aiScoreRepo.CreateAsync(aiScore);
+                    await aiScoreRepo.AddAsync(aiScore);
                     await _uow.SaveChangesAsync(); // Get ScoreId
 
                     // 6. Save AIScoreDetail
@@ -571,7 +571,7 @@ namespace BusinessObjectLayer.Services
                         AINote = detail.AINote
                     }).ToList();
 
-                    await aiScoreDetailRepo.CreateRangeAsync(scoreDetails);
+                    await aiScoreDetailRepo.AddRangeAsync(scoreDetails);
                     await _uow.SaveChangesAsync();
                     await _uow.CommitTransactionAsync();
 
@@ -656,7 +656,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Validate job exists and belongs to company
-                var job = await jobRepo.GetJobByIdAsync(jobId);
+                var job = await jobRepo.GetByIdAsync(jobId);
                 if (job == null)
                 {
                     return new ServiceResponse
@@ -739,7 +739,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Validate job exists and belongs to company
-                var job = await jobRepo.GetJobByIdAsync(jobId);
+                var job = await jobRepo.GetByIdAsync(jobId);
                 if (job == null)
                 {
                     return new ServiceResponse
@@ -857,7 +857,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get resume
-                var resume = await parsedResumeRepo.GetForUpdateAsync(resumeId);
+                var resume = await parsedResumeRepo.GetByIdForUpdateAsync(resumeId);
                 if (resume == null)
                 {
                     return new ServiceResponse
@@ -898,7 +898,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get job with requirements and criteria
-                var job = await jobRepo.GetJobByIdAsync(resume.JobId);
+                var job = await jobRepo.GetByIdAsync(resume.JobId);
                 if (job == null)
                 {
                     return new ServiceResponse
@@ -1013,7 +1013,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get resume
-                var resume = await parsedResumeRepo.GetForUpdateAsync(resumeId);
+                var resume = await parsedResumeRepo.GetByIdForUpdateAsync(resumeId);
                 if (resume == null)
                 {
                     return new ServiceResponse

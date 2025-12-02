@@ -14,7 +14,7 @@ namespace DataAccessLayer.IRepositories
         Task MarkAsReadAsync(int notifId);
         Task MarkAllAsReadByUserIdAsync(int userId);
         Task<Notification?> GetByIdAsync(int notifId);
-        Task<Notification?> GetForUpdateAsync(int notifId);
+        Task<Notification?> GetByIdForUpdateAsync(int notifId);
         Task UpdateAsync(Notification notification);
 
     }

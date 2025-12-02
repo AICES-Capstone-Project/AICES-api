@@ -23,7 +23,7 @@ namespace BusinessObjectLayer.Services.UsageLimits
             {
                 // Get active subscription for company
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
-                var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+                var companySubscription = await companySubRepo.GetActiveByCompanyIdAsync(companyId);
 
                 if (companySubscription == null)
                 {
@@ -51,7 +51,7 @@ namespace BusinessObjectLayer.Services.UsageLimits
                 // Count resumes uploaded since subscription start date (only count resumes from current subscription)
                 // This ensures that when a new subscription starts, old resumes don't count against the limit
                 var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
-                var resumeCount = await parsedResumeRepo.CountResumesSinceDateAsync(
+                var resumeCount = await parsedResumeRepo.CountByCompanyIdSinceDateAsync(
                     companyId, 
                     companySubscription.StartDate, 
                     hoursLimit ?? 0);
@@ -102,7 +102,7 @@ namespace BusinessObjectLayer.Services.UsageLimits
                 // Get active subscription for company WITH LOCK to prevent race conditions
                 // This ensures only one transaction can check limit at a time for the same company
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
-                var companySubscription = await companySubRepo.GetAnyActiveSubscriptionForUpdateByCompanyAsync(companyId);
+                var companySubscription = await companySubRepo.GetActiveByCompanyIdForUpdateAsync(companyId);
 
                 if (companySubscription == null)
                 {
@@ -130,7 +130,7 @@ namespace BusinessObjectLayer.Services.UsageLimits
                 // Count resumes uploaded since subscription start date (only count resumes from current subscription)
                 // Use InTransaction method to see records created in current transaction
                 var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
-                var resumeCount = await parsedResumeRepo.CountResumesSinceDateInTransactionAsync(
+                var resumeCount = await parsedResumeRepo.CountByCompanyIdSinceDateInTransactionAsync(
                     companyId, 
                     companySubscription.StartDate, 
                     hoursLimit ?? 0);

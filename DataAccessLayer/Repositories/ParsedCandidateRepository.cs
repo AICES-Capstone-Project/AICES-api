@@ -13,7 +13,7 @@ namespace DataAccessLayer.Repositories
             _context = context;
         }
 
-        public async Task<ParsedCandidates> CreateAsync(ParsedCandidates parsedCandidate)
+        public async Task<ParsedCandidates> AddAsync(ParsedCandidates parsedCandidate)
         {
             await _context.ParsedCandidates.AddAsync(parsedCandidate);
             return parsedCandidate;

@@ -22,7 +22,7 @@ namespace API.Controllers
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> GetPublic() =>
-            ControllerResponse.Response(await _companyService.GetPublicAsync());
+            ControllerResponse.Response(await _companyService.GetPublicListAsync());
 
         [HttpGet("{id}")]
         [AllowAnonymous]
@@ -44,12 +44,12 @@ namespace API.Controllers
         [HttpGet("rejected")]
         [Authorize(Roles = "HR_Recruiter")]
         public async Task<IActionResult> GetRejectedSelfCompany() =>
-            ControllerResponse.Response(await _companyService.GetRejectedSelfCompanyAsync());
+            ControllerResponse.Response(await _companyService.GetCurrentRejectedAsync());
 
         [HttpGet("profile")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetSelfCompany() =>
-            ControllerResponse.Response(await _companyService.GetSelfCompanyAsync());
+            ControllerResponse.Response(await _companyService.GetCurrentAsync());
 
         [HttpPatch("profile")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
@@ -62,21 +62,21 @@ namespace API.Controllers
         [Authorize(Roles = "HR_Recruiter, HR_Manager")]
         [RequestSizeLimit(10_000_000)]
         public async Task<IActionResult> SelfCreate([FromForm] CompanyRequest request) =>
-            ControllerResponse.Response(await _companyService.SelfCreateAsync(request));
+            ControllerResponse.Response(await _companyService.CreateCurrentAsync(request));
 
         // Update company to resend after rejection
         [HttpPatch]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         [RequestSizeLimit(10_000_000)]
         public async Task<IActionResult> UpdateSelfCompany([FromForm] CompanyRequest request) =>
-            ControllerResponse.Response(await _companyService.UpdateSelfCompanyAsync(request));
+            ControllerResponse.Response(await _companyService.UpdateCurrentAsync(request));
 
         // Cancel company registration
         [HttpPut("cancel")]
         [Authorize(Roles = "HR_Recruiter")]
         public async Task<IActionResult> CancelCompany()
         {
-            var response = await _companyService.CancelCompanyAsync();
+            var response = await _companyService.CancelCurrentAsync();
             return ControllerResponse.Response(response);
         }
     }

@@ -185,7 +185,7 @@ namespace BusinessObjectLayer.Services.Auth
             }
 
             // Revoke all existing refresh tokens on new login (security: invalidate old sessions)
-            await tokenRepo.RevokeAllRefreshTokensAsync(user.UserId);
+            await tokenRepo.RevokeAllByUserIdAsync(user.UserId);
             await _uow.SaveChangesAsync();
 
             var tokens = await _tokenService.GenerateTokensAsync(user);
@@ -224,7 +224,7 @@ namespace BusinessObjectLayer.Services.Auth
                 }
 
                 var authRepo = _uow.GetRepository<IAuthRepository>();
-                var user = await authRepo.GetForUpdateByEmailAsync(email);
+                var user = await authRepo.GetByEmailForUpdateAsync(email);
                 if (user == null)
                     return new ServiceResponse { Status = SRStatus.Error, Message = "User not found." };
 
@@ -380,7 +380,7 @@ namespace BusinessObjectLayer.Services.Auth
                 }
 
                 // 3. Revoke all existing refresh tokens on new login (security: invalidate old sessions)
-                await tokenRepo.RevokeAllRefreshTokensAsync(user.UserId);
+                await tokenRepo.RevokeAllByUserIdAsync(user.UserId);
                 await _uow.SaveChangesAsync();
 
                 // 4. Generate tokens
@@ -555,7 +555,7 @@ namespace BusinessObjectLayer.Services.Auth
                         return validation;
                 }
 
-                await tokenRepo.RevokeAllRefreshTokensAsync(user.UserId);
+                await tokenRepo.RevokeAllByUserIdAsync(user.UserId);
                 await _uow.SaveChangesAsync();
                 var tokens = await _tokenService.GenerateTokensAsync(user);
 
@@ -710,7 +710,7 @@ namespace BusinessObjectLayer.Services.Auth
             try
             {
                 var tokenRepo = _uow.GetRepository<ITokenRepository>();
-                var storedToken = await tokenRepo.GetRefreshTokenForUpdateAsync(refreshToken);
+                var storedToken = await tokenRepo.GetByTokenForUpdateAsync(refreshToken);
                 if (storedToken == null)
                 {
                     return new ServiceResponse
@@ -721,7 +721,7 @@ namespace BusinessObjectLayer.Services.Auth
                 }
 
                 storedToken.IsActive = false;
-                await tokenRepo.UpdateRefreshTokenAsync(storedToken);
+                await tokenRepo.UpdateAsync(storedToken);
                 await _uow.SaveChangesAsync();
 
                 return new ServiceResponse

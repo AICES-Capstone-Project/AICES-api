@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,9 +11,9 @@ namespace DataAccessLayer.IRepositories
     {
         Task<IEnumerable<Subscription>> GetAllAsync();
         Task<List<Subscription>> GetSubscriptionsAsync(int page, int pageSize, string? search = null);
-        Task<int> GetTotalSubscriptionsAsync(string? search = null);
+        Task<int> CountAsync(string? search = null);
         Task<Subscription?> GetByIdAsync(int id);
-        Task<Subscription?> GetForUpdateAsync(int id);
+        Task<Subscription?> GetByIdForUpdateAsync(int id);
         Task<Subscription> AddAsync(Subscription subscription);
         Task UpdateAsync(Subscription subscription);
         Task SoftDeleteAsync(Subscription subscription);

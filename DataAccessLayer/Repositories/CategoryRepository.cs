@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -46,7 +46,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalCategoriesAsync(string? search = null)
+        public async Task<int> CountAsync(string? search = null)
         {
             var query = _context.Categories
                 .AsNoTracking()
@@ -68,7 +68,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(c => c.CategoryId == id);
         }
 
-        public async Task<Category?> GetForUpdateAsync(int id)
+        public async Task<Category?> GetByIdForUpdateAsync(int id)
         {
             return await _context.Categories
                 .FirstOrDefaultAsync(c => c.CategoryId == id);
@@ -79,9 +79,10 @@ namespace DataAccessLayer.Repositories
             await _context.Categories.AddAsync(category);
         }
 
-        public void Update(Category category)
+        public async Task UpdateAsync(Category category)
         {
             _context.Categories.Update(category);
+            await Task.CompletedTask;
         }
 
         public async Task<bool> ExistsByNameAsync(string name)
@@ -96,13 +97,6 @@ namespace DataAccessLayer.Repositories
             return await _context.Categories
                 .AsNoTracking()
                 .AnyAsync(c => c.CategoryId == categoryId && c.IsActive);
-        }
-
-        // Legacy method for backward compatibility
-        public async Task UpdateAsync(Category category)
-        {
-            _context.Categories.Update(category);
-            await _context.SaveChangesAsync();
         }
     }
 }

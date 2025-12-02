@@ -13,7 +13,7 @@ namespace BusinessObjectLayer.IServices
     {
         Task<ServiceResponse> CreateAsync(int userId, NotificationTypeEnum type, string message, string? detail = null);
         Task<ServiceResponse> GetByUserIdAsync(int userId);
-        Task<ServiceResponse> GetMyNotificationsAsync(ClaimsPrincipal user);
+        Task<ServiceResponse> GetCurrentUserListAsync(ClaimsPrincipal user);
         Task<ServiceResponse> MarkAsReadAsync(ClaimsPrincipal user, int notifId);
         Task<ServiceResponse> MarkAllAsReadAsync(ClaimsPrincipal user);
         Task<ServiceResponse> GetByIdAndMarkAsReadAsync(int userId, int notifId);

@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
@@ -26,7 +26,7 @@ namespace BusinessObjectLayer.Services
         {
             var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
             var subscriptions = await subscriptionRepo.GetSubscriptionsAsync(page, pageSize, search);
-            var total = await subscriptionRepo.GetTotalSubscriptionsAsync(search);
+            var total = await subscriptionRepo.CountAsync(search);
 
             var pagedData = subscriptions.Select(s => new SubscriptionResponse
             {
@@ -137,7 +137,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateAsync(int id, SubscriptionRequest request)
         {
             var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
-            var subscription = await subscriptionRepo.GetForUpdateAsync(id);
+            var subscription = await subscriptionRepo.GetByIdForUpdateAsync(id);
             if (subscription == null)
             {
                 return new ServiceResponse
@@ -177,7 +177,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
             var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
-            var subscription = await subscriptionRepo.GetForUpdateAsync(id);
+            var subscription = await subscriptionRepo.GetByIdForUpdateAsync(id);
             if (subscription == null)
             {
                 return new ServiceResponse

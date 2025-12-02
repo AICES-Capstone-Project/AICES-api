@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -36,7 +36,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(js => js.JobSkillId == id);
         }
 
-        public async Task<JobSkill?> GetForUpdateAsync(int id)
+        public async Task<JobSkill?> GetByIdForUpdateAsync(int id)
         {
             return await _context.JobSkills
                 .Include(js => js.Job)
@@ -49,14 +49,16 @@ namespace DataAccessLayer.Repositories
             await _context.JobSkills.AddAsync(jobSkill);
         }
 
-        public void Update(JobSkill jobSkill)
+        public async Task UpdateAsync(JobSkill jobSkill)
         {
             _context.JobSkills.Update(jobSkill);
+            await Task.CompletedTask;
         }
 
-        public void Delete(JobSkill jobSkill)
+        public async Task DeleteAsync(JobSkill jobSkill)
         {
             _context.JobSkills.Remove(jobSkill);
+            await Task.CompletedTask;
         }
 
         public async Task<List<JobSkill>> GetByJobIdAsync(int jobId)
@@ -81,18 +83,5 @@ namespace DataAccessLayer.Repositories
             }
         }
 
-        // Legacy methods for backward compatibility (used by JobSkillService)
-        // These include SaveChanges for services not using UoW
-        public async Task UpdateAsync(JobSkill jobSkill)
-        {
-            _context.JobSkills.Update(jobSkill);
-            await _context.SaveChangesAsync();
-        }
-
-        public async Task DeleteAsync(JobSkill jobSkill)
-        {
-            _context.JobSkills.Remove(jobSkill);
-            await _context.SaveChangesAsync();
-        }
     }
 }

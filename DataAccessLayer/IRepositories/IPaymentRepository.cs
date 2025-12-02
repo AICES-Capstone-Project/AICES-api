@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,10 +11,10 @@ namespace DataAccessLayer.IRepositories
     {
         Task<Payment> AddAsync(Payment payment);
         Task<Payment?> GetByIdAsync(int id);
-        Task<Payment?> GetForUpdateAsync(int id);
+        Task<Payment?> GetByIdForUpdateAsync(int id);
         Task UpdateAsync(Payment payment);
         Task<List<Payment>> GetPaymentHistoryByCompanyAsync(int companyId, int page, int pageSize);
-        Task<int> GetTotalPaymentsByCompanyAsync(int companyId);
+        Task<int> CountByCompanyIdAsync(int companyId);
         Task<Payment?> GetLatestPendingByCompanyAsync(int companyId);
         Task<List<Payment>> GetPendingBeforeAsync(DateTime cutoff);
         Task<List<Payment>> GetPaymentsByCompanyAsync(int companyId);

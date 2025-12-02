@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using BusinessObjectLayer.Hubs;
 using Data.Entities;
 using Data.Enum;
@@ -102,7 +102,7 @@ namespace BusinessObjectLayer.Services
             }
 
             var notifRepo = _uow.GetRepository<INotificationRepository>();
-            var notif = await notifRepo.GetForUpdateAsync(notifId);
+            var notif = await notifRepo.GetByIdForUpdateAsync(notifId);
 
             if (notif == null || notif.UserId != userId)
             {
@@ -159,7 +159,7 @@ namespace BusinessObjectLayer.Services
                 Message = "All notifications marked as read."
             };
         }
-        public async Task<ServiceResponse> GetMyNotificationsAsync(ClaimsPrincipal user)
+        public async Task<ServiceResponse> GetCurrentUserListAsync(ClaimsPrincipal user)
         {
             var userIdClaim = Common.ClaimUtils.GetUserIdClaim(user);
 
@@ -187,7 +187,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> GetByIdAndMarkAsReadAsync(int userId, int notifId)
         {
             var notifRepo = _uow.GetRepository<INotificationRepository>();
-            var notif = await notifRepo.GetForUpdateAsync(notifId);
+            var notif = await notifRepo.GetByIdForUpdateAsync(notifId);
 
             if (notif == null || notif.UserId != userId)
             {

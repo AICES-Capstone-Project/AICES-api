@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
@@ -107,7 +107,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateAsync(int id, SkillRequest request)
         {
             var skillRepo = _uow.GetRepository<ISkillRepository>();
-            var skill = await skillRepo.GetForUpdateAsync(id);
+            var skill = await skillRepo.GetByIdForUpdateAsync(id);
             if (skill == null)
             {
                 return new ServiceResponse
@@ -121,7 +121,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 skill.Name = request.Name ?? skill.Name;
-                skillRepo.Update(skill);
+                await skillRepo.UpdateAsync(skill);
                 await _uow.CommitTransactionAsync();
 
                 return new ServiceResponse
@@ -140,7 +140,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
             var skillRepo = _uow.GetRepository<ISkillRepository>();
-            var skill = await skillRepo.GetForUpdateAsync(id);
+            var skill = await skillRepo.GetByIdForUpdateAsync(id);
             if (skill == null)
             {
                 return new ServiceResponse
@@ -154,7 +154,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 skill.IsActive = false;
-                skillRepo.Update(skill);
+                await skillRepo.UpdateAsync(skill);
                 await _uow.CommitTransactionAsync();
 
                 return new ServiceResponse

@@ -296,7 +296,7 @@ namespace BusinessObjectLayer.Services
                 if (request.Content != null) blog.Content = request.Content;
                 if (request.ThumbnailUrl != null) blog.ThumbnailUrl = request.ThumbnailUrl;
 
-                blogRepo.UpdateBlog(blog);
+                await blogRepo.UpdateAsync(blog);
                 await _uow.SaveChangesAsync();
 
                 return new ServiceResponse
@@ -358,7 +358,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                blogRepo.SoftDeleteBlog(blog);
+                await blogRepo.SoftDeleteAsync(blog);
                 await _uow.SaveChangesAsync();
 
                 return new ServiceResponse

@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +9,7 @@ namespace DataAccessLayer.IRepositories
 {
     public interface IJobEmploymentTypeRepository
     {
-        Task AddJobEmploymentTypesAsync(List<JobEmploymentType> jobEmploymentTypes);
+        Task AddRangeAsync(List<JobEmploymentType> jobEmploymentTypes);
         Task DeleteByJobIdAsync(int jobId);
     }
 }

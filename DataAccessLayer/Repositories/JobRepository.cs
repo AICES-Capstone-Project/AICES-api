@@ -24,7 +24,7 @@ namespace DataAccessLayer.Repositories
             await _context.Jobs.AddAsync(job);
         }
 
-        public async Task<Job?> GetJobByIdAsync(int jobId)
+        public async Task<Job?> GetByIdAsync(int jobId)
         {
             return await _context.Jobs
                 .AsNoTracking()
@@ -42,7 +42,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
 
-        public async Task<Job?> GetForUpdateAsync(int jobId)
+        public async Task<Job?> GetByIdForUpdateAsync(int jobId)
         {
             return await _context.Jobs
                 .Include(j => j.Company)
@@ -59,7 +59,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
 
-        public async Task<Job?> GetForUpdateByIdAndCompanyIdAsync(int jobId, int companyId)
+        public async Task<Job?> GetByIdAndCompanyIdForUpdateAsync(int jobId, int companyId)
         {
             return await _context.Jobs
                 .Include(j => j.Company)
@@ -77,7 +77,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
 
-        public async Task<Job?> GetPublishedForUpdateByIdAndCompanyIdAsync(int jobId, int companyId)
+        public async Task<Job?> GetPublishedByIdAndCompanyIdForUpdateAsync(int jobId, int companyId)
         {
             return await _context.Jobs
                 .Include(j => j.Company)
@@ -127,7 +127,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalPublishedJobsAsync(string? search = null)
+        public async Task<int> CountPublishedAsync(string? search = null)
         {
             var query = _context.Jobs
                 .AsNoTracking()
@@ -176,7 +176,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalPublishedJobsByCompanyIdAsync(int companyId, string? search = null)
+        public async Task<int> CountPublishedByCompanyIdAsync(int companyId, string? search = null)
         {
             var query = _context.Jobs
                 .AsNoTracking()
@@ -225,7 +225,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalPendingJobsByCompanyIdAsync(int companyId, string? search = null)
+        public async Task<int> CountPendingByCompanyIdAsync(int companyId, string? search = null)
         {
             var query = _context.Jobs
                 .AsNoTracking()
@@ -280,7 +280,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
 
-        public async Task<Job?> GetAllJobByIdAndCompanyIdAsync(int jobId, int companyId)
+        public async Task<Job?> GetByIdAndCompanyIdAsync(int jobId, int companyId)
         {
             return await _context.Jobs
                 .AsNoTracking()
@@ -331,7 +331,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalAllJobsByCompanyIdAsync(int companyId, string? search = null)
+        public async Task<int> CountByCompanyIdAsync(int companyId, string? search = null)
         {
             var query = _context.Jobs
                 .AsNoTracking()
@@ -348,7 +348,7 @@ namespace DataAccessLayer.Repositories
             return await query.CountAsync();
         }
 
-        public async Task<List<Job>> GetJobsByComUserIdAsync(int comUserId, int page, int pageSize, string? search = null, JobStatusEnum? status = null)
+        public async Task<List<Job>> GetListByCreatorIdAsync(int comUserId, int page, int pageSize, string? search = null, JobStatusEnum? status = null)
         {
             var query = _context.Jobs
                 .AsNoTracking()
@@ -385,7 +385,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalJobsByComUserIdAsync(int comUserId, string? search = null, JobStatusEnum? status = null)
+        public async Task<int> CountByCreatorIdAsync(int comUserId, string? search = null, JobStatusEnum? status = null)
         {
             var query = _context.Jobs
                 .AsNoTracking()
@@ -407,22 +407,24 @@ namespace DataAccessLayer.Repositories
             return await query.CountAsync();
         }
 
-        public async Task<bool> JobTitleExistsInCompanyAsync(string title, int companyId)
+        public async Task<bool> ExistsByTitleAndCompanyIdAsync(string title, int companyId)
         {
             return await _context.Jobs
                 .AsNoTracking()
                 .AnyAsync(j => j.CompanyId == companyId && j.Title == title && j.IsActive);
         }
 
-        public void UpdateJob(Job job)
+        public async Task UpdateAsync(Job job)
         {
             _context.Jobs.Update(job);
+            await Task.CompletedTask;
         }
 
-        public void SoftDeleteJob(Job job)
+        public async Task SoftDeleteAsync(Job job)
         {
             job.IsActive = false;
             _context.Jobs.Update(job);
+            await Task.CompletedTask;
         }
     }
 }

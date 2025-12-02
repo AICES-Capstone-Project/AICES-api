@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Data.Entities;
@@ -74,7 +74,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateProfileAsync(int userId, UpdateProfileRequest request)
         {
             var profileRepo = _uow.GetRepository<IProfileRepository>();
-            var profile = await profileRepo.GetForUpdateByUserIdAsync(userId);
+            var profile = await profileRepo.GetByUserIdForUpdateAsync(userId);
             if (profile == null)
             {
                 return new ServiceResponse

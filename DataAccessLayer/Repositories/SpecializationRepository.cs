@@ -34,7 +34,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(s => s.SpecializationId == id);
         }
 
-        public async Task<Specialization?> GetForUpdateAsync(int id)
+        public async Task<Specialization?> GetByIdForUpdateAsync(int id)
         {
             return await _context.Specializations
                 .Include(s => s.Category)
@@ -60,16 +60,10 @@ namespace DataAccessLayer.Repositories
             await _context.Specializations.AddAsync(specialization);
         }
 
-        public void Update(Specialization specialization)
-        {
-            _context.Specializations.Update(specialization);
-        }
-        
-        // Legacy method for backward compatibility
         public async Task UpdateAsync(Specialization specialization)
         {
             _context.Specializations.Update(specialization);
-            await _context.SaveChangesAsync();
+            await Task.CompletedTask;
         }
 
         public async Task<List<Specialization>> GetPagedAsync(int page, int pageSize, string? search = null)

@@ -13,7 +13,7 @@ namespace DataAccessLayer.Repositories
             _context = context;
         }
 
-        public async Task<AIScores> CreateAsync(AIScores aiScore)
+        public async Task<AIScores> AddAsync(AIScores aiScore)
         {
             await _context.AIScores.AddAsync(aiScore);
             return aiScore;

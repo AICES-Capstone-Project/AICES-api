@@ -14,20 +14,13 @@ namespace DataAccessLayer.Repositories
             _context = context;
         }
 
-        public async Task<CompanyUser> AddCompanyUserAsync(CompanyUser companyUser)
+        public async Task<CompanyUser> AddAsync(CompanyUser companyUser)
         {
             await _context.CompanyUsers.AddAsync(companyUser);
             return companyUser;
         }
 
         public async Task<CompanyUser?> GetByUserIdAsync(int userId)
-        {
-            return await _context.CompanyUsers
-                .AsNoTracking()
-                .FirstOrDefaultAsync(cu => cu.UserId == userId && cu.IsActive);
-        }
-
-        public async Task<CompanyUser?> GetCompanyUserByUserIdAsync(int userId)
         {
             return await _context.CompanyUsers
                 .AsNoTracking()

@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -31,7 +31,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(u => u.UserId == id);
         }
 
-        public async Task<User?> GetForUpdateAsync(int id)
+        public async Task<User?> GetByIdForUpdateAsync(int id)
         {
             return await _context.Users
                 .Include(u => u.Role)
@@ -64,7 +64,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalUsersAsync(string? search = null)
+        public async Task<int> CountAsync(string? search = null)
         {
             var query = _context.Users.AsNoTracking().AsQueryable();
 

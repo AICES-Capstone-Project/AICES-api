@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using DataAccessLayer.IRepositories;
 using System;
 using System.Collections.Generic;
@@ -17,7 +17,7 @@ namespace DataAccessLayer.Repositories
             _context = context;
         }
 
-        public async Task AddCriteriaAsync(List<Criteria> criteria)
+        public async Task AddRangeAsync(List<Criteria> criteria)
         {
             await _context.Criterias.AddRangeAsync(criteria);
         }

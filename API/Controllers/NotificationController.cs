@@ -22,7 +22,7 @@ namespace API.Controllers
         [HttpGet("me")]
         public async Task<IActionResult> GetMyNotifications()
         {
-            var response = await _notificationService.GetMyNotificationsAsync(User);
+            var response = await _notificationService.GetCurrentUserListAsync(User);
             return ControllerResponse.Response(response);
         }
 

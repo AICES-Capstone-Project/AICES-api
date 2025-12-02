@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -34,7 +34,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(s => s.SkillId == id && s.IsActive);
         }
 
-        public async Task<Skill?> GetForUpdateAsync(int id)
+        public async Task<Skill?> GetByIdForUpdateAsync(int id)
         {
             return await _context.Skills
                 .FirstOrDefaultAsync(s => s.SkillId == id && s.IsActive);
@@ -45,9 +45,10 @@ namespace DataAccessLayer.Repositories
             await _context.Skills.AddAsync(skill);
         }
 
-        public void Update(Skill skill)
+        public async Task UpdateAsync(Skill skill)
         {
             _context.Skills.Update(skill);
+            await Task.CompletedTask;
         }
 
         public async Task<bool> ExistsByNameAsync(string name)
@@ -57,18 +58,11 @@ namespace DataAccessLayer.Repositories
                 .AnyAsync(s => s.Name == name);
         }
 
-        // Legacy methods for backward compatibility
-        public async Task UpdateAsync(Skill skill)
-        {
-            _context.Skills.Update(skill);
-            await _context.SaveChangesAsync();
-        }
-
         public async Task SoftDeleteAsync(Skill skill)
         {
             skill.IsActive = false;
             _context.Skills.Update(skill);
-            await _context.SaveChangesAsync();
+            await Task.CompletedTask;
         }
     }
 }

@@ -30,7 +30,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
-        public async Task<User?> GetForUpdateByEmailAsync(string email)
+        public async Task<User?> GetByEmailForUpdateAsync(string email)
         {
             return await _context.Users
                 .Include(u => u.Role)

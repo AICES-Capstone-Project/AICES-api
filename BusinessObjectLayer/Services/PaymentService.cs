@@ -73,7 +73,7 @@ namespace BusinessObjectLayer.Services
             if (subscription == null)
                 return new ServiceResponse { Status = SRStatus.NotFound, Message = "Subscription not found" };
 
-            var existingCompanySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            var existingCompanySubscription = await companySubRepo.GetActiveByCompanyIdAsync(companyId);
             if (existingCompanySubscription != null)
             {
                 return new ServiceResponse
@@ -98,7 +98,7 @@ namespace BusinessObjectLayer.Services
             var customerService = new CustomerService();
             
             // Get user email
-            var companyUserEntity = await companyUserRepo.GetCompanyUserByUserIdAsync(userId);
+            var companyUserEntity = await companyUserRepo.GetByUserIdAsync(userId);
             string userEmail = companyUserEntity?.User?.Email;
 
             if (string.IsNullOrEmpty(customerId))
@@ -306,7 +306,7 @@ namespace BusinessObjectLayer.Services
                 int.TryParse(session.Metadata?.GetValueOrDefault("paymentId") ?? "0", out int paymentId);
                 if (paymentId > 0)
                 {
-                    var payment = await paymentRepo.GetForUpdateAsync(paymentId);
+                    var payment = await paymentRepo.GetByIdForUpdateAsync(paymentId);
                     if (payment != null)
                     {
                         payment.ComSubId = companySubscription.ComSubId;
@@ -421,7 +421,7 @@ namespace BusinessObjectLayer.Services
                     // For initial payment, find and update existing payment from checkout
                     if (initialPaymentId > 0)
                     {
-                        payment = await paymentRepo.GetForUpdateAsync(initialPaymentId);
+                        payment = await paymentRepo.GetByIdForUpdateAsync(initialPaymentId);
                     }
                     
                     // Fallback: get latest pending payment for company
@@ -655,7 +655,7 @@ namespace BusinessObjectLayer.Services
 
             if (paymentId > 0)
             {
-                payment = await paymentRepo.GetForUpdateAsync(paymentId);
+                payment = await paymentRepo.GetByIdForUpdateAsync(paymentId);
             }
 
             if (payment == null && fallbackCompanyId.HasValue)
@@ -984,7 +984,7 @@ namespace BusinessObjectLayer.Services
             int companyId = companyUser.CompanyId.Value;
 
             // Tìm active subscription của company
-            var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            var companySubscription = await companySubRepo.GetActiveByCompanyIdAsync(companyId);
             if (companySubscription == null)
             {
                 return new ServiceResponse
@@ -1081,7 +1081,7 @@ namespace BusinessObjectLayer.Services
             int companyId = companyUser.CompanyId.Value;
 
             // Lấy subscription hiện tại (Active hoặc Pending và chưa hết hạn)
-            var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            var companySubscription = await companySubRepo.GetActiveByCompanyIdAsync(companyId);
             
             if (companySubscription == null)
             {

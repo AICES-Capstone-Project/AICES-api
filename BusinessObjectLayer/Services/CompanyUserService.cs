@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Response;
@@ -38,7 +38,7 @@ namespace BusinessObjectLayer.Services
                 };
                 
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
-                await companyUserRepo.AddCompanyUserAsync(companyUser);
+                await companyUserRepo.AddAsync(companyUser);
                 await _uow.SaveChangesAsync();
 
                 return new ServiceResponse
@@ -127,7 +127,7 @@ namespace BusinessObjectLayer.Services
                     try
                     {
                         companyUser = new CompanyUser { UserId = userId };
-                        await companyUserRepo.AddCompanyUserAsync(companyUser);
+                        await companyUserRepo.AddAsync(companyUser);
                         await _uow.SaveChangesAsync();
                         await _uow.CommitTransactionAsync();
                     }

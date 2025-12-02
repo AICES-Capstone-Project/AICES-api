@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
@@ -26,7 +26,7 @@ namespace BusinessObjectLayer.Services
         {
             var categoryRepo = _uow.GetRepository<ICategoryRepository>();
             var categories = await categoryRepo.GetCategoriesAsync(page, pageSize, search);
-            var total = await categoryRepo.GetTotalCategoriesAsync(search);
+            var total = await categoryRepo.CountAsync(search);
 
             var pagedData = categories.Select(c => new CategoryResponse
             {
@@ -117,7 +117,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateAsync(int id, CategoryRequest request)
         {
             var categoryRepo = _uow.GetRepository<ICategoryRepository>();
-            var category = await categoryRepo.GetForUpdateAsync(id);
+            var category = await categoryRepo.GetByIdForUpdateAsync(id);
             if (category == null)
             {
                 return new ServiceResponse
@@ -133,7 +133,7 @@ namespace BusinessObjectLayer.Services
                 if (!string.IsNullOrEmpty(request.Name))
                     category.Name = request.Name;
 
-                categoryRepo.Update(category);
+                await categoryRepo.UpdateAsync(category);
                 await _uow.CommitTransactionAsync();
 
                 return new ServiceResponse
@@ -153,7 +153,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
             var categoryRepo = _uow.GetRepository<ICategoryRepository>();
-            var category = await categoryRepo.GetForUpdateAsync(id);
+            var category = await categoryRepo.GetByIdForUpdateAsync(id);
             if (category == null)
             {
                 return new ServiceResponse
@@ -167,7 +167,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 category.IsActive = false;
-                categoryRepo.Update(category);
+                await categoryRepo.UpdateAsync(category);
                 await _uow.CommitTransactionAsync();
 
                 return new ServiceResponse

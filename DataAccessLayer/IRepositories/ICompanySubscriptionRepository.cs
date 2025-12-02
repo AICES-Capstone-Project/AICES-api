@@ -11,8 +11,8 @@ namespace DataAccessLayer.IRepositories
         Task<CompanySubscription?> GetByIdAsync(int id);
         Task<CompanySubscription?> GetForUpdateAsync(int id);
         Task<CompanySubscription?> GetActiveSubscriptionAsync(int companyId, int subscriptionId);
-        Task<CompanySubscription?> GetAnyActiveSubscriptionByCompanyAsync(int companyId);
-        Task<CompanySubscription?> GetAnyActiveSubscriptionForUpdateByCompanyAsync(int companyId);
+        Task<CompanySubscription?> GetActiveByCompanyIdAsync(int companyId);
+        Task<CompanySubscription?> GetActiveByCompanyIdForUpdateAsync(int companyId);
         Task<CompanySubscription> AddAsync(CompanySubscription companySubscription);
         Task UpdateAsync(CompanySubscription companySubscription);
         Task SoftDeleteAsync(CompanySubscription companySubscription);

@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
@@ -81,7 +81,7 @@ namespace BusinessObjectLayer.Services
             var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
             
             // Kiểm tra tồn tại Job
-            var job = await jobRepo.GetJobByIdAsync(request.JobId);
+            var job = await jobRepo.GetByIdAsync(request.JobId);
 
             if (job == null)
             {
@@ -167,7 +167,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> DeleteAsync(int id)
         {
             var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
-            var jobSkill = await jobSkillRepo.GetForUpdateAsync(id);
+            var jobSkill = await jobSkillRepo.GetByIdForUpdateAsync(id);
             if (jobSkill == null)
             {
                 return new ServiceResponse

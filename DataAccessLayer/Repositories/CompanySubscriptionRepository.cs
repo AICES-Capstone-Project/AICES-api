@@ -92,7 +92,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<CompanySubscription?> GetAnyActiveSubscriptionByCompanyAsync(int companyId)
+        public async Task<CompanySubscription?> GetActiveByCompanyIdAsync(int companyId)
         {
             var now = DateTime.UtcNow;
             return await _context.CompanySubscriptions
@@ -105,7 +105,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<CompanySubscription?> GetAnyActiveSubscriptionForUpdateByCompanyAsync(int companyId)
+        public async Task<CompanySubscription?> GetActiveByCompanyIdForUpdateAsync(int companyId)
         {
             var now = DateTime.UtcNow;
             // No AsNoTracking() and use FOR UPDATE to lock row

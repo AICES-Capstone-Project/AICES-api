@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
@@ -109,7 +109,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> UpdateAsync(int id, EmploymentTypeRequest request)
         {
             var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
-            var item = await employmentTypeRepo.GetForUpdateAsync(id);
+            var item = await employmentTypeRepo.GetByIdForUpdateAsync(id);
             if (item == null)
             {
                 return new ServiceResponse
@@ -125,7 +125,7 @@ namespace BusinessObjectLayer.Services
                 if (!string.IsNullOrEmpty(request.Name))
                     item.Name = request.Name;
 
-                employmentTypeRepo.Update(item);
+                await employmentTypeRepo.UpdateAsync(item);
                 await _uow.CommitTransactionAsync();
 
                 return new ServiceResponse
@@ -144,7 +144,7 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> SoftDeleteAsync(int id)
         {
             var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
-            var item = await employmentTypeRepo.GetForUpdateAsync(id);
+            var item = await employmentTypeRepo.GetByIdForUpdateAsync(id);
             if (item == null)
             {
                 return new ServiceResponse
@@ -158,7 +158,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 item.IsActive = false;
-                employmentTypeRepo.Update(item);
+                await employmentTypeRepo.UpdateAsync(item);
                 await _uow.CommitTransactionAsync();
 
                 return new ServiceResponse

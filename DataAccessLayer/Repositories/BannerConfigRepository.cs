@@ -37,7 +37,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalBannersAsync(string? search = null)
+        public async Task<int> CountAsync(string? search = null)
         {
             var query = _context.BannerConfigs
                 .AsNoTracking()
@@ -59,7 +59,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(b => b.BannerId == id);
         }
 
-        public async Task<BannerConfig?> GetForUpdateAsync(int id)
+        public async Task<BannerConfig?> GetByIdForUpdateAsync(int id)
         {
             return await _context.BannerConfigs
                 .FirstOrDefaultAsync(b => b.BannerId == id);

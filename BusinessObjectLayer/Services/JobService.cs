@@ -41,7 +41,7 @@ namespace BusinessObjectLayer.Services
             try
             {
                 var jobRepo = _uow.GetRepository<IJobRepository>();
-                var job = await jobRepo.GetAllJobByIdAndCompanyIdAsync(jobId, companyId);
+                var job = await jobRepo.GetByIdAndCompanyIdAsync(jobId, companyId);
 
                 if (job == null)
                 {
@@ -101,7 +101,7 @@ namespace BusinessObjectLayer.Services
             {
                 var jobRepo = _uow.GetRepository<IJobRepository>();
                 var jobs = await jobRepo.GetAllJobsByCompanyIdAsync(companyId, page, pageSize, search);
-                var total = await jobRepo.GetTotalAllJobsByCompanyIdAsync(companyId, search);
+                var total = await jobRepo.CountByCompanyIdAsync(companyId, search);
 
                 var jobResponses = jobs.Select(j => new JobResponse
                 {
@@ -153,7 +153,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> CompanySelfCreateJobAsync(JobRequest request, ClaimsPrincipal userClaims)
+        public async Task<ServiceResponse> CreateAsync(JobRequest request, ClaimsPrincipal userClaims)
         {
             try
             {
@@ -193,7 +193,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get CompanyUser for this user
-                var companyUser = await companyUserRepo.GetCompanyUserByUserIdAsync(user.UserId);
+                var companyUser = await companyUserRepo.GetByUserIdAsync(user.UserId);
                 if (companyUser == null)
                 {
                     return new ServiceResponse
@@ -216,7 +216,7 @@ namespace BusinessObjectLayer.Services
                 // Check for duplicate job title in company
                 if (!string.IsNullOrEmpty(request.Title))
                 {
-                    var titleExists = await jobRepo.JobTitleExistsInCompanyAsync(request.Title, companyUser.CompanyId.Value);
+                    var titleExists = await jobRepo.ExistsByTitleAndCompanyIdAsync(request.Title, companyUser.CompanyId.Value);
                     if (titleExists)
                     {
                         return new ServiceResponse
@@ -365,7 +365,7 @@ namespace BusinessObjectLayer.Services
                         JobId = job.JobId,
                         EmployTypeId = employTypeId
                     }).ToList();
-                    await jobEmploymentTypeRepo.AddJobEmploymentTypesAsync(jobEmploymentTypes);
+                    await jobEmploymentTypeRepo.AddRangeAsync(jobEmploymentTypes);
 
                     // Add job skills if provided
                     if (request.SkillIds != null && request.SkillIds.Count > 0)
@@ -387,7 +387,7 @@ namespace BusinessObjectLayer.Services
                         Name = c.Name,
                         Weight = c.Weight
                     }).ToList();
-                    await criteriaRepo.AddCriteriaAsync(criteria);
+                    await criteriaRepo.AddRangeAsync(criteria);
 
                     // Commit transaction (saves remaining changes and commits)
                     await _uow.CommitTransactionAsync();
@@ -442,7 +442,7 @@ namespace BusinessObjectLayer.Services
 
 
         // Get all jobs for the authenticated user's company
-        public async Task<ServiceResponse> GetSelfCompanyPublishedJobsAsync(int page = 1, int pageSize = 10, string? search = null)
+        public async Task<ServiceResponse> GetCurrentCompanyPublishedListAsync(int page = 1, int pageSize = 10, string? search = null)
         {
             try
             {
@@ -493,7 +493,7 @@ namespace BusinessObjectLayer.Services
 
                 var jobRepo = _uow.GetRepository<IJobRepository>();
                 var jobs = await jobRepo.GetPublishedJobsByCompanyIdAsync(companyUser.CompanyId.Value, page, pageSize, search);
-                var total = await jobRepo.GetTotalPublishedJobsByCompanyIdAsync(companyUser.CompanyId.Value, search);
+                var total = await jobRepo.CountPublishedByCompanyIdAsync(companyUser.CompanyId.Value, search);
 
                 var jobResponses = jobs.Select(j => new SelfJobResponse
                 {
@@ -543,7 +543,7 @@ namespace BusinessObjectLayer.Services
         }
 
         // Get all jobs (all statuses) for HR_Manager to manage
-        public async Task<ServiceResponse> GetSelfCompanyJobsPendingAsync(int page = 1, int pageSize = 10, string? search = null)
+        public async Task<ServiceResponse> GetCurrentCompanyPendingListAsync(int page = 1, int pageSize = 10, string? search = null)
         {
             try
             {
@@ -585,7 +585,7 @@ namespace BusinessObjectLayer.Services
 
                 var jobRepo = _uow.GetRepository<IJobRepository>();
                 var jobs = await jobRepo.GetPendingJobsByCompanyIdAsync(companyUser.CompanyId.Value, page, pageSize, search);
-                var total = await jobRepo.GetTotalPendingJobsByCompanyIdAsync(companyUser.CompanyId.Value, search);
+                var total = await jobRepo.CountPendingByCompanyIdAsync(companyUser.CompanyId.Value, search);
 
                 var jobResponses = jobs.Select(j => new ManagerJobResponse
                 {
@@ -635,7 +635,7 @@ namespace BusinessObjectLayer.Services
         }
 
         // Get specific job by ID for the authenticated user's company
-        public async Task<ServiceResponse> GetSelfCompanyPublishedJobByIdAsync(int jobId)
+        public async Task<ServiceResponse> GetCurrentCompanyPublishedByIdAsync(int jobId)
         {
             try
             {
@@ -736,7 +736,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> GetSelfCompanyPendingJobByIdAsync(int jobId)
+        public async Task<ServiceResponse> GetCurrentCompanyPendingByIdAsync(int jobId)
         {
             try
             {
@@ -827,7 +827,7 @@ namespace BusinessObjectLayer.Services
         }
 
         // Get all jobs created by the current user (me)
-        public async Task<ServiceResponse> GetSelfJobsByMeAsync(int page = 1, int pageSize = 10, string? search = null, JobStatusEnum? status = null)
+        public async Task<ServiceResponse> GetCurrentUserJobsAsync(int page = 1, int pageSize = 10, string? search = null, JobStatusEnum? status = null)
         {
             try
             {
@@ -868,8 +868,8 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var jobRepo = _uow.GetRepository<IJobRepository>();
-                var jobs = await jobRepo.GetJobsByComUserIdAsync(companyUser.ComUserId, page, pageSize, search, status);
-                var total = await jobRepo.GetTotalJobsByComUserIdAsync(companyUser.ComUserId, search, status);
+                var jobs = await jobRepo.GetListByCreatorIdAsync(companyUser.ComUserId, page, pageSize, search, status);
+                var total = await jobRepo.CountByCreatorIdAsync(companyUser.ComUserId, search, status);
 
                 var jobResponses = jobs.Select(j => new SelfJobResponse
                 {
@@ -917,7 +917,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> GetSelfJobsByMeWithStatusStringAsync(int page = 1, int pageSize = 10, string? search = null, string? status = null)
+        public async Task<ServiceResponse> GetCurrentUserJobsWithStatusStringAsync(int page = 1, int pageSize = 10, string? search = null, string? status = null)
         {
             JobStatusEnum? jobStatus = null;
             if (!string.IsNullOrEmpty(status))
@@ -936,11 +936,11 @@ namespace BusinessObjectLayer.Services
                 }
             }
 
-            return await GetSelfJobsByMeAsync(page, pageSize, search, jobStatus);
+            return await GetCurrentUserJobsAsync(page, pageSize, search, jobStatus);
         }
 
         // Update a job for the authenticated user's company (basic fields and specialization)
-        public async Task<ServiceResponse> UpdateSelfCompanyJobAsync(int jobId, JobRequest request, ClaimsPrincipal userClaims)
+        public async Task<ServiceResponse> UpdateAsync(int jobId, JobRequest request, ClaimsPrincipal userClaims)
         {
             try
             {
@@ -967,13 +967,13 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not found." };
                 }
 
-                var companyUser = await companyUserRepo.GetCompanyUserByUserIdAsync(user.UserId);
+                var companyUser = await companyUserRepo.GetByUserIdAsync(user.UserId);
                 if (companyUser?.CompanyId == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before updating a job." };
                 }
 
-                var job = await jobRepo.GetPublishedForUpdateByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var job = await jobRepo.GetPublishedByIdAndCompanyIdForUpdateAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
@@ -1061,7 +1061,7 @@ namespace BusinessObjectLayer.Services
                     if (request.Requirements != null) job.Requirements = request.Requirements;
                     if (request.SpecializationId != null) job.SpecializationId = request.SpecializationId;
 
-                    jobRepo.UpdateJob(job);
+                    await jobRepo.UpdateAsync(job);
 
                     // Replace job skills if provided
                     if (request.SkillIds != null)
@@ -1087,7 +1087,7 @@ namespace BusinessObjectLayer.Services
                             Name = c.Name,
                             Weight = c.Weight
                         }).ToList();
-                        await criteriaRepo.AddCriteriaAsync(criteria);
+                        await criteriaRepo.AddRangeAsync(criteria);
                     }
 
                     // Replace employment types if provided
@@ -1100,7 +1100,7 @@ namespace BusinessObjectLayer.Services
                             JobId = job.JobId,
                             EmployTypeId = id
                         }).ToList();
-                        await jobEmploymentTypeRepo.AddJobEmploymentTypesAsync(newJets);
+                        await jobEmploymentTypeRepo.AddRangeAsync(newJets);
                     }
 
                     await _uow.CommitTransactionAsync();
@@ -1121,7 +1121,7 @@ namespace BusinessObjectLayer.Services
         }
 
         // Soft delete a job for the authenticated user's company
-        public async Task<ServiceResponse> DeleteSelfCompanyJobAsync(int jobId, ClaimsPrincipal userClaims)
+        public async Task<ServiceResponse> DeleteAsync(int jobId, ClaimsPrincipal userClaims)
         {
             try
             {
@@ -1142,13 +1142,13 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not found." };
                 }
 
-                var companyUser = await companyUserRepo.GetCompanyUserByUserIdAsync(user.UserId);
+                var companyUser = await companyUserRepo.GetByUserIdAsync(user.UserId);
                 if (companyUser?.CompanyId == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before deleting a job." };
                 }
 
-                var job = await jobRepo.GetPublishedForUpdateByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                var job = await jobRepo.GetPublishedByIdAndCompanyIdForUpdateAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
@@ -1169,7 +1169,7 @@ namespace BusinessObjectLayer.Services
 
                 try
                 {
-                    jobRepo.SoftDeleteJob(job);
+                    await jobRepo.SoftDeleteAsync(job);
                     await _uow.CommitTransactionAsync();
 
                     return new ServiceResponse { Status = SRStatus.Success, Message = "Job deleted successfully." };
@@ -1187,7 +1187,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> UpdateSelfCompanyJobStatusAsync(int jobId, JobStatusEnum status, ClaimsPrincipal userClaims)
+        public async Task<ServiceResponse> UpdateStatusAsync(int jobId, JobStatusEnum status, ClaimsPrincipal userClaims)
         {
             try
             {
@@ -1207,14 +1207,14 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not found." };
                 }
 
-                var companyUser = await companyUserRepo.GetCompanyUserByUserIdAsync(user.UserId);
+                var companyUser = await companyUserRepo.GetByUserIdAsync(user.UserId);
                 if (companyUser?.CompanyId == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before updating job status." };
                 }
 
-                // Use GetForUpdateByIdAndCompanyIdAsync to get job regardless of current status
-                var job = await jobRepo.GetForUpdateByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                // Use GetByIdAndCompanyIdForUpdateAsync to get job regardless of current status
+                var job = await jobRepo.GetByIdAndCompanyIdForUpdateAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
@@ -1298,7 +1298,7 @@ namespace BusinessObjectLayer.Services
                 try
                 {
                     job.JobStatus = status;
-                    jobRepo.UpdateJob(job);
+                    await jobRepo.UpdateAsync(job);
                     await _uow.CommitTransactionAsync();
 
                     return new ServiceResponse

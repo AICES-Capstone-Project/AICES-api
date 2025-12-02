@@ -14,12 +14,12 @@ namespace DataAccessLayer.IRepositories
         Task<IEnumerable<Company>> GetAllAsync();
         Task<List<Company>> GetCompaniesAsync(int page, int pageSize, string? search = null);
         Task<List<CompanyResponse>> GetCompaniesWithCreatorAsync(int page, int pageSize, string? search = null, CompanyStatusEnum? status = null);
-        Task<int> GetTotalCompaniesAsync(string? search = null, CompanyStatusEnum? status = null);
+        Task<int> CountAsync(string? search = null, CompanyStatusEnum? status = null);
         Task<List<Company>> GetPublicCompaniesAsync();
         Task<Company?> GetPublicByIdAsync(int id);
         Task<Company?> GetByIdAsync(int id);
         Task<CompanyDetailResponse?> GetByIdWithCreatorAsync(int id);
-        Task<Company?> GetForUpdateAsync(int id);
+        Task<Company?> GetByIdForUpdateAsync(int id);
         Task<Company> AddAsync(Company company);
         Task UpdateAsync(Company company);
         Task<bool> ExistsByNameAsync(string name);

@@ -11,26 +11,26 @@ namespace DataAccessLayer.IRepositories
     public interface IJobRepository
     {
         Task AddAsync(Job job);
-        Task<Job?> GetJobByIdAsync(int jobId);
-        Task<Job?> GetForUpdateAsync(int jobId);
-        Task<Job?> GetForUpdateByIdAndCompanyIdAsync(int jobId, int companyId);
-        Task<Job?> GetPublishedForUpdateByIdAndCompanyIdAsync(int jobId, int companyId);
+        Task<Job?> GetByIdAsync(int jobId);
+        Task<Job?> GetByIdForUpdateAsync(int jobId);
+        Task<Job?> GetByIdAndCompanyIdForUpdateAsync(int jobId, int companyId);
+        Task<Job?> GetPublishedByIdAndCompanyIdForUpdateAsync(int jobId, int companyId);
         Task<List<Job>> GetPublishedJobsAsync(int page, int pageSize, string? search = null);
-        Task<int> GetTotalPublishedJobsAsync(string? search = null);
+        Task<int> CountPublishedAsync(string? search = null);
         Task<List<Job>> GetPublishedJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null);
-        Task<int> GetTotalPublishedJobsByCompanyIdAsync(int companyId, string? search = null);
+        Task<int> CountPublishedByCompanyIdAsync(int companyId, string? search = null);
         Task<List<Job>> GetPendingJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null);
-        Task<int> GetTotalPendingJobsByCompanyIdAsync(int companyId, string? search = null);
+        Task<int> CountPendingByCompanyIdAsync(int companyId, string? search = null);
         Task<Job?> GetPublishedJobByIdAndCompanyIdAsync(int jobId, int companyId);
         Task<Job?> GetPendingJobByIdAndCompanyIdAsync(int jobId, int companyId);
-        Task<Job?> GetAllJobByIdAndCompanyIdAsync(int jobId, int companyId);
+        Task<Job?> GetByIdAndCompanyIdAsync(int jobId, int companyId);
         Task<List<Job>> GetAllJobsByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null);
-        Task<int> GetTotalAllJobsByCompanyIdAsync(int companyId, string? search = null);
-        Task<List<Job>> GetJobsByComUserIdAsync(int comUserId, int page, int pageSize, string? search = null, JobStatusEnum? status = null);
-        Task<int> GetTotalJobsByComUserIdAsync(int comUserId, string? search = null, JobStatusEnum? status = null);
-        Task<bool> JobTitleExistsInCompanyAsync(string title, int companyId);
-        void UpdateJob(Job job);
-        void SoftDeleteJob(Job job);
+        Task<int> CountByCompanyIdAsync(int companyId, string? search = null);
+        Task<List<Job>> GetListByCreatorIdAsync(int comUserId, int page, int pageSize, string? search = null, JobStatusEnum? status = null);
+        Task<int> CountByCreatorIdAsync(int comUserId, string? search = null, JobStatusEnum? status = null);
+        Task<bool> ExistsByTitleAndCompanyIdAsync(string title, int companyId);
+        Task UpdateAsync(Job job);
+        Task SoftDeleteAsync(Job job);
     }
 }
 

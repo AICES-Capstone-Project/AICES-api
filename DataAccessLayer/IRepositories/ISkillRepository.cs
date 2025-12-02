@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,13 +11,10 @@ namespace DataAccessLayer.IRepositories
     {
         Task<IEnumerable<Skill>> GetAllAsync();
         Task<Skill?> GetByIdAsync(int id);
-        Task<Skill?> GetForUpdateAsync(int id);
+        Task<Skill?> GetByIdForUpdateAsync(int id);
         Task AddAsync(Skill skill);
-        void Update(Skill skill);
-        Task<bool> ExistsByNameAsync(string name);
-        
-        // Legacy methods for backward compatibility
         Task UpdateAsync(Skill skill);
+        Task<bool> ExistsByNameAsync(string name);
         Task SoftDeleteAsync(Skill skill);
     }
 }

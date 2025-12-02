@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using Data.Enum;
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ namespace DataAccessLayer.IRepositories
     public interface IAuthRepository
     {
         Task<User?> GetByEmailAsync(string email);
-        Task<User?> GetForUpdateByEmailAsync(string email);
+        Task<User?> GetByEmailForUpdateAsync(string email);
         Task<User> AddAsync(User user);
         Task<bool> EmailExistsAsync(string email);
         Task UpdateAsync(User user);

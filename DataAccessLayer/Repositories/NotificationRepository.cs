@@ -66,7 +66,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(n => n.NotifId == notifId);
         }
 
-        public async Task<Notification?> GetForUpdateAsync(int notifId)
+        public async Task<Notification?> GetByIdForUpdateAsync(int notifId)
         {
             return await _context.Notifications
                 .FirstOrDefaultAsync(n => n.NotifId == notifId);

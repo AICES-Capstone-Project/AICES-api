@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -45,7 +45,7 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetTotalSubscriptionsAsync(string? search = null)
+        public async Task<int> CountAsync(string? search = null)
         {
             var query = _context.Subscriptions
                 .AsNoTracking()
@@ -69,7 +69,7 @@ namespace DataAccessLayer.Repositories
             return await query.FirstOrDefaultAsync(s => s.SubscriptionId == id);
         }
 
-        public async Task<Subscription?> GetForUpdateAsync(int id)
+        public async Task<Subscription?> GetByIdForUpdateAsync(int id)
         {
             return await _context.Subscriptions
                 .Where(s => s.IsActive)

@@ -1,4 +1,4 @@
-﻿using Data.Entities;
+using Data.Entities;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -32,7 +32,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(et => et.EmployTypeId == id);
         }
 
-        public async Task<EmploymentType?> GetForUpdateAsync(int id)
+        public async Task<EmploymentType?> GetByIdForUpdateAsync(int id)
         {
             return await _context.EmploymentTypes
                 .FirstOrDefaultAsync(et => et.EmployTypeId == id);
@@ -57,16 +57,10 @@ namespace DataAccessLayer.Repositories
             await _context.EmploymentTypes.AddAsync(employmentType);
         }
 
-        public void Update(EmploymentType employmentType)
-        {
-            _context.EmploymentTypes.Update(employmentType);
-        }
-
-        // Legacy method for backward compatibility
         public async Task UpdateAsync(EmploymentType employmentType)
         {
             _context.EmploymentTypes.Update(employmentType);
-            await _context.SaveChangesAsync();
+            await Task.CompletedTask;
         }
     }
 }

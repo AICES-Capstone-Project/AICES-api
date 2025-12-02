@@ -15,13 +15,13 @@ namespace DataAccessLayer.Repositories
             _context = context;
         }
 
-        public async Task<RefreshToken> AddRefreshTokenAsync(RefreshToken refreshToken)
+        public async Task<RefreshToken> AddAsync(RefreshToken refreshToken)
         {
             await _context.RefreshTokens.AddAsync(refreshToken);
             return refreshToken;
         }
 
-        public async Task<RefreshToken?> GetRefreshTokenAsync(string token)
+        public async Task<RefreshToken?> GetByTokenAsync(string token)
         {
             return await _context.RefreshTokens
                 .AsNoTracking()
@@ -32,7 +32,7 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(rt => rt.Token == token);
         }
 
-        public async Task<RefreshToken?> GetRefreshTokenForUpdateAsync(string token)
+        public async Task<RefreshToken?> GetByTokenForUpdateAsync(string token)
         {
             return await _context.RefreshTokens
                 .Include(rt => rt.User)
@@ -42,12 +42,12 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(rt => rt.Token == token);
         }
 
-        public async Task UpdateRefreshTokenAsync(RefreshToken refreshToken)
+        public async Task UpdateAsync(RefreshToken refreshToken)
         {
             _context.RefreshTokens.Update(refreshToken);
         }
 
-        public async Task RevokeAllRefreshTokensAsync(int userId)
+        public async Task RevokeAllByUserIdAsync(int userId)
         {
             var refreshTokens = await _context.RefreshTokens
                 .Where(rt => rt.UserId == userId && rt.IsActive)
