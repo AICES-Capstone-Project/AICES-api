@@ -32,6 +32,20 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Notification>> GetByUserIdWithInvitationAsync(int userId)
+        {
+            return await _context.Notifications
+                .AsNoTracking()
+                .Include(n => n.Invitation)
+                    .ThenInclude(i => i!.Sender)
+                        .ThenInclude(s => s.Profile)
+                .Include(n => n.Invitation)
+                    .ThenInclude(i => i!.Company)
+                .Where(n => n.UserId == userId)
+                .OrderByDescending(n => n.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task MarkAsReadAsync(int notifId)
         {
             var notif = await _context.Notifications.FindAsync(notifId);

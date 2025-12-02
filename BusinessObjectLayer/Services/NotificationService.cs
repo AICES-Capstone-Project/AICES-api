@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using BusinessObjectLayer.Hubs;
 using Data.Entities;
 using Data.Enum;
@@ -28,13 +28,19 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> CreateAsync(int userId, NotificationTypeEnum type, string message, string? detail = null)
         {
+            return await CreateWithInvitationAsync(userId, type, message, detail, null);
+        }
+
+        public async Task<ServiceResponse> CreateWithInvitationAsync(int userId, NotificationTypeEnum type, string message, string? detail = null, int? invitationId = null)
+        {
             var notifRepo = _uow.GetRepository<INotificationRepository>();
             var notif = new Notification
             {
                 UserId = userId,
                 Type = type,
                 Message = message,
-                Detail = detail
+                Detail = detail,
+                InvitationId = invitationId
             };
 
             await notifRepo.AddAsync(notif);
@@ -48,6 +54,7 @@ namespace BusinessObjectLayer.Services
                     notif.Message,
                     notif.Detail,
                     notif.Type,
+                    notif.InvitationId,
                     notif.CreatedAt
                 });
 
@@ -61,20 +68,27 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> GetByUserIdAsync(int userId)
         {
             var notifRepo = _uow.GetRepository<INotificationRepository>();
-            var notifs = await notifRepo.GetByUserIdAsync(userId);
+            var notifs = await notifRepo.GetByUserIdWithInvitationAsync(userId);
 
             return new ServiceResponse
             {
                 Status = SRStatus.Success,
                 Message = "Notifications retrieved successfully.",
-                Data = notifs.Select(n => new
+                Data = notifs.Select(n => new NotificationWithInvitationResponse
                 {
-                    n.NotifId,
-                    n.Message,
-                    n.Detail,
+                    NotifId = n.NotifId,
+                    Message = n.Message,
+                    Detail = n.Detail,
                     Type = n.Type.ToString(),
-                    n.IsRead,
-                    n.CreatedAt
+                    IsRead = n.IsRead,
+                    CreatedAt = n.CreatedAt,
+                    Invitation = n.Invitation != null ? new InvitationDetailResponse
+                    {
+                        InvitationId = n.Invitation.InvitationId,
+                        CompanyName = n.Invitation.Company?.Name ?? string.Empty,
+                        SenderName = n.Invitation.Sender?.Profile?.FullName ?? n.Invitation.Sender?.Email ?? string.Empty,
+                        Status = n.Invitation.InvitationStatus
+                    } : null
                 })
             };
         }

@@ -12,6 +12,7 @@ namespace BusinessObjectLayer.IServices
     public interface INotificationService
     {
         Task<ServiceResponse> CreateAsync(int userId, NotificationTypeEnum type, string message, string? detail = null);
+        Task<ServiceResponse> CreateWithInvitationAsync(int userId, NotificationTypeEnum type, string message, string? detail = null, int? invitationId = null);
         Task<ServiceResponse> GetByUserIdAsync(int userId);
         Task<ServiceResponse> GetMyNotificationsAsync(ClaimsPrincipal user);
         Task<ServiceResponse> MarkAsReadAsync(ClaimsPrincipal user, int notifId);
