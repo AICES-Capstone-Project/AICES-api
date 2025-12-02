@@ -348,7 +348,7 @@ builder.Services.AddAuthentication(options =>
         }
     };
 });
-
+    
 // ------------------------
 // ?? CORS CONFIGURATION
 // ------------------------

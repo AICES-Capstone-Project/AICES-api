@@ -979,17 +979,6 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
                 }
 
-                // Prevent editing job if there is any resume associated with this job
-                var jobResumes = await parsedResumeRepo.GetByJobIdAsync(job.JobId);
-                if (jobResumes != null && jobResumes.Any())
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Forbidden,
-                        Message = "Cannot edit this job because there are existing resumes associated with it."
-                    };
-                }
-
                 // Validate specialization if provided
                 if (request.SpecializationId != null)
                 {
@@ -1139,6 +1128,7 @@ namespace BusinessObjectLayer.Services
                 var authRepo = _uow.GetRepository<IAuthRepository>();
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 var jobRepo = _uow.GetRepository<IJobRepository>();
+                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
                 
                 var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
                 if (string.IsNullOrEmpty(emailClaim))
@@ -1162,6 +1152,17 @@ namespace BusinessObjectLayer.Services
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
+                }
+
+                // Prevent deleting job if there is any resume associated with this job
+                var jobResumes = await parsedResumeRepo.GetByJobIdAsync(job.JobId);
+                if (jobResumes != null && jobResumes.Any())
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Cannot delete this job because there are existing resumes associated with it."
+                    };
                 }
 
                 await _uow.BeginTransactionAsync();
