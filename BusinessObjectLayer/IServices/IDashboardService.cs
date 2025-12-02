@@ -11,6 +11,7 @@ namespace BusinessObjectLayer.IServices
     {
         Task<ServiceResponse> GetTopCategorySpecByResumeCountAsync(int top = 10);
         Task<ServiceResponse> GetDashboardSummaryAsync();
+        Task<ServiceResponse> GetTopRatedCandidatesAsync(int limit = 5);
     }
 }
 
