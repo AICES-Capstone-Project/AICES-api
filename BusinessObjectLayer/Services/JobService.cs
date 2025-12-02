@@ -167,6 +167,7 @@ namespace BusinessObjectLayer.Services
                 var jobRepo = _uow.GetRepository<IJobRepository>();
                 var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
                 var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
+                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
                 var skillRepo = _uow.GetRepository<ISkillRepository>();
                 
                 // Get user email from claims
@@ -976,6 +977,17 @@ namespace BusinessObjectLayer.Services
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
+                }
+
+                // Prevent editing job if there is any resume associated with this job
+                var jobResumes = await parsedResumeRepo.GetByJobIdAsync(job.JobId);
+                if (jobResumes != null && jobResumes.Any())
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Cannot edit this job because there are existing resumes associated with it."
+                    };
                 }
 
                 // Validate specialization if provided
