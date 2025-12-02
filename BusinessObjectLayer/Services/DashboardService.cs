@@ -214,6 +214,85 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetTopRatedCandidatesAsync(int limit = 5)
+        {
+            try
+            {
+                // Get current user ID from claims
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+
+                // Get company user to find associated company
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+                if (companyUser == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company user not found."
+                    };
+                }
+
+                if (companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "You are not associated with any company."
+                    };
+                }
+
+                if (companyUser.JoinStatus != JoinStatusEnum.Approved)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You must be approved or invited to access company candidates."
+                    };
+                }
+
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+                var topCandidates = await dashboardRepo.GetTopRatedCandidatesAsync(companyUser.CompanyId.Value, limit);
+
+                var response = topCandidates.Select(x => new TopRatedCandidateResponse
+                {
+                    Name = x.Name,
+                    JobTitle = x.JobTitle,
+                    AIScore = x.AIScore,
+                    Status = x.Status
+                }).ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Top rated candidates retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get top rated candidates error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving top rated candidates."
+                };
+            }
+        }
     }
 }
 

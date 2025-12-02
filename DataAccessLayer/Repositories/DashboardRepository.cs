@@ -75,6 +75,28 @@ namespace DataAccessLayer.Repositories
                          .Distinct()
                          .CountAsync();
         }
+
+        public async Task<List<(string Name, string JobTitle, decimal AIScore, Data.Enum.ResumeStatusEnum Status)>> GetTopRatedCandidatesAsync(int companyId, int limit = 5)
+        {
+            var result = await (from pr in _context.ParsedResumes
+                               join pc in _context.ParsedCandidates on pr.ResumeId equals pc.ResumeId
+                               join ais in _context.AIScores on pc.CandidateId equals ais.CandidateId
+                               join j in _context.Jobs on pr.JobId equals j.JobId
+                               where pr.CompanyId == companyId 
+                                  && pr.IsActive
+                               orderby ais.TotalResumeScore descending, ais.CreatedAt descending
+                               select new
+                               {
+                                   Name = pc.FullName,
+                                   JobTitle = j.Title,
+                                   AIScore = ais.TotalResumeScore,
+                                   Status = pr.ResumeStatus
+                               })
+                               .Take(limit)
+                               .ToListAsync();
+
+            return result.Select(x => (x.Name, x.JobTitle, x.AIScore, x.Status)).ToList();
+        }
     }
 }
 

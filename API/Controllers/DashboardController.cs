@@ -31,6 +31,14 @@ namespace API.Controllers
             var serviceResponse = await _dashboardService.GetDashboardSummaryAsync();
             return ControllerResponse.Response(serviceResponse);
         }
+
+        [HttpGet("top-rated-candidates")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> GetTopRatedCandidates([FromQuery] int limit = 5)
+        {
+            var serviceResponse = await _dashboardService.GetTopRatedCandidatesAsync(limit);
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
 
