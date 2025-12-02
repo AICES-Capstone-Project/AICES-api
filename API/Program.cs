@@ -261,6 +261,7 @@ builder.Services.AddScoped<IParsedCandidateRepository, ParsedCandidateRepository
 builder.Services.AddScoped<IAIScoreRepository, AIScoreRepository>();
 builder.Services.AddScoped<IAIScoreDetailRepository, AIScoreDetailRepository>();
 builder.Services.AddScoped<IBlogRepository, BlogRepository>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 
 // Services
 builder.Services.AddScoped<IProfileService, ProfileService>();
@@ -284,6 +285,7 @@ builder.Services.AddScoped<IResumeLimitService, BusinessObjectLayer.Services.Usa
 builder.Services.AddScoped<IResumeService, ResumeService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IBlogService, BlogService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 // Hosted Services (Background Jobs)
 builder.Services.AddHostedService<ResumeTimeoutService>();
