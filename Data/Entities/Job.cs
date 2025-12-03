@@ -31,6 +31,7 @@ namespace Data.Entities
         public string? Slug { get; set; }
 
         public string? Requirements { get; set; }
+        public int? TargetQuantity { get; set; }
         public JobStatusEnum JobStatus { get; set; }
         
         [ForeignKey("Specialization")]

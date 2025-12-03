@@ -23,6 +23,10 @@ namespace Data.Models.Request
         [DefaultValue("3+ years experience with C#, .NET, and SQL.")]
         public string? Requirements { get; set; }
 
+        [Range(1, int.MaxValue, ErrorMessage = "Target quantity must be at least 1.")]
+        [DefaultValue(1)]
+        public int? TargetQuantity { get; set; }
+
         // Specialization is required (replaces categories)
         [Required(ErrorMessage = "Specialization ID is required")]
         [DefaultValue(1)]

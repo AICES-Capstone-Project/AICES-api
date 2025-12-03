@@ -29,6 +29,8 @@ namespace Data.Entities
 
         [MaxLength(20)]
         public string? PhoneNumber { get; set; }
+        public string? MatchSkills { get; set; }
+        public string? MissingSkills { get; set; }
 
         // Navigation
         public ParsedResumes ParsedResumes { get; set; } = null!;

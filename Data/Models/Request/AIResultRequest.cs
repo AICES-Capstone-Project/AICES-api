@@ -57,6 +57,12 @@ namespace Data.Models.Request
 
         [JsonPropertyName("phoneNumber")]
         public string? PhoneNumber { get; set; }
+
+        [JsonPropertyName("matchSkills")]
+        public string? MatchSkills { get; set; }
+
+        [JsonPropertyName("missingSkills")]
+        public string? MissingSkills { get; set; }
     }
 }
 

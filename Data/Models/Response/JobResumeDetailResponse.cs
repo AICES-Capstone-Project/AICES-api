@@ -20,6 +20,8 @@ namespace Data.Models.Response
         public string FullName { get; set; } = "Unknown";
         public string Email { get; set; } = "N/A";
         public string? PhoneNumber { get; set; }
+        public string? MatchSkills { get; set; }
+        public string? MissingSkills { get; set; }
 
         // All AI Scores for this candidate (ordered by CreatedAt descending - newest first)
         public List<AIScoreResponse> AIScores { get; set; } = new();

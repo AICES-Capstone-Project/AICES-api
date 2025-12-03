@@ -62,6 +62,7 @@ namespace BusinessObjectLayer.Services
                     Description = job.Description,
                     Slug = job.Slug,
                     Requirements = job.Requirements,
+                    TargetQuantity = job.TargetQuantity,
                     JobStatus = job.JobStatus,
                     CreatedAt = job.CreatedAt,
                     CategoryName = job.Specialization?.Category?.Name,
@@ -113,6 +114,7 @@ namespace BusinessObjectLayer.Services
                     Description = j.Description,
                     Slug = j.Slug,
                     Requirements = j.Requirements,
+                    TargetQuantity = j.TargetQuantity,
                     JobStatus = j.JobStatus,
                     CreatedAt = j.CreatedAt,
                     CategoryName = j.Specialization?.Category?.Name,
@@ -348,6 +350,7 @@ namespace BusinessObjectLayer.Services
                         Description = request.Description,
                         Slug = GenerateSlug(request.Title ?? string.Empty),
                         Requirements = request.Requirements,
+                        TargetQuantity = request.TargetQuantity,
                         JobStatus = jobStatus,
                         SpecializationId = request.SpecializationId
                     };
@@ -523,6 +526,7 @@ namespace BusinessObjectLayer.Services
                     Description = j.Description,
                     Slug = j.Slug,
                     Requirements = j.Requirements,
+                    TargetQuantity = j.TargetQuantity,
                     JobStatus = j.JobStatus,
                     CreatedAt = j.CreatedAt,
                     CategoryName = j.Specialization?.Category?.Name,
@@ -615,6 +619,7 @@ namespace BusinessObjectLayer.Services
                     Description = j.Description,
                     Slug = j.Slug,
                     Requirements = j.Requirements,
+                    TargetQuantity = j.TargetQuantity,
                     JobStatus = j.JobStatus,
                     CreatedAt = j.CreatedAt,
                     CategoryName = j.Specialization?.Category?.Name,
@@ -724,6 +729,7 @@ namespace BusinessObjectLayer.Services
                     Description = job.Description,
                     Slug = job.Slug,
                     Requirements = job.Requirements,
+                    TargetQuantity = job.TargetQuantity,
                     CategoryName = job.Specialization?.Category?.Name,
                     SpecializationName = job.Specialization?.Name,
                     JobStatus = job.JobStatus,
@@ -813,6 +819,7 @@ namespace BusinessObjectLayer.Services
                     Description = job.Description,
                     Slug = job.Slug,
                     Requirements = job.Requirements,
+                    TargetQuantity = job.TargetQuantity,
                     JobStatus = job.JobStatus,
                     CreatedAt = job.CreatedAt,
                     CategoryName = job.Specialization?.Category?.Name,
@@ -899,6 +906,7 @@ namespace BusinessObjectLayer.Services
                     Description = j.Description,
                     Slug = j.Slug,
                     Requirements = j.Requirements,
+                    TargetQuantity = j.TargetQuantity,
                     JobStatus = j.JobStatus,
                     CreatedAt = j.CreatedAt,
                     CategoryName = j.Specialization?.Category?.Name,
@@ -1080,6 +1088,7 @@ namespace BusinessObjectLayer.Services
                     }
                     if (request.Description != null) job.Description = request.Description;
                     if (request.Requirements != null) job.Requirements = request.Requirements;
+                    if (request.TargetQuantity != null) job.TargetQuantity = request.TargetQuantity;
                     if (request.SpecializationId != null) job.SpecializationId = request.SpecializationId;
 
                     jobRepo.UpdateJob(job);

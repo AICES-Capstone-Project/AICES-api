@@ -516,6 +516,8 @@ namespace BusinessObjectLayer.Services
                     var fullName = request.CandidateInfo?.FullName ?? "Unknown";
                     var email = request.CandidateInfo?.Email ?? "unknown@example.com";
                     var phone = request.CandidateInfo?.PhoneNumber;
+                    var matchSkills = request.CandidateInfo?.MatchSkills;
+                    var missingSkills = request.CandidateInfo?.MissingSkills;
 
                     ParsedCandidates parsedCandidate;
                     if (existingCandidate == null)
@@ -526,7 +528,9 @@ namespace BusinessObjectLayer.Services
                             JobId = parsedResume.JobId,
                             FullName = fullName,
                             Email = email,
-                            PhoneNumber = phone
+                            PhoneNumber = phone,
+                            MatchSkills = matchSkills,
+                            MissingSkills = missingSkills
                         };
 
                         await parsedCandidateRepo.CreateAsync(parsedCandidate);
@@ -537,6 +541,8 @@ namespace BusinessObjectLayer.Services
                         existingCandidate.FullName = fullName;
                         existingCandidate.Email = email;
                         existingCandidate.PhoneNumber = phone;
+                        existingCandidate.MatchSkills = matchSkills;
+                        existingCandidate.MissingSkills = missingSkills;
 
                         await parsedCandidateRepo.UpdateAsync(existingCandidate);
                         parsedCandidate = existingCandidate;
@@ -801,6 +807,8 @@ namespace BusinessObjectLayer.Services
                     FullName = candidate?.FullName ?? "Unknown",
                     Email = candidate?.Email ?? "N/A",
                     PhoneNumber = candidate?.PhoneNumber,
+                    MatchSkills = candidate?.MatchSkills,
+                    MissingSkills = candidate?.MissingSkills,
                     AIScores = aiScoresResponse
                 };
 
