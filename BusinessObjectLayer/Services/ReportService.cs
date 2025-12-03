@@ -424,7 +424,7 @@ namespace BusinessObjectLayer.Services
         {
             container.Background(Colors.Grey.Lighten4).Padding(15).Column(col =>
             {
-                col.Item().Text("📋 Job Information")
+                col.Item().Text("Job Information")
                     .FontSize(16)
                     .Bold()
                     .FontColor(Colors.Green.Darken2);
@@ -480,46 +480,85 @@ namespace BusinessObjectLayer.Services
         {
             container.Column(col =>
             {
-                col.Item().PaddingBottom(10).Text("🏆 Top 5 Candidates")
+                col.Item().PaddingBottom(10).Text("Top 5 Candidates")
                     .FontSize(16)
                     .Bold()
                     .FontColor(Colors.Green.Darken2);
 
-                col.Item().Table(table =>
-                {
-                    table.ColumnsDefinition(columns =>
-                    {
-                        columns.ConstantColumn(50);  // Rank
-                        columns.RelativeColumn(2);   // Name
-                        columns.RelativeColumn(3);   // Email
-                        columns.ConstantColumn(60);  // Score
-                    });
-
-                    // Header
-                    table.Header(header =>
-                    {
-                        header.Cell().Background(Colors.Green.Darken2).Padding(8).Text("Rank").Bold().FontColor(Colors.White);
-                        header.Cell().Background(Colors.Green.Darken2).Padding(8).Text("Name").Bold().FontColor(Colors.White);
-                        header.Cell().Background(Colors.Green.Darken2).Padding(8).Text("Email").Bold().FontColor(Colors.White);
-                        header.Cell().Background(Colors.Green.Darken2).Padding(8).Text("Score").Bold().FontColor(Colors.White);
-                    });
-
-                    // Data rows
-                    int displayRank = 1;
-                    foreach (var candidate in topCandidates)
-                    {
-                        var latestScore = candidate.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
-                        var bgColor = displayRank % 2 == 0 ? Colors.Grey.Lighten4 : Colors.White;
-
-                        table.Cell().Background(bgColor).Padding(8).Text(displayRank.ToString());
-                        table.Cell().Background(bgColor).Padding(8).Text(candidate.FullName);
-                        table.Cell().Background(bgColor).Padding(8).Text(candidate.Email);
-                        table.Cell().Background(bgColor).Padding(8).Text($"{latestScore?.TotalResumeScore ?? 0:F0}");
-
-                        displayRank++;
-                    }
-                });
+                // Table for Top 5
+                col.Item().Element(c => ComposeTop5Table(c, topCandidates));
             });
+        }
+
+        private void ComposeTop5Table(IContainer container, List<ParsedCandidates> topCandidates)
+        {
+            if (topCandidates == null || !topCandidates.Any())
+                return;
+
+            container.Table(table =>
+            {
+                table.ColumnsDefinition(columns =>
+                {
+                    columns.ConstantColumn(50);   // Rank (wider to prevent wrap)
+                    columns.RelativeColumn(2);    // Name
+                    columns.RelativeColumn(3);    // Email
+                    columns.ConstantColumn(60);   // Score
+                    columns.ConstantColumn(80);   // Score Bar (fixed width)
+                });
+
+                // Header
+                table.Header(header =>
+                {
+                    header.Cell().Background(Colors.Green.Darken2).Padding(8).Text("Rank").Bold().FontColor(Colors.White);
+                    header.Cell().Background(Colors.Green.Darken2).Padding(8).Text("Name").Bold().FontColor(Colors.White);
+                    header.Cell().Background(Colors.Green.Darken2).Padding(8).Text("Email").Bold().FontColor(Colors.White);
+                    header.Cell().Background(Colors.Green.Darken2).Padding(8).Text("Score").Bold().FontColor(Colors.White);
+                    header.Cell().Background(Colors.Green.Darken2).Padding(8).Text("").Bold().FontColor(Colors.White);
+                });
+
+                // Data rows
+                int displayRank = 1;
+                foreach (var candidate in topCandidates.Take(5))
+                {
+                    var latestScore = candidate.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
+                    var score = (float)(latestScore?.TotalResumeScore ?? 0);
+                    var bgColor = displayRank % 2 == 0 ? Colors.Grey.Lighten4 : Colors.White;
+                    
+                    // Color based on score range: 0-20 red, 20-40 orange, 40-60 yellow, 60-80 light green, 80-100 green
+                    var barColorHex = GetScoreColor(score);
+
+                    table.Cell().Background(bgColor).Padding(8).AlignCenter().Text(displayRank.ToString());
+                    table.Cell().Background(bgColor).Padding(8).Text(candidate.FullName ?? "N/A");
+                    table.Cell().Background(bgColor).Padding(8).Text(candidate.Email ?? "N/A");
+                    table.Cell().Background(bgColor).Padding(8).AlignCenter().Text($"{score:F1}");
+                    
+                    // Score bar - NO PADDING to avoid overflow
+                    table.Cell().Background(bgColor).PaddingVertical(8).Row(barRow =>
+                    {
+                        // Max 80px total (column width), so scale score to 0-80
+                        var barWidth = (int)((score / 100f) * 80f);
+                        barWidth = Math.Max(4, Math.Min(barWidth, 76)); // 4-76 range to always have visible empty part
+                        var emptyWidth = 80 - barWidth;
+
+                        barRow.ConstantItem(barWidth).Height(16)
+                            .Background(QuestPDF.Infrastructure.Color.FromHex(barColorHex));
+                        barRow.ConstantItem(emptyWidth).Height(16)
+                            .Background(Colors.Grey.Lighten3);
+                    });
+
+                    displayRank++;
+                }
+            });
+        }
+
+        // Get color based on score range
+        private string GetScoreColor(float score)
+        {
+            if (score >= 80) return "#4CAF50"; // Green
+            if (score >= 60) return "#8BC34A"; // Light Green
+            if (score >= 40) return "#FFEB3B"; // Yellow
+            if (score >= 20) return "#FF9800"; // Orange
+            return "#F44336"; // Red
         }
 
         private void ComposeCandidateHeader(IContainer container, ParsedCandidates candidate, int rank)
@@ -533,7 +572,7 @@ namespace BusinessObjectLayer.Services
                     .Bold()
                     .FontColor(Colors.White);
 
-                row.ConstantItem(100).AlignRight().Text($"Score: {latestScore?.TotalResumeScore ?? 0:F0}")
+                row.ConstantItem(120).AlignRight().Text($"Score: {latestScore?.TotalResumeScore ?? 0:F1}")
                     .FontSize(16)
                     .Bold()
                     .FontColor(Colors.White);
@@ -553,10 +592,10 @@ namespace BusinessObjectLayer.Services
                 col.Item().PaddingBottom(15).Element(c => ComposeScoreBreakdown(c, latestScore));
 
                 // Matched Skills Section
-                col.Item().PaddingBottom(15).Element(c => ComposeSkillsSection(c, "✅ Matched Skills", candidate.MatchSkills, Colors.Green.Lighten4));
+                col.Item().PaddingBottom(15).Element(c => ComposeSkillsSection(c, "Matched Skills", candidate.MatchSkills, Colors.Green.Lighten4));
 
                 // Missing Skills Section
-                col.Item().PaddingBottom(15).Element(c => ComposeSkillsSection(c, "❌ Missing Skills", candidate.MissingSkills, Colors.Red.Lighten4));
+                col.Item().PaddingBottom(15).Element(c => ComposeSkillsSection(c, "Missing Skills", candidate.MissingSkills, Colors.Red.Lighten4));
 
                 // AI Summary Section
                 col.Item().Element(c => ComposeAISummary(c, latestScore?.AIExplanation));
@@ -567,7 +606,7 @@ namespace BusinessObjectLayer.Services
         {
             container.Background(Colors.Grey.Lighten4).Padding(12).Column(col =>
             {
-                col.Item().Text("👤 Candidate Basic Info")
+                col.Item().Text("Candidate Basic Info")
                     .FontSize(14)
                     .Bold()
                     .FontColor(Colors.Green.Darken2);
@@ -605,52 +644,109 @@ namespace BusinessObjectLayer.Services
         {
             container.Background(Colors.Blue.Lighten5).Padding(12).Column(col =>
             {
-                col.Item().Text("📊 AI Score Breakdown")
-                    .FontSize(14)
-                    .Bold()
-                    .FontColor(Colors.Green.Darken2);
+                // Header with icon
+                col.Item().Row(headerRow =>
+                {
+                    headerRow.RelativeItem().AlignMiddle().Text("AI Score Breakdown")
+                        .FontSize(14)
+                        .Bold()
+                        .FontColor(Colors.Green.Darken2);
+                });
 
                 col.Item().PaddingTop(8).Row(row =>
                 {
-                    row.RelativeItem().Column(scoreCol =>
+                    // Left side - Total Score with progress bar
+                    row.RelativeItem(1).Column(leftCol =>
                     {
-                        scoreCol.Item().Text(t =>
+                        var totalScore = (float)(aiScore?.TotalResumeScore ?? 0);
+                        var totalScoreColorHex = GetScoreColor(totalScore);
+                        
+                        leftCol.Item().Text(t =>
                         {
                             t.Span("Total Score: ").Bold();
-                            t.Span($"{aiScore?.TotalResumeScore ?? 0:F1} / 100").FontSize(14).Bold().FontColor(Colors.Green.Darken2);
+                            t.Span($"{totalScore:F1}").FontSize(14).Bold().FontColor(QuestPDF.Infrastructure.Color.FromHex(totalScoreColorHex));
+                            t.Span(" / 100").FontSize(14).Bold().FontColor(Colors.Black);
                         });
 
-                        // Score details by criteria
+                        // Progress bar for Total Score with dynamic color
+                        var scorePercent = Math.Max(0, Math.Min(totalScore / 100f, 1f));
+
+                        leftCol.Item().PaddingTop(5).Width(200).Row(progressRow =>
+                        {
+                            if (scorePercent > 0.01f) // At least 1%
+                            {
+                                progressRow.RelativeItem((float)(scorePercent * 100))
+                                    .Height(12)
+                                    .Background(QuestPDF.Infrastructure.Color.FromHex(totalScoreColorHex));
+                            }
+                            if (scorePercent < 0.99f) // Less than 99%
+                            {
+                                progressRow.RelativeItem((float)((1f - scorePercent) * 100))
+                                    .Height(12)
+                                    .Background(Colors.Grey.Lighten3);
+                            }
+                        });
+                    });
+
+                    // Right side - Criteria Scores with color indicators and progress bars
+                    row.RelativeItem(1).Column(rightCol =>
+                    {
+                        rightCol.Item().Text("Criteria Scores:").Bold().FontSize(11);
+
                         if (aiScore?.AIScoreDetails != null && aiScore.AIScoreDetails.Any())
                         {
-                            scoreCol.Item().PaddingTop(10).Column(detailCol =>
+                            rightCol.Item().PaddingTop(8).Column(criteriaCol =>
                             {
                                 foreach (var detail in aiScore.AIScoreDetails)
                                 {
-                                    detailCol.Item().PaddingVertical(3).Row(detailRow =>
+                                    var criteriaScore = (float)detail.Score;
+                                    var criteriaPercent = Math.Min(criteriaScore / 100f, 1f);
+                                    
+                                    // Get color based on score percentage using same 5-tier system as Top 5
+                                    var colorHex = GetScoreColor(criteriaScore);
+
+                                    criteriaCol.Item().PaddingVertical(3).Column(criteriaItemCol =>
                                     {
-                                        detailRow.RelativeItem(2).Text($"{detail.Criteria?.Name ?? "Criteria"}:");
-                                        detailRow.RelativeItem(1).Element(barContainer =>
+                                        // Criteria name with color box and score
+                                        criteriaItemCol.Item().Row(criteriaRow =>
                                         {
-                                            ComposeProgressBar(barContainer, (float)detail.Score);
+                                            // Color box
+                                            criteriaRow.ConstantItem(12).Height(12)
+                                                .Background(QuestPDF.Infrastructure.Color.FromHex(colorHex));
+
+                                            criteriaRow.ConstantItem(5); // Spacing
+
+                                            // Criteria name and score with dynamic color
+                                            var criteriaName = detail.Criteria?.Name ?? "Criteria";
+                                            criteriaRow.RelativeItem().Text(t =>
+                                            {
+                                                t.Span($"{criteriaName}: ").FontSize(10);
+                                                t.Span($"{detail.Score:F0}%").FontSize(10).FontColor(QuestPDF.Infrastructure.Color.FromHex(colorHex));
+                                            });
                                         });
-                                        detailRow.ConstantItem(50).AlignRight().Text($"{detail.Score:F0}%");
+
+                                        // Small progress bar for this criteria with dynamic color
+                                        criteriaItemCol.Item().PaddingTop(2).Width(150).Row(miniProgressRow =>
+                                        {
+                                            if (criteriaPercent > 0.01f) // At least 1%
+                                            {
+                                                miniProgressRow.RelativeItem((float)(criteriaPercent * 100))
+                                                    .Height(4)
+                                                    .Background(QuestPDF.Infrastructure.Color.FromHex(colorHex));
+                                            }
+                                            if (criteriaPercent < 0.99f) // Less than 99%
+                                            {
+                                                miniProgressRow.RelativeItem((float)((1f - criteriaPercent) * 100))
+                                                    .Height(4)
+                                                    .Background(Colors.Grey.Lighten3);
+                                            }
+                                        });
                                     });
                                 }
                             });
                         }
                     });
                 });
-            });
-        }
-
-        private void ComposeProgressBar(IContainer container, float percentage)
-        {
-            container.Height(12).Row(row =>
-            {
-                var fillWidth = Math.Min(100, Math.Max(0, percentage));
-                row.RelativeItem((int)fillWidth).Background(Colors.Green.Medium).Height(12);
-                row.RelativeItem((int)(100 - fillWidth)).Background(Colors.Grey.Lighten3).Height(12);
             });
         }
 
@@ -672,7 +768,7 @@ namespace BusinessObjectLayer.Services
         {
             container.Background(Colors.Yellow.Lighten4).Padding(12).Column(col =>
             {
-                col.Item().Text("🤖 AI Summary / Verdict")
+                col.Item().Text("AI Summary / Verdict")
                     .FontSize(14)
                     .Bold()
                     .FontColor(Colors.Green.Darken2);
