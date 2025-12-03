@@ -286,7 +286,8 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Check if user already belongs to a company
-                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+                // Use the already-tracked CompanyUser from invitation to avoid EF Core tracking conflicts
+                var companyUser = invitation.Receiver?.CompanyUser;
                 if (companyUser != null && companyUser.CompanyId != null && companyUser.JoinStatus == JoinStatusEnum.Approved)
                 {
                     return new ServiceResponse { Status = SRStatus.Validation, Message = "You already belong to a company." };
@@ -315,9 +316,10 @@ namespace BusinessObjectLayer.Services
                     }
                     else
                     {
+                        // Entity is already tracked from invitation.Receiver.CompanyUser
+                        // Just modify properties - EF Core will detect changes automatically
                         companyUser.CompanyId = invitation.CompanyId;
                         companyUser.JoinStatus = JoinStatusEnum.Approved;
-                        await companyUserRepo.UpdateAsync(companyUser);
                     }
 
                     await _uow.CommitTransactionAsync();
