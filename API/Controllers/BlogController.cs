@@ -6,13 +6,14 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-    [Route("api/blogs")]
+
+    [Route("api/public/blogs")]
     [ApiController]
-    public class BlogController : ControllerBase
+    public class PublicBlogController : ControllerBase
     {
         private readonly IBlogService _blogService;
 
-        public BlogController(IBlogService blogService)
+        public PublicBlogController(IBlogService blogService)
         {
             _blogService = blogService;
         }
@@ -36,6 +37,18 @@ namespace API.Controllers
         {
             var serviceResponse = await _blogService.GetBlogBySlugAsync(slug);
             return ControllerResponse.Response(serviceResponse);
+        }
+    }
+
+    [Route("api/system/blogs")]
+    [ApiController]
+    public class SystemBlogController : ControllerBase
+    {
+        private readonly IBlogService _blogService;
+
+        public SystemBlogController(IBlogService blogService)
+        {
+            _blogService = blogService;
         }
 
         [HttpGet("me")]

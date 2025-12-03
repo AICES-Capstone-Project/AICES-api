@@ -10,11 +10,11 @@ namespace API.Controllers
     [Route("api/system/users")]
     [ApiController]
     [Authorize(Roles = "System_Admin")] 
-    public class UserController : ControllerBase
+    public class SystemUserController : ControllerBase
     {
         private readonly IUserService _userService;
 
-        public UserController(IUserService userService)
+        public SystemUserController(IUserService userService)
         {
             _userService = userService;
         }
