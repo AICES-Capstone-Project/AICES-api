@@ -21,6 +21,7 @@ namespace DataAccessLayer.Repositories
         public async Task<IEnumerable<EmploymentType>> GetAllAsync()
         {
             return await _context.EmploymentTypes
+                .Where(et => et.IsActive)
                 .AsNoTracking()
                 .ToListAsync();
         }
