@@ -55,8 +55,19 @@ namespace DataAccessLayer.Repositories
 
         public async Task<int> GetTotalCandidatesCountAsync(int companyId)
         {
-            // Count total employees (CompanyUser) currently working in the company
-            // Only count approved members (active employees)
+            // Count unique candidates (1 người chỉ được tính 1 lần) dựa trên email trong ParsedCandidates,
+            // join với ParsedResumes để filter theo CompanyId.
+            return await (from pr in _context.ParsedResumes
+                          join pc in _context.ParsedCandidates on pr.ResumeId equals pc.ResumeId
+                          where pr.CompanyId == companyId && pr.IsActive
+                          select pc.Email.ToLower())
+                         .Distinct()
+                         .CountAsync();
+        }
+
+        public async Task<int> GetTotalMembersCountAsync(int companyId)
+        {
+            // Count total members (CompanyUser) currently in the company (Approved & active)
             return await _context.CompanyUsers
                 .AsNoTracking()
                 .Where(cu => cu.CompanyId == companyId 
