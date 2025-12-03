@@ -42,5 +42,30 @@ namespace API.Controllers
 
             return File(excelData.FileBytes, excelData.ContentType, excelData.FileName);
         }
+
+        /// <summary>
+        /// Export candidates of a job to PDF report
+        /// </summary>
+        /// <param name="jobId">Job ID</param>
+        /// <returns>PDF file with detailed candidate report</returns>
+        [HttpGet("job/{jobId}/pdf")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> ExportJobCandidatesToPdf(int jobId)
+        {
+            var serviceResponse = await _reportService.ExportJobCandidatesToPdfAsync(jobId);
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var pdfData = serviceResponse.Data as PdfExportResponse;
+            if (pdfData == null)
+            {
+                return StatusCode(500, "Failed to generate PDF report.");
+            }
+
+            return File(pdfData.FileBytes, pdfData.ContentType, pdfData.FileName);
+        }
     }
 }

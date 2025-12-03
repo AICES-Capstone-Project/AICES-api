@@ -40,6 +40,19 @@ namespace DataAccessLayer.Repositories
                 .Include(pc => pc.RankingResult)
                 .ToListAsync();
         }
+
+        public async Task<List<ParsedCandidates>> GetCandidatesWithFullDetailsByJobIdAsync(int jobId)
+        {
+            return await _context.ParsedCandidates
+                .AsNoTracking()
+                .Where(pc => pc.JobId == jobId && pc.ParsedResumes.IsActive)
+                .Include(pc => pc.AIScores)
+                    .ThenInclude(ais => ais.AIScoreDetails!)
+                        .ThenInclude(asd => asd.Criteria)
+                .Include(pc => pc.RankingResult)
+                .Include(pc => pc.ParsedResumes)
+                .ToListAsync();
+        }
     }
 }
 

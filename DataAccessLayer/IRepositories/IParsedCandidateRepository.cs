@@ -8,6 +8,7 @@ namespace DataAccessLayer.IRepositories
         Task UpdateAsync(ParsedCandidates parsedCandidate);
         Task<ParsedCandidates?> GetByResumeIdAsync(int resumeId);
         Task<List<ParsedCandidates>> GetCandidatesWithScoresByJobIdAsync(int jobId);
+        Task<List<ParsedCandidates>> GetCandidatesWithFullDetailsByJobIdAsync(int jobId);
     }
 }
 
