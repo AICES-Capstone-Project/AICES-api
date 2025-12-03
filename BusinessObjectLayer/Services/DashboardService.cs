@@ -158,7 +158,7 @@ namespace BusinessObjectLayer.Services
 
                 // Get all metrics sequentially to avoid DbContext concurrency issues
                 var activeJobs = await dashboardRepo.GetActiveJobsCountAsync(companyId);
-                var totalCandidates = await dashboardRepo.GetTotalCandidatesCountAsync(companyId);
+                var totalMembers = await dashboardRepo.GetTotalMembersCountAsync(companyId);
                 var aiProcessed = await dashboardRepo.GetAiProcessedCountAsync(companyId);
 
                 // Calculate credits remaining
@@ -191,7 +191,7 @@ namespace BusinessObjectLayer.Services
                 var response = new DashboardSummaryResponse
                 {
                     ActiveJobs = activeJobs,
-                    TotalCandidates = totalCandidates,
+                    TotalMembers = totalMembers,
                     AiProcessed = aiProcessed,
                     CreditsRemaining = creditsRemaining
                 };
