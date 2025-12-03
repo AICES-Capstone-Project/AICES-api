@@ -30,6 +30,16 @@ namespace DataAccessLayer.Repositories
         {
             _context.ParsedCandidates.Update(parsedCandidate);
         }
+
+        public async Task<List<ParsedCandidates>> GetCandidatesWithScoresByJobIdAsync(int jobId)
+        {
+            return await _context.ParsedCandidates
+                .AsNoTracking()
+                .Where(pc => pc.JobId == jobId && pc.ParsedResumes.IsActive)
+                .Include(pc => pc.AIScores)
+                .Include(pc => pc.RankingResult)
+                .ToListAsync();
+        }
     }
 }
 

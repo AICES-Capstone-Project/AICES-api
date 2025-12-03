@@ -289,6 +289,7 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IBlogService, BlogService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
+builder.Services.AddScoped<IReportService, ReportService>();
 
 
 // Hosted Services (Background Jobs)
