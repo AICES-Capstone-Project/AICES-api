@@ -23,7 +23,6 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> UpdateSelfCompanyJobAsync(int jobId, JobRequest request, ClaimsPrincipal userClaims);
         Task<ServiceResponse> DeleteSelfCompanyJobAsync(int jobId, ClaimsPrincipal userClaims);
         Task<ServiceResponse> UpdateSelfCompanyJobStatusAsync(int jobId, Data.Enum.JobStatusEnum status, ClaimsPrincipal userClaims);
-        
     }
 }
 
