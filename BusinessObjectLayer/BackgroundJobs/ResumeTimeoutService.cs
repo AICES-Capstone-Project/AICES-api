@@ -74,12 +74,12 @@ namespace BusinessObjectLayer.BackgroundJobs
                 {
                     try
                     {
-                        resume.ResumeStatus = ResumeStatusEnum.Failed;
+                        resume.ResumeStatus = ResumeStatusEnum.Timeout;
                         await parsedResumeRepository.UpdateAsync(resume);
                         updatedCount++;
 
                         _logger.LogInformation(
-                            $"❌ Resume {resume.ResumeId} (QueueJobId: {resume.QueueJobId}) marked as Failed due to timeout.");
+                            $"❌ Resume {resume.ResumeId} (QueueJobId: {resume.QueueJobId}) marked as Timeout due to timeout.");
                     }
                     catch (Exception ex)
                     {
@@ -89,7 +89,7 @@ namespace BusinessObjectLayer.BackgroundJobs
 
                 // Save all changes to the database
                 await uow.CommitTransactionAsync();
-                _logger.LogInformation($"✅ Successfully updated {updatedCount}/{timedOutResumes.Count} timed-out resume(s) to Failed status.");
+                _logger.LogInformation($"✅ Successfully updated {updatedCount}/{timedOutResumes.Count} timed-out resume(s) to Timeout status.");
             }
             catch (Exception ex)
             {

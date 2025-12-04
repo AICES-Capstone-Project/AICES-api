@@ -12,6 +12,7 @@ namespace Data.Enum
         Paid ,
         Failed ,
         Refunded ,
+        Timeout,
         Canceled 
     }
 }

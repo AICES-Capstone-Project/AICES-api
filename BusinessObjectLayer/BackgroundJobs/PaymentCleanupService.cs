@@ -74,12 +74,12 @@ namespace BusinessObjectLayer.BackgroundJobs
                 {
                     try
                     {
-                        payment.PaymentStatus = PaymentStatusEnum.Failed;
+                        payment.PaymentStatus = PaymentStatusEnum.Timeout;
                         await paymentRepository.UpdateAsync(payment);
                         updatedCount++;
 
                         _logger.LogInformation(
-                            $"❌ Payment {payment.PaymentId} (CompanyId: {payment.CompanyId}) marked as Failed due to timeout.");
+                            $"❌ Payment {payment.PaymentId} (CompanyId: {payment.CompanyId}) marked as Timeout due to timeout.");
                     }
                     catch (Exception ex)
                     {
@@ -89,7 +89,7 @@ namespace BusinessObjectLayer.BackgroundJobs
 
                 // Save all changes to the database
                 await uow.CommitTransactionAsync();
-                _logger.LogInformation($"✅ Successfully updated {updatedCount}/{timedOutPayments.Count} timed-out payment(s) to Failed status.");
+                _logger.LogInformation($"✅ Successfully updated {updatedCount}/{timedOutPayments.Count} timed-out payment(s) to Timeout status.");
             }
             catch (Exception ex)
             {

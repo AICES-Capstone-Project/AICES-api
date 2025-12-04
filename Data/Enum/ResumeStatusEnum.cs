@@ -12,6 +12,7 @@ namespace Data.Enum
         Pending,
         Completed,
         Failed,
-        Cancelled
+        Timeout,
+        Canceled
     }
 }

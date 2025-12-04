@@ -123,16 +123,27 @@ namespace BusinessObjectLayer.Services
                 }
             }
 
-            // Check if there's already a pending payment for this company
-            var existingPendingPayment = await paymentRepo.GetLatestPendingByCompanyAsync(companyId);
-            if (existingPendingPayment != null)
+            // Check if company already has an active subscription
+            var activeSubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            if (activeSubscription != null)
             {
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
-                    Message = "You already have a pending payment session. Please complete or cancel the existing payment before creating a new one."
+                    Message = "Your company already has an active subscription. Please wait until it expires before purchasing a new one."
                 };
             }
+
+            // Check if there's already a pending payment for this company
+            // var existingPendingPayment = await paymentRepo.GetLatestPendingByCompanyAsync(companyId);
+            // if (existingPendingPayment != null)
+            // {
+            //     return new ServiceResponse
+            //     {
+            //         Status = SRStatus.Error,
+            //         Message = "You already have a pending payment session. Please complete or cancel the existing payment before creating a new one."
+            //     };
+            // }
 
             string domain = Environment.GetEnvironmentVariable("APPURL__CLIENTURL") ?? "https://aices-client.vercel.app";
 
@@ -159,20 +170,21 @@ namespace BusinessObjectLayer.Services
                 Customer = customerId,
                 CustomerEmail = userEmail, // Ensure email is passed to checkout for receipt delivery
                 SuccessUrl = $"{domain}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
-                CancelUrl = $"{domain}/payment/cancel",
+                CancelUrl = $"{domain}/subscriptions",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(1).DateTime, // Session expires in 15 minutes
                 Metadata = metadata,
                 SubscriptionData = new SessionSubscriptionDataOptions
                 {
                     Metadata = new Dictionary<string, string>(metadata)
                 },
                 LineItems = new List<SessionLineItemOptions>
-        {
-            new SessionLineItemOptions
-            {
-                Price = stripePriceId,
-                Quantity = 1
-            }
-        }
+                {
+                    new SessionLineItemOptions
+                    {
+                        Price = stripePriceId,
+                        Quantity = 1
+                    }
+                }
             };
 
             var sessionService = new SessionService();
@@ -354,6 +366,68 @@ namespace BusinessObjectLayer.Services
                         "A company subscribed",
                         $"Company {companyId} subscribed to {subscriptionEntity?.Name} (stripeSub: {stripeSubscriptionId})"
                     );
+                }
+
+                // Expire all other open sessions for the same customer
+                try
+                {
+                    var sessionService = new SessionService();
+                    string? customerId = null;
+                    
+                    // Get customer ID from session
+                    if (session.Customer != null)
+                    {
+                        if (session.Customer is Stripe.Customer customerObj)
+                        {
+                            customerId = customerObj.Id;
+                        }
+                        else
+                        {
+                            customerId = session.Customer.ToString();
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(customerId))
+                    {
+                        // List all open sessions for this customer
+                        var sessionListOptions = new SessionListOptions
+                        {
+                            Customer = customerId,
+                            Status = "open" // Only get open sessions
+                        };
+                        
+                        var allSessions = await sessionService.ListAsync(sessionListOptions);
+                        
+                        // Expire all other sessions (excluding the current completed one)
+                        int expiredCount = 0;
+                        foreach (var otherSession in allSessions.Data)
+                        {
+                            if (otherSession.Id != session.Id && otherSession.Status == "open")
+                            {
+                                try
+                                {
+                                    await sessionService.ExpireAsync(otherSession.Id);
+                                    expiredCount++;
+                                    Console.WriteLine($"[Webhook] Expired session {otherSession.Id} for customer {customerId}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    // Log but don't fail the webhook
+                                    Console.WriteLine($"[Webhook Error] Failed to expire session {otherSession.Id}: {ex.Message}");
+                                }
+                            }
+                        }
+                        
+                        if (expiredCount > 0)
+                        {
+                            Console.WriteLine($"[Webhook] Expired {expiredCount} other session(s) for customer {customerId} after successful payment");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't fail the webhook - this is a cleanup operation
+                    Console.WriteLine($"[Webhook Error] Failed to expire other sessions: {ex.Message}");
                 }
 
                 return new ServiceResponse { Status = SRStatus.Success, Message = "checkout.session.completed handled." };
