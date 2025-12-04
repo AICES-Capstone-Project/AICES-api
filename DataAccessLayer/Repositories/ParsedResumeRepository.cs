@@ -94,7 +94,6 @@ namespace DataAccessLayer.Repositories
             return await _context.ParsedResumes
                 .AsNoTracking()
                 .Where(pr => pr.CompanyId == companyId
-                    && pr.IsActive
                     && pr.CreatedAt.HasValue
                     && pr.CreatedAt.Value >= hoursAgo)
                 .CountAsync();
@@ -106,7 +105,6 @@ namespace DataAccessLayer.Repositories
             // No AsNoTracking() to see records created in current transaction
             return await _context.ParsedResumes
                 .Where(pr => pr.CompanyId == companyId
-                    && pr.IsActive
                     && pr.CreatedAt.HasValue
                     && pr.CreatedAt.Value >= hoursAgo)
                 .CountAsync();

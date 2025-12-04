@@ -73,16 +73,6 @@ namespace BusinessObjectLayer.Services
             if (subscription == null)
                 return new ServiceResponse { Status = SRStatus.NotFound, Message = "Subscription not found" };
 
-            var existingCompanySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
-            if (existingCompanySubscription != null)
-            {
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Validation,
-                    Message = "Your company already has an active subscription. Please cancel or wait for it to expire before purchasing another plan."
-                };
-            }
-
             // Lấy priceId: ưu tiên lưu trong Subscription.StripePriceId, nếu null/empty -> dùng env STRIPE__PRICE_DEFAULT
             string stripePriceId = !string.IsNullOrWhiteSpace(subscription.StripePriceId) 
                 ? subscription.StripePriceId
@@ -133,7 +123,7 @@ namespace BusinessObjectLayer.Services
                 }
             }
 
-            string domain = Environment.GetEnvironmentVariable("APPURL__CLIENTURL") ?? "http://localhost:5173";
+            string domain = Environment.GetEnvironmentVariable("APPURL__CLIENTURL") ?? "https://aices-client.vercel.app";
 
             // Create a pending payment record before redirecting user to Stripe
             var payment = new Payment
@@ -277,6 +267,35 @@ namespace BusinessObjectLayer.Services
 
                 var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+
+                // ========== prevent duplicate active subscriptions ==========
+                var existingActive = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+                if (existingActive != null)
+                {
+                    try
+                    {
+                        var subscriptionService = new Stripe.SubscriptionService();
+                        await subscriptionService.CancelAsync(stripeSubscriptionId, new SubscriptionCancelOptions
+                        {
+                            InvoiceNow = false,
+                            Prorate = false
+                        });
+
+                        Console.WriteLine($"[Webhook] Duplicate subscription detected for company {companyId}. Stripe subscription {stripeSubscriptionId} canceled.");
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log nhưng vẫn trả về thành công để tránh Stripe retry vô hạn
+                        Console.WriteLine($"[Webhook Error] Failed to cancel duplicate subscription {stripeSubscriptionId}: {ex.Message}");
+                    }
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "Duplicate subscription automatically canceled."
+                    };
+                }
+
                 var paymentRepo = _uow.GetRepository<IPaymentRepository>();
                 var authRepo = _uow.GetRepository<IAuthRepository>();
                 
