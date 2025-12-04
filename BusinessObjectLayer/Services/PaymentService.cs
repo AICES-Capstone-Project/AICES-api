@@ -164,14 +164,14 @@ namespace BusinessObjectLayer.Services
                 { "paymentId", payment.PaymentId.ToString() }
             };
 
-            var options = new SessionCreateOptions
+            var options = new Stripe.Checkout.SessionCreateOptions
             {
                 Mode = "subscription",
                 Customer = customerId,
                 CustomerEmail = userEmail, // Ensure email is passed to checkout for receipt delivery
                 SuccessUrl = $"{domain}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
                 CancelUrl = $"{domain}/subscriptions",
-                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(1).DateTime, // Session expires in 15 minutes
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30).DateTime,
                 Metadata = metadata,
                 SubscriptionData = new SessionSubscriptionDataOptions
                 {
@@ -186,6 +186,8 @@ namespace BusinessObjectLayer.Services
                     }
                 }
             };
+
+            Console.WriteLine($"ExpiresAt: {options.ExpiresAt}");
 
             var sessionService = new SessionService();
             var session = await sessionService.CreateAsync(options);
