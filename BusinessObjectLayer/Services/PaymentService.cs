@@ -269,7 +269,7 @@ namespace BusinessObjectLayer.Services
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
 
                 // ========== prevent duplicate active subscriptions ==========
-                var existingActive = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+                var existingActive = await companySubRepo.GetAnyActiveSubscriptionByCompanyForPaymentAsync(companyId);
                 if (existingActive != null)
                 {
                     try

@@ -105,6 +105,19 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<CompanySubscription?> GetAnyActiveSubscriptionByCompanyForPaymentAsync(int companyId)
+        {
+            var now = DateTime.UtcNow;
+            return await _context.CompanySubscriptions
+                .AsNoTracking()
+                .Include(cs => cs.Subscription)
+                .Where(cs => cs.CompanyId == companyId
+                    && cs.SubscriptionStatus == SubscriptionStatusEnum.Active
+                    && cs.IsActive
+                    && cs.EndDate > now)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<CompanySubscription?> GetAnyActiveSubscriptionForUpdateByCompanyAsync(int companyId)
         {
             var now = DateTime.UtcNow;
