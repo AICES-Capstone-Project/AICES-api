@@ -188,6 +188,10 @@ namespace BusinessObjectLayer.Services
             };
 
             Console.WriteLine($"ExpiresAt: {options.ExpiresAt}");
+            Console.WriteLine("Local UTC Now: " + DateTime.UtcNow);
+            Console.WriteLine("Machine local time: " + DateTime.Now);
+            Console.WriteLine("Unix now: " + DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
 
             var sessionService = new SessionService();
             var session = await sessionService.CreateAsync(options);

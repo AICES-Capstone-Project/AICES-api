@@ -3,12 +3,6 @@
 # ============================
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 
-# Set timezone to Vietnam
-RUN apt-get update && apt-get install -y tzdata \
-    && ln -fs /usr/share/zoneinfo/Asia/Ho_Chi_Minh /etc/localtime \
-    && echo "Asia/Ho_Chi_Minh" > /etc/timezone \
-    && dpkg-reconfigure -f noninteractive tzdata
-
 WORKDIR /app
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
