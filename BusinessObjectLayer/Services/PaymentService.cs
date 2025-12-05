@@ -298,31 +298,119 @@ namespace BusinessObjectLayer.Services
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
 
                 // ========== prevent duplicate active subscriptions ==========
+                // Check for existing active subscription in database
                 var existingActive = await companySubRepo.GetAnyActiveSubscriptionByCompanyForPaymentAsync(companyId);
                 if (existingActive != null)
                 {
-                    try
+                    // Log thông tin subscription đang được coi là active để debug
+                    Console.WriteLine($"[Webhook Debug] Found existing active subscription for company {companyId}: " +
+                        $"ComSubId={existingActive.ComSubId}, " +
+                        $"Status={existingActive.SubscriptionStatus}, " +
+                        $"IsActive={existingActive.IsActive}, " +
+                        $"EndDate={existingActive.EndDate}, " +
+                        $"StripeSubId={existingActive.StripeSubscriptionId}");
+                    
+                    // Check if the existing subscription is actually valid in Stripe
+                    if (!string.IsNullOrEmpty(existingActive.StripeSubscriptionId))
                     {
-                        var subscriptionService = new Stripe.SubscriptionService();
-                        await subscriptionService.CancelAsync(stripeSubscriptionId, new SubscriptionCancelOptions
+                        try
                         {
-                            InvoiceNow = false,
-                            Prorate = false
-                        });
-
-                        Console.WriteLine($"[Webhook] Duplicate subscription detected for company {companyId}. Stripe subscription {stripeSubscriptionId} canceled.");
+                            var subscriptionService = new Stripe.SubscriptionService();
+                            var stripeSub = await subscriptionService.GetAsync(existingActive.StripeSubscriptionId);
+                            Console.WriteLine($"[Webhook Debug] Stripe subscription status: {stripeSub.Status}");
+                            
+                            // If Stripe subscription is already canceled/expired/unpaid, update DB and allow new subscription
+                            if (stripeSub.Status == "canceled" || stripeSub.Status == "unpaid" || stripeSub.Status == "past_due" || stripeSub.Status == "incomplete_expired")
+                            {
+                                Console.WriteLine($"[Webhook Debug] Existing subscription in Stripe is {stripeSub.Status}. Updating DB and allowing new subscription.");
+                                
+                                // Update existing subscription status in DB to match Stripe
+                                existingActive.SubscriptionStatus = stripeSub.Status == "canceled" 
+                                    ? SubscriptionStatusEnum.Canceled 
+                                    : SubscriptionStatusEnum.Expired;
+                                await companySubRepo.UpdateAsync(existingActive);
+                                await _uow.SaveChangesAsync();
+                                
+                                Console.WriteLine($"[Webhook] Updated existing subscription {existingActive.ComSubId} status to {existingActive.SubscriptionStatus}. Proceeding with new subscription.");
+                                // Continue with new subscription creation
+                            }
+                            else if (stripeSub.Status == "active" || stripeSub.Status == "trialing")
+                            {
+                                // Existing subscription is still active in Stripe - this is a real duplicate
+                                // Cancel the OLD subscription (not the new one that was just paid for)
+                                Console.WriteLine($"[Webhook] Real duplicate detected. Canceling OLD subscription {existingActive.StripeSubscriptionId} instead of new one.");
+                                
+                                try
+                                {
+                                    await subscriptionService.CancelAsync(existingActive.StripeSubscriptionId, new SubscriptionCancelOptions
+                                    {
+                                        InvoiceNow = false,
+                                        Prorate = false
+                                    });
+                                    
+                                    // Update DB status
+                                    existingActive.SubscriptionStatus = SubscriptionStatusEnum.Canceled;
+                                    await companySubRepo.UpdateAsync(existingActive);
+                                    await _uow.SaveChangesAsync();
+                                    
+                                    Console.WriteLine($"[Webhook] Canceled old subscription {existingActive.StripeSubscriptionId}. New subscription {stripeSubscriptionId} will proceed.");
+                                    // Continue with new subscription creation
+                                }
+                                catch (Exception cancelEx)
+                                {
+                                    Console.WriteLine($"[Webhook Error] Failed to cancel old subscription {existingActive.StripeSubscriptionId}: {cancelEx.Message}");
+                                    // Continue anyway - don't block the new subscription that was just paid for
+                                }
+                            }
+                            else
+                            {
+                                // Unknown status - log and allow new subscription to proceed
+                                Console.WriteLine($"[Webhook Debug] Existing subscription has unknown status {stripeSub.Status}. Allowing new subscription.");
+                            }
+                        }
+                        catch (StripeException stripeEx)
+                        {
+                            // If subscription not found in Stripe, it means it was already deleted
+                            if (stripeEx.StripeError?.Code == "resource_missing")
+                            {
+                                Console.WriteLine($"[Webhook Debug] Existing subscription {existingActive.StripeSubscriptionId} not found in Stripe. Updating DB and allowing new subscription.");
+                                
+                                // Update DB to mark as expired/canceled
+                                existingActive.SubscriptionStatus = SubscriptionStatusEnum.Expired;
+                                await companySubRepo.UpdateAsync(existingActive);
+                                await _uow.SaveChangesAsync();
+                                
+                                // Continue with new subscription creation
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[Webhook Error] Stripe error checking subscription: {stripeEx.Message}");
+                                // Continue anyway to avoid blocking the new subscription that was just paid for
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[Webhook Error] Error checking Stripe subscription: {ex.Message}");
+                            // Continue anyway to avoid blocking the new subscription that was just paid for
+                        }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        // Log nhưng vẫn trả về thành công để tránh Stripe retry vô hạn
-                        Console.WriteLine($"[Webhook Error] Failed to cancel duplicate subscription {stripeSubscriptionId}: {ex.Message}");
+                        // No Stripe subscription ID in DB - this is an orphaned record
+                        // Mark it as expired and allow new subscription
+                        Console.WriteLine($"[Webhook Debug] Existing subscription {existingActive.ComSubId} has no Stripe ID. Marking as expired and allowing new subscription.");
+                        
+                        existingActive.SubscriptionStatus = SubscriptionStatusEnum.Expired;
+                        await companySubRepo.UpdateAsync(existingActive);
+                        await _uow.SaveChangesAsync();
+                        
+                        // Continue with new subscription creation
                     }
-
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Success,
-                        Message = "Duplicate subscription automatically canceled."
-                    };
+                }
+                else
+                {
+                    // Log để confirm không có active subscription
+                    Console.WriteLine($"[Webhook Debug] No active subscription found for company {companyId}. Proceeding with new subscription creation.");
                 }
 
                 var paymentRepo = _uow.GetRepository<IPaymentRepository>();
