@@ -24,7 +24,7 @@ namespace BusinessObjectLayer.BackgroundJobs
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("✅ ResumeTimeoutService started.");
+            // _logger.LogInformation("✅ ResumeTimeoutService started.");
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -40,7 +40,7 @@ namespace BusinessObjectLayer.BackgroundJobs
                 await Task.Delay(_checkInterval, stoppingToken);
             }
 
-            _logger.LogInformation("⏹️ ResumeTimeoutService stopped.");
+            // _logger.LogInformation("⏹️ ResumeTimeoutService stopped.");
         }
 
         private async Task CheckAndFailTimedOutResumesAsync()
@@ -59,11 +59,11 @@ namespace BusinessObjectLayer.BackgroundJobs
 
             if (timedOutResumes.Count == 0)
             {
-                _logger.LogInformation("✅ No timed-out resumes found.");
+                // _logger.LogInformation("✅ No timed-out resumes found.");
                 return;
             }
 
-            _logger.LogInformation($"⚠️ Found {timedOutResumes.Count} timed-out resume(s).");
+            // _logger.LogInformation($"⚠️ Found {timedOutResumes.Count} timed-out resume(s).");
 
             await uow.BeginTransactionAsync();
             try
@@ -89,12 +89,12 @@ namespace BusinessObjectLayer.BackgroundJobs
 
                 // Save all changes to the database
                 await uow.CommitTransactionAsync();
-                _logger.LogInformation($"✅ Successfully updated {updatedCount}/{timedOutResumes.Count} timed-out resume(s) to Timeout status.");
+                // _logger.LogInformation($"✅ Successfully updated {updatedCount}/{timedOutResumes.Count} timed-out resume(s) to Timeout status.");
             }
             catch (Exception ex)
             {
                 await uow.RollbackTransactionAsync();
-                _logger.LogError(ex, $"❌ Failed to save changes to database. Transaction rolled back.");
+                // _logger.LogError(ex, $"❌ Failed to save changes to database. Transaction rolled back.");
             }
         }
     }

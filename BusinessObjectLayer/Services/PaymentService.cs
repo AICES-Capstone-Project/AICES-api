@@ -12,6 +12,7 @@ using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Stripe;
 using Stripe.Checkout;
@@ -30,17 +31,20 @@ namespace BusinessObjectLayer.Services
         private readonly StripeSettings _settings;
         private readonly INotificationService _notificationService;
         private readonly IEmailService _emailService;
+        private readonly ILogger<PaymentService> _logger;
 
         public PaymentService(
             IUnitOfWork uow,
             INotificationService notificationService,
             IOptions<StripeSettings> settings,
-            IEmailService emailService)
+            IEmailService emailService,
+            ILogger<PaymentService> logger)
         {
             _uow = uow;
             _notificationService = notificationService;
             _settings = settings.Value;
             _emailService = emailService;
+            _logger = logger;
         }
 
 
@@ -187,10 +191,8 @@ namespace BusinessObjectLayer.Services
                 }
             };
 
-            Console.WriteLine($"ExpiresAt: {options.ExpiresAt}");
-            Console.WriteLine("Local UTC Now: " + DateTime.UtcNow);
-            Console.WriteLine("Machine local time: " + DateTime.Now);
-            Console.WriteLine("Unix now: " + DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            _logger.LogDebug("Checkout session expiration - ExpiresAt: {ExpiresAt}, UTC Now: {UtcNow}, Local Time: {LocalTime}, Unix: {UnixTime}", 
+                options.ExpiresAt, DateTime.UtcNow, DateTime.Now, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
 
             var sessionService = new SessionService();
@@ -282,7 +284,7 @@ namespace BusinessObjectLayer.Services
                     catch (Exception ex)
                     {
                         // Log error nhưng không throw
-                        Console.WriteLine($"Error retrieving session with expand: {ex.Message}");
+                        _logger.LogWarning(ex, "Error retrieving session with expand for session {SessionId}", session.Id);
                     }
                 }
 
@@ -290,25 +292,38 @@ namespace BusinessObjectLayer.Services
                 {
                     // Trả về Error để Stripe biết có vấn đề và có thể retry
                     // Hoặc log để debug vì đây là trường hợp không bình thường
-                    Console.WriteLine($"[Webhook Error] checkout.session.completed - Session {session.Id} has no subscription ID. Session mode: {session.Mode}");
+                    _logger.LogError("checkout.session.completed - Session {SessionId} has no subscription ID. Session mode: {Mode}", session.Id, session.Mode);
                     return new ServiceResponse { Status = SRStatus.Error, Message = "Session has no subscription id. Cannot process payment." };
                 }
 
                 var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
 
+                // ========== Check if this subscription was already processed (idempotency check) ==========
+                // IMPORTANT: Check this FIRST before duplicate check to prevent reprocessing the same subscription
+                var existing = await companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubscriptionId);
+                if (existing != null)
+                {
+                    _logger.LogInformation("Subscription {StripeSubscriptionId} already processed (ComSubId: {ComSubId}). Returning success.", stripeSubscriptionId, existing.ComSubId);
+                    return new ServiceResponse { Status = SRStatus.Success, Message = "Subscription already processed." };
+                }
+
                 // ========== prevent duplicate active subscriptions ==========
-                // Check for existing active subscription in database
+                // Check for existing active subscription in database (different from the new one)
                 var existingActive = await companySubRepo.GetAnyActiveSubscriptionByCompanyForPaymentAsync(companyId);
                 if (existingActive != null)
                 {
+                    // CRITICAL FIX: Verify this is NOT the same subscription we're processing
+                    // If Stripe IDs match, it means we're processing the same subscription (duplicate webhook or race condition)
+                    if (existingActive.StripeSubscriptionId == stripeSubscriptionId)
+                    {
+                        _logger.LogDebug("Found existing subscription with same Stripe ID {StripeSubscriptionId}. This is likely a duplicate webhook call. Returning success.", stripeSubscriptionId);
+                        return new ServiceResponse { Status = SRStatus.Success, Message = "Subscription already processed." };
+                    }
+
                     // Log thông tin subscription đang được coi là active để debug
-                    Console.WriteLine($"[Webhook Debug] Found existing active subscription for company {companyId}: " +
-                        $"ComSubId={existingActive.ComSubId}, " +
-                        $"Status={existingActive.SubscriptionStatus}, " +
-                        $"IsActive={existingActive.IsActive}, " +
-                        $"EndDate={existingActive.EndDate}, " +
-                        $"StripeSubId={existingActive.StripeSubscriptionId}");
+                    _logger.LogDebug("Found existing active subscription for company {CompanyId}: ComSubId={ComSubId}, Status={Status}, IsActive={IsActive}, EndDate={EndDate}, StripeSubId={StripeSubId}",
+                        companyId, existingActive.ComSubId, existingActive.SubscriptionStatus, existingActive.IsActive, existingActive.EndDate, existingActive.StripeSubscriptionId);
                     
                     // Check if the existing subscription is actually valid in Stripe
                     if (!string.IsNullOrEmpty(existingActive.StripeSubscriptionId))
@@ -317,12 +332,12 @@ namespace BusinessObjectLayer.Services
                         {
                             var subscriptionService = new Stripe.SubscriptionService();
                             var stripeSub = await subscriptionService.GetAsync(existingActive.StripeSubscriptionId);
-                            Console.WriteLine($"[Webhook Debug] Stripe subscription status: {stripeSub.Status}");
+                            _logger.LogDebug("Stripe subscription status: {Status} for subscription {StripeSubscriptionId}", stripeSub.Status, existingActive.StripeSubscriptionId);
                             
                             // If Stripe subscription is already canceled/expired/unpaid, update DB and allow new subscription
                             if (stripeSub.Status == "canceled" || stripeSub.Status == "unpaid" || stripeSub.Status == "past_due" || stripeSub.Status == "incomplete_expired")
                             {
-                                Console.WriteLine($"[Webhook Debug] Existing subscription in Stripe is {stripeSub.Status}. Updating DB and allowing new subscription.");
+                                _logger.LogDebug("Existing subscription in Stripe is {Status}. Updating DB and allowing new subscription.", stripeSub.Status);
                                 
                                 // Update existing subscription status in DB to match Stripe
                                 existingActive.SubscriptionStatus = stripeSub.Status == "canceled" 
@@ -331,41 +346,51 @@ namespace BusinessObjectLayer.Services
                                 await companySubRepo.UpdateAsync(existingActive);
                                 await _uow.SaveChangesAsync();
                                 
-                                Console.WriteLine($"[Webhook] Updated existing subscription {existingActive.ComSubId} status to {existingActive.SubscriptionStatus}. Proceeding with new subscription.");
+                                _logger.LogInformation("Updated existing subscription {ComSubId} status to {Status}. Proceeding with new subscription.", existingActive.ComSubId, existingActive.SubscriptionStatus);
                                 // Continue with new subscription creation
                             }
                             else if (stripeSub.Status == "active" || stripeSub.Status == "trialing")
                             {
-                                // Existing subscription is still active in Stripe - this is a real duplicate
-                                // Cancel the OLD subscription (not the new one that was just paid for)
-                                Console.WriteLine($"[Webhook] Real duplicate detected. Canceling OLD subscription {existingActive.StripeSubscriptionId} instead of new one.");
-                                
-                                try
+                                // Existing subscription is still active in Stripe - this is a real duplicate (OLD subscription)
+                                // CRITICAL: Verify we're not canceling the NEW subscription by checking IDs don't match
+                                if (existingActive.StripeSubscriptionId != stripeSubscriptionId)
                                 {
-                                    await subscriptionService.CancelAsync(existingActive.StripeSubscriptionId, new SubscriptionCancelOptions
+                                    // Cancel the OLD subscription (not the new one that was just paid for)
+                                    _logger.LogInformation("Real duplicate detected. Canceling OLD subscription {OldStripeSubscriptionId} (different from new {NewStripeSubscriptionId}).", existingActive.StripeSubscriptionId, stripeSubscriptionId);
+                                    
+                                    try
                                     {
-                                        InvoiceNow = false,
-                                        Prorate = false
-                                    });
-                                    
-                                    // Update DB status
-                                    existingActive.SubscriptionStatus = SubscriptionStatusEnum.Canceled;
-                                    await companySubRepo.UpdateAsync(existingActive);
-                                    await _uow.SaveChangesAsync();
-                                    
-                                    Console.WriteLine($"[Webhook] Canceled old subscription {existingActive.StripeSubscriptionId}. New subscription {stripeSubscriptionId} will proceed.");
-                                    // Continue with new subscription creation
+                                        await subscriptionService.CancelAsync(existingActive.StripeSubscriptionId, new SubscriptionCancelOptions
+                                        {
+                                            InvoiceNow = false,
+                                            Prorate = false
+                                        });
+                                        
+                                        // Update DB status
+                                        existingActive.SubscriptionStatus = SubscriptionStatusEnum.Canceled;
+                                        await companySubRepo.UpdateAsync(existingActive);
+                                        await _uow.SaveChangesAsync();
+                                        
+                                        _logger.LogInformation("Canceled old subscription {OldStripeSubscriptionId}. New subscription {NewStripeSubscriptionId} will proceed.", existingActive.StripeSubscriptionId, stripeSubscriptionId);
+                                        // Continue with new subscription creation
+                                    }
+                                    catch (Exception cancelEx)
+                                    {
+                                        _logger.LogError(cancelEx, "Failed to cancel old subscription {StripeSubscriptionId}", existingActive.StripeSubscriptionId);
+                                        // Continue anyway - don't block the new subscription that was just paid for
+                                    }
                                 }
-                                catch (Exception cancelEx)
+                                else
                                 {
-                                    Console.WriteLine($"[Webhook Error] Failed to cancel old subscription {existingActive.StripeSubscriptionId}: {cancelEx.Message}");
-                                    // Continue anyway - don't block the new subscription that was just paid for
+                                    // This should not happen due to the check above, but adding as safety
+                                    _logger.LogWarning("Attempted to cancel subscription with same ID. This is a bug! StripeSubId: {StripeSubscriptionId}", stripeSubscriptionId);
+                                    return new ServiceResponse { Status = SRStatus.Success, Message = "Subscription already processed." };
                                 }
                             }
                             else
                             {
                                 // Unknown status - log and allow new subscription to proceed
-                                Console.WriteLine($"[Webhook Debug] Existing subscription has unknown status {stripeSub.Status}. Allowing new subscription.");
+                                _logger.LogDebug("Existing subscription has unknown status {Status}. Allowing new subscription.", stripeSub.Status);
                             }
                         }
                         catch (StripeException stripeEx)
@@ -373,7 +398,7 @@ namespace BusinessObjectLayer.Services
                             // If subscription not found in Stripe, it means it was already deleted
                             if (stripeEx.StripeError?.Code == "resource_missing")
                             {
-                                Console.WriteLine($"[Webhook Debug] Existing subscription {existingActive.StripeSubscriptionId} not found in Stripe. Updating DB and allowing new subscription.");
+                                _logger.LogDebug("Existing subscription {StripeSubscriptionId} not found in Stripe. Updating DB and allowing new subscription.", existingActive.StripeSubscriptionId);
                                 
                                 // Update DB to mark as expired/canceled
                                 existingActive.SubscriptionStatus = SubscriptionStatusEnum.Expired;
@@ -384,13 +409,13 @@ namespace BusinessObjectLayer.Services
                             }
                             else
                             {
-                                Console.WriteLine($"[Webhook Error] Stripe error checking subscription: {stripeEx.Message}");
+                                _logger.LogError(stripeEx, "Stripe error checking subscription {StripeSubscriptionId}", existingActive.StripeSubscriptionId);
                                 // Continue anyway to avoid blocking the new subscription that was just paid for
                             }
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"[Webhook Error] Error checking Stripe subscription: {ex.Message}");
+                            _logger.LogError(ex, "Error checking Stripe subscription {StripeSubscriptionId}", existingActive.StripeSubscriptionId);
                             // Continue anyway to avoid blocking the new subscription that was just paid for
                         }
                     }
@@ -398,7 +423,7 @@ namespace BusinessObjectLayer.Services
                     {
                         // No Stripe subscription ID in DB - this is an orphaned record
                         // Mark it as expired and allow new subscription
-                        Console.WriteLine($"[Webhook Debug] Existing subscription {existingActive.ComSubId} has no Stripe ID. Marking as expired and allowing new subscription.");
+                        _logger.LogDebug("Existing subscription {ComSubId} has no Stripe ID. Marking as expired and allowing new subscription.", existingActive.ComSubId);
                         
                         existingActive.SubscriptionStatus = SubscriptionStatusEnum.Expired;
                         await companySubRepo.UpdateAsync(existingActive);
@@ -410,17 +435,11 @@ namespace BusinessObjectLayer.Services
                 else
                 {
                     // Log để confirm không có active subscription
-                    Console.WriteLine($"[Webhook Debug] No active subscription found for company {companyId}. Proceeding with new subscription creation.");
+                    _logger.LogDebug("No active subscription found for company {CompanyId}. Proceeding with new subscription creation.", companyId);
                 }
 
                 var paymentRepo = _uow.GetRepository<IPaymentRepository>();
                 var authRepo = _uow.GetRepository<IAuthRepository>();
-                
-                var existing = await companySubRepo.GetByStripeSubscriptionIdAsync(stripeSubscriptionId);
-                if (existing != null)
-                {
-                    return new ServiceResponse { Status = SRStatus.Success, Message = "Subscription already processed." };
-                }
                 
                 var subscriptionEntity = await subscriptionRepo.GetByIdAsync(subscriptionId);
                 var now = DateTime.UtcNow;
@@ -502,26 +521,26 @@ namespace BusinessObjectLayer.Services
                                 {
                                     await sessionService.ExpireAsync(otherSession.Id);
                                     expiredCount++;
-                                    Console.WriteLine($"[Webhook] Expired session {otherSession.Id} for customer {customerId}");
+                                    _logger.LogInformation("Expired session {SessionId} for customer {CustomerId}", otherSession.Id, customerId);
                                 }
                                 catch (Exception ex)
                                 {
                                     // Log but don't fail the webhook
-                                    Console.WriteLine($"[Webhook Error] Failed to expire session {otherSession.Id}: {ex.Message}");
+                                    _logger.LogError(ex, "Failed to expire session {SessionId} for customer {CustomerId}", otherSession.Id, customerId);
                                 }
                             }
                         }
                         
                         if (expiredCount > 0)
                         {
-                            Console.WriteLine($"[Webhook] Expired {expiredCount} other session(s) for customer {customerId} after successful payment");
+                            _logger.LogInformation("Expired {ExpiredCount} other session(s) for customer {CustomerId} after successful payment", expiredCount, customerId);
                         }
                     }
                 }
                 catch (Exception ex)
                 {
                     // Log error but don't fail the webhook - this is a cleanup operation
-                    Console.WriteLine($"[Webhook Error] Failed to expire other sessions: {ex.Message}");
+                    _logger.LogError(ex, "Failed to expire other sessions for customer {CustomerId}", session.Customer?.ToString());
                 }
 
                 return new ServiceResponse { Status = SRStatus.Success, Message = "checkout.session.completed handled." };
@@ -731,12 +750,12 @@ namespace BusinessObjectLayer.Services
                             paymentMethod,
                             datePaid
                         );
-                        Console.WriteLine($"[PaymentService] Receipt email sent for invoice {invoice.Id} to {invoice.CustomerEmail}");
+                        _logger.LogInformation("Receipt email sent for invoice {InvoiceId} to {CustomerEmail}", invoice.Id, invoice.CustomerEmail);
                     }
                     catch (Exception ex)
                     {
                         // Log error nhưng không fail webhook
-                        Console.WriteLine($"[PaymentService] Error sending receipt email for {invoice.Id}: {ex.Message}");
+                        _logger.LogError(ex, "Error sending receipt email for invoice {InvoiceId} to {CustomerEmail}", invoice.Id, invoice.CustomerEmail);
                     }
                 }
 
@@ -1240,7 +1259,7 @@ namespace BusinessObjectLayer.Services
             }
             catch (StripeException ex)
             {
-                Console.WriteLine($"Stripe error canceling subscription: {ex.Message}");
+                _logger.LogError(ex, "Stripe error canceling subscription {StripeSubscriptionId}", companySubscription.StripeSubscriptionId);
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
@@ -1249,7 +1268,7 @@ namespace BusinessObjectLayer.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error canceling subscription: {ex.Message}");
+                _logger.LogError(ex, "Error canceling subscription {StripeSubscriptionId}", companySubscription.StripeSubscriptionId);
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,
