@@ -189,6 +189,7 @@ namespace BusinessObjectLayer.Services.Auth
             await _uow.SaveChangesAsync();
 
             var tokens = await _tokenService.GenerateTokensAsync(user);
+            await _uow.SaveChangesAsync(); // Save the new refresh token to database
 
             return new ServiceResponse
             {
@@ -385,6 +386,7 @@ namespace BusinessObjectLayer.Services.Auth
 
                 // 4. Generate tokens
                 var tokens = await _tokenService.GenerateTokensAsync(user);
+                await _uow.SaveChangesAsync(); // Save the new refresh token to database
 
                 // 5. Return success response
                 return new ServiceResponse
@@ -558,6 +560,7 @@ namespace BusinessObjectLayer.Services.Auth
                 await tokenRepo.RevokeAllRefreshTokensAsync(user.UserId);
                 await _uow.SaveChangesAsync();
                 var tokens = await _tokenService.GenerateTokensAsync(user);
+                await _uow.SaveChangesAsync(); // Save the new refresh token to database
 
                 return new ServiceResponse
                 {

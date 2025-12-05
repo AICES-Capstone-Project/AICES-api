@@ -52,7 +52,7 @@ namespace BusinessObjectLayer.BackgroundJobs
             // Calculate cutoff time (2 minutes ago)
             var cutoff = DateTime.UtcNow.AddMinutes(-2);
 
-            _logger.LogInformation($"🔍 Checking for timed-out resumes (before {cutoff:yyyy-MM-dd HH:mm:ss} UTC)");
+            // _logger.LogInformation($"🔍 Checking for timed-out resumes (before {cutoff:yyyy-MM-dd HH:mm:ss} UTC)");
 
             // Get all pending resumes that have timed out
             var timedOutResumes = await parsedResumeRepository.GetPendingBeforeAsync(cutoff);
@@ -78,12 +78,12 @@ namespace BusinessObjectLayer.BackgroundJobs
                         await parsedResumeRepository.UpdateAsync(resume);
                         updatedCount++;
 
-                        _logger.LogInformation(
-                            $"❌ Resume {resume.ResumeId} (QueueJobId: {resume.QueueJobId}) marked as Timeout due to timeout.");
+                        // _logger.LogInformation(
+                        //     $"❌ Resume {resume.ResumeId} (QueueJobId: {resume.QueueJobId}) marked as Timeout due to timeout.");
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, $"❌ Failed to update resume {resume.ResumeId}");
+                        // _logger.LogError(ex, $"❌ Failed to update resume {resume.ResumeId}");
                     }
                 }
 

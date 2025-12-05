@@ -1,6 +1,7 @@
 using Data.Entities;
 using Data.Models.Response;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.UnitOfWork;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -14,11 +15,13 @@ namespace BusinessObjectLayer.Services.Auth
     {
         private readonly IAuthRepository _authRepository;
         private readonly ITokenRepository _tokenRepository;
+        private readonly IUnitOfWork _uow;
 
-        public TokenService(IAuthRepository authRepository, ITokenRepository tokenRepository)
+        public TokenService(IAuthRepository authRepository, ITokenRepository tokenRepository, IUnitOfWork uow)
         {
             _authRepository = authRepository;
             _tokenRepository = tokenRepository;
+            _uow = uow;
         }
 
         private static string GetEnvOrThrow(string key)
@@ -75,7 +78,7 @@ namespace BusinessObjectLayer.Services.Auth
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var issuer = GetEnvOrThrow("JWTCONFIG__ISSUERS__0");
             var audience = GetEnvOrThrow("JWTCONFIG__AUDIENCES__0");
-            var expiryMins = int.Parse(Environment.GetEnvironmentVariable("JWTCONFIG__TOKENVALIDITYMINS") ?? "60"); // 1 hour
+            var expiryMins = int.Parse(GetEnvOrThrow("JWTCONFIG__TOKENVALIDITYMINS")); // 1 hour
 
             var accessToken = new JwtSecurityToken(
                 issuer: issuer,
@@ -132,6 +135,7 @@ namespace BusinessObjectLayer.Services.Auth
                 {
                     storedToken.IsActive = false;
                     await _tokenRepository.UpdateRefreshTokenAsync(storedToken);
+                    await _uow.SaveChangesAsync();
 
                     return new ServiceResponse
                     {
@@ -150,7 +154,9 @@ namespace BusinessObjectLayer.Services.Auth
                 }
 
                 await _tokenRepository.RevokeAllRefreshTokensAsync(storedToken.UserId);
+                await _uow.SaveChangesAsync();
                 var tokens = await GenerateTokensAsync(storedToken.User);
+                await _uow.SaveChangesAsync(); // Save the new refresh token to database
 
                 return new ServiceResponse
                 {
