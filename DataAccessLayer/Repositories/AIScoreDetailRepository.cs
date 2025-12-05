@@ -30,7 +30,7 @@ namespace DataAccessLayer.Repositories
             return await _context.AIScoreDetails
                 .AsNoTracking()
                 .Include(aisd => aisd.Criteria)
-                .Where(aisd => aisd.ScoreId == scoreId)
+                .Where(aisd => aisd.IsActive && aisd.ScoreId == scoreId)
                 .ToListAsync();
         }
     }

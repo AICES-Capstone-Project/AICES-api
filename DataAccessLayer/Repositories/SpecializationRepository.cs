@@ -31,14 +31,14 @@ namespace DataAccessLayer.Repositories
             return await _context.Specializations
                 .AsNoTracking()
                 .Include(s => s.Category)
-                .FirstOrDefaultAsync(s => s.SpecializationId == id);
+                .FirstOrDefaultAsync(s => s.IsActive && s.SpecializationId == id);
         }
 
         public async Task<Specialization?> GetForUpdateAsync(int id)
         {
             return await _context.Specializations
                 .Include(s => s.Category)
-                .FirstOrDefaultAsync(s => s.SpecializationId == id);
+                .FirstOrDefaultAsync(s => s.IsActive && s.SpecializationId == id);
         }
 
         public async Task<bool> ExistsAsync(int id)
@@ -52,7 +52,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Specializations
                 .AsNoTracking()
-                .AnyAsync(s => s.Name == name && s.IsActive);
+                .AnyAsync(s => s.IsActive && s.Name == name);
         }
 
         public async Task AddAsync(Specialization specialization)
@@ -112,7 +112,7 @@ namespace DataAccessLayer.Repositories
             return await _context.Specializations
                 .AsNoTracking()
                 .Include(s => s.Category)
-                .Where(s => s.CategoryId == categoryId && s.IsActive)
+                .Where(s => s.IsActive && s.CategoryId == categoryId)
                 .OrderBy(s => s.Name)
                 .ToListAsync();
         }

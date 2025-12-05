@@ -29,13 +29,13 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Payments
                 .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.PaymentId == id);
+                .FirstOrDefaultAsync(p => p.IsActive && p.PaymentId == id);
         }
 
         public async Task<Payment?> GetForUpdateAsync(int id)
         {
             return await _context.Payments
-                .FirstOrDefaultAsync(p => p.PaymentId == id);
+                .FirstOrDefaultAsync(p => p.IsActive && p.PaymentId == id);
         }
 
         public async Task UpdateAsync(Payment payment)
@@ -47,7 +47,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Payments
                 .AsNoTracking()
-                .Where(p => p.CompanyId == companyId && p.IsActive)
+                .Where(p => p.IsActive && p.CompanyId == companyId)
                 .Include(p => p.Transactions)
                 .Include(p => p.Company)
                     .ThenInclude(c => c.CompanySubscriptions)
@@ -63,14 +63,14 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Payments
                 .AsNoTracking()
-                .Where(p => p.CompanyId == companyId && p.IsActive)
+                .Where(p => p.IsActive && p.CompanyId == companyId)
                 .CountAsync();
         }
 
         public async Task<Payment?> GetLatestPendingByCompanyAsync(int companyId)
         {
             return await _context.Payments
-                .Where(p => p.CompanyId == companyId && p.PaymentStatus == PaymentStatusEnum.Pending && p.IsActive)
+                .Where(p => p.IsActive && p.CompanyId == companyId && p.PaymentStatus == PaymentStatusEnum.Pending)
                 .OrderByDescending(p => p.CreatedAt)
                 .FirstOrDefaultAsync();
         }
@@ -79,7 +79,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Payments
                 .AsNoTracking()
-                .Where(p => p.PaymentStatus == PaymentStatusEnum.Pending 
+                .Where(p => p.IsActive && p.PaymentStatus == PaymentStatusEnum.Pending 
                     && p.IsActive 
                     && p.CreatedAt.HasValue 
                     && p.CreatedAt.Value < cutoff)
@@ -90,7 +90,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Payments
                 .AsNoTracking()
-                .Where(p => p.CompanyId == companyId && p.IsActive)
+                .Where(p => p.IsActive && p.CompanyId == companyId)
                 .Include(p => p.CompanySubscription)
                     .ThenInclude(cs => cs.Subscription)
                 .Include(p => p.Transactions)
@@ -102,7 +102,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Payments
                 .AsNoTracking()
-                .Where(p => p.PaymentId == paymentId && p.CompanyId == companyId && p.IsActive)
+                .Where(p => p.IsActive && p.PaymentId == paymentId && p.CompanyId == companyId)
                 .Include(p => p.CompanySubscription)
                     .ThenInclude(cs => cs.Subscription)
                 .Include(p => p.Transactions)
@@ -113,7 +113,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Payments
                 .AsNoTracking()
-                .Where(p => p.PaymentId == paymentId && p.IsActive)
+                .Where(p => p.IsActive && p.PaymentId == paymentId)
                 .Include(p => p.Transactions)
                 .FirstOrDefaultAsync();
         }

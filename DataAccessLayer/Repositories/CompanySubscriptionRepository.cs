@@ -84,7 +84,7 @@ namespace DataAccessLayer.Repositories
             var now = DateTime.UtcNow;
             return await _context.CompanySubscriptions
                 .AsNoTracking()
-                .Where(cs => cs.CompanyId == companyId
+                .Where(cs => cs.IsActive && cs.CompanyId == companyId
                     && cs.SubscriptionId == subscriptionId
                     && cs.SubscriptionStatus == SubscriptionStatusEnum.Active
                     && cs.IsActive
@@ -98,9 +98,8 @@ namespace DataAccessLayer.Repositories
             return await _context.CompanySubscriptions
                 .AsNoTracking()
                 .Include(cs => cs.Subscription)
-                .Where(cs => cs.CompanyId == companyId
+                .Where(cs => cs.IsActive && cs.CompanyId == companyId
                     && (cs.SubscriptionStatus == SubscriptionStatusEnum.Active || cs.SubscriptionStatus == SubscriptionStatusEnum.Pending)
-                    && cs.IsActive
                     && cs.EndDate > now)
                 .FirstOrDefaultAsync();
         }

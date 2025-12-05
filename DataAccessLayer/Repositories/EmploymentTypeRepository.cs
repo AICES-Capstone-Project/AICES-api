@@ -30,20 +30,20 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.EmploymentTypes
                 .AsNoTracking()
-                .FirstOrDefaultAsync(et => et.EmployTypeId == id);
+                .FirstOrDefaultAsync(et => et.IsActive && et.EmployTypeId == id);
         }
 
         public async Task<EmploymentType?> GetForUpdateAsync(int id)
         {
             return await _context.EmploymentTypes
-                .FirstOrDefaultAsync(et => et.EmployTypeId == id);
+                .FirstOrDefaultAsync(et => et.IsActive && et.EmployTypeId == id);
         }
 
         public async Task<bool> ExistsByNameAsync(string name)
         {
             return await _context.EmploymentTypes
                 .AsNoTracking()
-                .AnyAsync(e => e.Name == name);
+                .AnyAsync(e => e.IsActive && e.Name == name);
         }
 
         public async Task<bool> ExistsAsync(int employmentTypeId)

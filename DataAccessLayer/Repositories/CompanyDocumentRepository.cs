@@ -34,7 +34,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.CompanyDocuments
                 .AsNoTracking()
-                .Where(d => d.CompanyId == companyId && d.IsActive)
+                .Where(d => d.IsActive && d.CompanyId == companyId)
                 .ToListAsync();
         }
 

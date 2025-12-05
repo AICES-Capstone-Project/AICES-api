@@ -28,13 +28,13 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Profiles
                 .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.UserId == userId);
+                .FirstOrDefaultAsync(p => p.IsActive && p.UserId == userId);
         }
 
         public async Task<Profile?> GetForUpdateByUserIdAsync(int userId)
         {
             return await _context.Profiles
-                .FirstOrDefaultAsync(p => p.UserId == userId);
+                .FirstOrDefaultAsync(p => p.IsActive && p.UserId == userId);
         }
 
         public async Task UpdateAsync(Profile profile)

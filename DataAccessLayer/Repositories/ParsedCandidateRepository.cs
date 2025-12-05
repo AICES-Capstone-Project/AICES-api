@@ -23,7 +23,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.ParsedCandidates
                 .AsNoTracking()
-                .FirstOrDefaultAsync(pc => pc.ResumeId == resumeId);
+                .FirstOrDefaultAsync(pc => pc.IsActive && pc.ResumeId == resumeId);
         }
 
         public async Task UpdateAsync(ParsedCandidates parsedCandidate)

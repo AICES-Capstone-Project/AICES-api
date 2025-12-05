@@ -24,7 +24,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.CompanyUsers
                 .AsNoTracking()
-                .FirstOrDefaultAsync(cu => cu.UserId == userId && cu.IsActive);
+                .FirstOrDefaultAsync(cu => cu.IsActive && cu.UserId == userId);
         }
 
         public async Task<CompanyUser?> GetCompanyUserByUserIdAsync(int userId)
@@ -32,7 +32,7 @@ namespace DataAccessLayer.Repositories
             return await _context.CompanyUsers
                 .AsNoTracking()
                 .Include(cu => cu.Company)
-                .FirstOrDefaultAsync(cu => cu.UserId == userId && cu.IsActive);
+                .FirstOrDefaultAsync(cu => cu.IsActive && cu.UserId == userId);
         }
 
         public async Task<CompanyUser?> GetByComUserIdAsync(int comUserId)
@@ -43,14 +43,14 @@ namespace DataAccessLayer.Repositories
                 .Include(cu => cu.User)
                     .ThenInclude(u => u.Role)
                 .Include(cu => cu.Company)
-                .FirstOrDefaultAsync(cu => cu.ComUserId == comUserId && cu.IsActive);
+                .FirstOrDefaultAsync(cu => cu.IsActive && cu.ComUserId == comUserId);
         }
 
         public async Task<bool> ExistsAsync(int comUserId)
         {
             return await _context.CompanyUsers
                 .AsNoTracking()
-                .AnyAsync(cu => cu.ComUserId == comUserId);
+                .AnyAsync(cu => cu.IsActive && cu.ComUserId == comUserId);
         }
 
         public async Task UpdateAsync(CompanyUser companyUser)
@@ -66,7 +66,7 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(u => u.Profile)
                 .Include(cu => cu.User)
                     .ThenInclude(u => u.Role)
-                .Where(cu => cu.CompanyId == companyId && cu.IsActive && cu.User != null)
+                .Where(cu => cu.IsActive && cu.CompanyId == companyId && cu.User != null)
                 .ToListAsync();
         }
 
@@ -78,7 +78,7 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(u => u.Profile)
                 .Include(cu => cu.User)
                     .ThenInclude(u => u.Role)
-                .Where(cu => cu.CompanyId == companyId && cu.IsActive && cu.JoinStatus == JoinStatusEnum.Pending)
+                .Where(cu => cu.IsActive && cu.CompanyId == companyId && cu.JoinStatus == JoinStatusEnum.Pending)
                 .ToListAsync();
         }
 
@@ -90,7 +90,7 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(u => u.Profile)
                 .Include(cu => cu.User)
                     .ThenInclude(u => u.Role)
-                .Where(cu => cu.CompanyId == companyId && cu.IsActive && cu.User != null && 
+                .Where(cu => cu.IsActive && cu.CompanyId == companyId && cu.User != null && 
                     (cu.JoinStatus == JoinStatusEnum.Approved))
                 .ToListAsync();
         }

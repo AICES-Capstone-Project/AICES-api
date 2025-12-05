@@ -28,7 +28,7 @@ namespace DataAccessLayer.Repositories
                 .Include(u => u.CompanyUser)
                 .Include(u => u.CompanyUser.Company)
                 .Where(u => u.IsActive)
-                .FirstOrDefaultAsync(u => u.UserId == id);
+                .FirstOrDefaultAsync(u => u.IsActive && u.UserId == id);
         }
 
         public async Task<User?> GetForUpdateAsync(int id)
@@ -39,8 +39,7 @@ namespace DataAccessLayer.Repositories
                 .Include(u => u.LoginProviders)
                 .Include(u => u.CompanyUser)
                 .Include(u => u.CompanyUser.Company)
-                .Where(u => u.IsActive)
-                .FirstOrDefaultAsync(u => u.UserId == id);
+                .FirstOrDefaultAsync(u => u.IsActive && u.UserId == id);
         }
 
         public async Task<List<User>> GetUsersAsync(int page, int pageSize, string? search = null)
@@ -66,7 +65,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<int> GetTotalUsersAsync(string? search = null)
         {
-            var query = _context.Users.AsNoTracking().AsQueryable();
+            var query = _context.Users.AsNoTracking().Where(u => u.IsActive).AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -97,7 +96,8 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Users
                 .AsNoTracking()
-                .AnyAsync(u => u.Email == email);
+                .Where(u => u.IsActive)
+                .AnyAsync(u => u.IsActive && u.Email == email);
         }
     }
 }

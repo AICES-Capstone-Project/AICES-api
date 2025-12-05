@@ -23,8 +23,7 @@ namespace DataAccessLayer.Repositories
                                join j in _context.Jobs on pr.JobId equals j.JobId
                                join s in _context.Specializations on j.SpecializationId equals s.SpecializationId
                                join c in _context.Categories on s.CategoryId equals c.CategoryId
-                               where pr.CompanyId == companyId 
-                                  && pr.IsActive 
+                               where pr.IsActive && pr.CompanyId == companyId 
                                   && j.IsActive 
                                   && j.SpecializationId != null
                                group pr by new { c.CategoryId, CategoryName = c.Name, s.SpecializationId, SpecializationName = s.Name } into g

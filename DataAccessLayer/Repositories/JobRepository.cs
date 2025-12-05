@@ -39,7 +39,7 @@ namespace DataAccessLayer.Repositories
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
-                .FirstOrDefaultAsync(j => j.JobId == jobId);
+                .FirstOrDefaultAsync(j => j.IsActive && j.JobId == jobId);
         }
 
         public async Task<Job?> GetForUpdateAsync(int jobId)
@@ -56,7 +56,7 @@ namespace DataAccessLayer.Repositories
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
-                .FirstOrDefaultAsync(j => j.JobId == jobId);
+                .FirstOrDefaultAsync(j => j.IsActive && j.JobId == jobId);
         }
 
         public async Task<Job?> GetForUpdateByIdAndCompanyIdAsync(int jobId, int companyId)
@@ -73,7 +73,7 @@ namespace DataAccessLayer.Repositories
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
-                .Where(j => j.CompanyId == companyId && j.IsActive)
+                .Where(j => j.IsActive && j.CompanyId == companyId)
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
         }
 
@@ -92,7 +92,7 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
                 .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
-                .FirstOrDefaultAsync(j => j.JobId == jobId);
+                .FirstOrDefaultAsync(j => j.IsActive && j.JobId == jobId);
         }
 
         public async Task<List<Job>> GetPublishedJobsAsync(int page, int pageSize, string? search = null)
@@ -110,7 +110,7 @@ namespace DataAccessLayer.Repositories
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
-                .Where(j => j.JobStatus == JobStatusEnum.Published && j.IsActive)
+                .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Published)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -131,7 +131,7 @@ namespace DataAccessLayer.Repositories
         {
             var query = _context.Jobs
                 .AsNoTracking()
-                .Where(j => j.JobStatus == JobStatusEnum.Published && j.IsActive)
+                .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Published)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -159,7 +159,7 @@ namespace DataAccessLayer.Repositories
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
-                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published && j.IsActive)
+                .Where(j => j.IsActive && j.CompanyId == companyId && j.JobStatus == JobStatusEnum.Published)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -180,7 +180,7 @@ namespace DataAccessLayer.Repositories
         {
             var query = _context.Jobs
                 .AsNoTracking()
-                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published && j.IsActive)
+                .Where(j => j.IsActive && j.CompanyId == companyId && j.JobStatus == JobStatusEnum.Published)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -208,7 +208,7 @@ namespace DataAccessLayer.Repositories
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
-                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Pending)
+                .Where(j => j.IsActive && j.CompanyId == companyId && j.JobStatus == JobStatusEnum.Pending)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -229,7 +229,7 @@ namespace DataAccessLayer.Repositories
         {
             var query = _context.Jobs
                 .AsNoTracking()
-                .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Pending && j.IsActive)
+                .Where(j => j.IsActive && j.CompanyId == companyId && j.JobStatus == JobStatusEnum.Pending)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -258,7 +258,7 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
                 .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Published)
-                .FirstOrDefaultAsync(j => j.JobId == jobId);
+                .FirstOrDefaultAsync(j => j.IsActive && j.JobId == jobId);
         }
 
          public async Task<Job?> GetPendingJobByIdAndCompanyIdAsync(int jobId, int companyId)
@@ -277,7 +277,7 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(js => js.Skill)
                 .Include(j => j.Criteria)
                 .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Pending)
-                .FirstOrDefaultAsync(j => j.JobId == jobId);
+                .FirstOrDefaultAsync(j => j.IsActive && j.JobId == jobId);
         }
 
         public async Task<Job?> GetAllJobByIdAndCompanyIdAsync(int jobId, int companyId)

@@ -31,13 +31,13 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Skills
                 .AsNoTracking()
-                .FirstOrDefaultAsync(s => s.SkillId == id && s.IsActive);
+                .FirstOrDefaultAsync(s => s.IsActive && s.SkillId == id);
         }
 
         public async Task<Skill?> GetForUpdateAsync(int id)
         {
             return await _context.Skills
-                .FirstOrDefaultAsync(s => s.SkillId == id && s.IsActive);
+                .FirstOrDefaultAsync(s => s.IsActive && s.SkillId == id);
         }
 
         public async Task AddAsync(Skill skill)
@@ -54,7 +54,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Skills
                 .AsNoTracking()
-                .AnyAsync(s => s.Name == name);
+                .AnyAsync(s => s.IsActive && s.Name == name);
         }
 
         // Legacy methods for backward compatibility

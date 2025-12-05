@@ -29,7 +29,7 @@ namespace DataAccessLayer.Repositories
                 .ThenInclude(u => u.Role)
                 .Include(rt => rt.User)
                 .ThenInclude(u => u.Profile)
-                .FirstOrDefaultAsync(rt => rt.Token == token);
+                .FirstOrDefaultAsync(rt => rt.IsActive && rt.Token == token);
         }
 
         public async Task<RefreshToken?> GetRefreshTokenForUpdateAsync(string token)
@@ -39,7 +39,7 @@ namespace DataAccessLayer.Repositories
                 .ThenInclude(u => u.Role)
                 .Include(rt => rt.User)
                 .ThenInclude(u => u.Profile)
-                .FirstOrDefaultAsync(rt => rt.Token == token);
+                .FirstOrDefaultAsync(rt => rt.IsActive && rt.Token == token);
         }
 
         public async Task UpdateRefreshTokenAsync(RefreshToken refreshToken)
@@ -50,7 +50,7 @@ namespace DataAccessLayer.Repositories
         public async Task RevokeAllRefreshTokensAsync(int userId)
         {
             var refreshTokens = await _context.RefreshTokens
-                .Where(rt => rt.UserId == userId && rt.IsActive)
+                .Where(rt => rt.IsActive && rt.UserId == userId)
                 .ToListAsync();
 
             foreach (var token in refreshTokens)

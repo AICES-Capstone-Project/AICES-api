@@ -25,7 +25,7 @@ namespace DataAccessLayer.Repositories
                 .AsNoTracking()
                 .Include(ais => ais.AIScoreDetails!)
                     .ThenInclude(aisd => aisd.Criteria)
-                .FirstOrDefaultAsync(ais => ais.ScoreId == scoreId);
+                .FirstOrDefaultAsync(ais => ais.IsActive && ais.ScoreId == scoreId);
         }
 
         public async Task<AIScores?> GetByResumeIdAsync(int resumeId)
@@ -35,7 +35,7 @@ namespace DataAccessLayer.Repositories
                 .Include(pc => pc.AIScores)
                     .ThenInclude(ais => ais.AIScoreDetails!)
                         .ThenInclude(aisd => aisd.Criteria)
-                .FirstOrDefaultAsync(pc => pc.ResumeId == resumeId);
+                .FirstOrDefaultAsync(pc => pc.IsActive && pc.ResumeId == resumeId);
 
             return candidate?.AIScores?.OrderByDescending(ais => ais.CreatedAt).FirstOrDefault();
         }

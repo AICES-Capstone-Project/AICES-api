@@ -65,13 +65,13 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Categories
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.CategoryId == id);
+                .FirstOrDefaultAsync(c => c.CategoryId == id && c.IsActive);
         }
 
         public async Task<Category?> GetForUpdateAsync(int id)
         {
             return await _context.Categories
-                .FirstOrDefaultAsync(c => c.CategoryId == id);
+                .FirstOrDefaultAsync(c => c.CategoryId == id && c.IsActive);
         }
 
         public async Task AddAsync(Category category)
@@ -88,7 +88,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Categories
                 .AsNoTracking()
-                .AnyAsync(c => c.Name == name);
+                .AnyAsync(c => c.IsActive && c.Name == name);
         }
 
         public async Task<bool> ExistsAsync(int categoryId)

@@ -30,7 +30,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<List<Company>> GetCompaniesAsync(int page, int pageSize, string? search = null)
         {
-            var query = _context.Companies.AsNoTracking().AsQueryable();
+            var query = _context.Companies.AsNoTracking().Where(c => c.IsActive).AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -48,7 +48,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<List<CompanyResponse>> GetCompaniesWithCreatorAsync(int page, int pageSize, string? search = null, CompanyStatusEnum? status = null)
         {
-            var query = _context.Companies.AsNoTracking().AsQueryable();
+            var query = _context.Companies.AsNoTracking().Where(c => c.IsActive).AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -90,7 +90,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<int> GetTotalCompaniesAsync(string? search = null, CompanyStatusEnum? status = null)
         {
-            var query = _context.Companies.AsNoTracking().AsQueryable();
+            var query = _context.Companies.AsNoTracking().Where(c => c.IsActive).AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -132,6 +132,7 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Role)
                 .Include(c => c.CompanyDocuments)
+                .Where(c => c.IsActive)
                 .FirstOrDefaultAsync(c => c.CompanyId == id);
         }
 
@@ -139,7 +140,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Companies
                 .AsNoTracking()
-                .Where(c => c.CompanyId == id)
+                .Where(c => c.IsActive && c.CompanyId == id)
                 .Select(c => new CompanyDetailResponse
                 {
                     CompanyId = c.CompanyId,
@@ -176,6 +177,7 @@ namespace DataAccessLayer.Repositories
         public async Task<Company?> GetForUpdateAsync(int id)
         {
             return await _context.Companies
+                .Where(c => c.IsActive)
                 .Include(c => c.CompanyUsers!)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Role)
@@ -214,7 +216,8 @@ namespace DataAccessLayer.Repositories
             // Lấy user đầu tiên thuộc công ty
             var companyUser = await _context.CompanyUsers
                 .Include(cu => cu.User)
-                .FirstOrDefaultAsync(cu => cu.CompanyId == companyId);
+                .Where(cu => cu.IsActive && cu.CompanyId == companyId)
+                .FirstOrDefaultAsync();
 
             if (companyUser == null || companyUser.User == null)
                 return false;
@@ -242,8 +245,5 @@ namespace DataAccessLayer.Repositories
         {
             await _context.CompanyUsers.AddAsync(companyUser);
         }
-
-
-
     }
 }

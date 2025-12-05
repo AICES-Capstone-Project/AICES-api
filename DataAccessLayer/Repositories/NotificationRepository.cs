@@ -27,7 +27,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Notifications
                 .AsNoTracking()
-                .Where(n => n.UserId == userId)
+                .Where(n => n.IsActive && n.UserId == userId)
                 .OrderByDescending(n => n.CreatedAt)
                 .ToListAsync();
         }
@@ -41,7 +41,7 @@ namespace DataAccessLayer.Repositories
                         .ThenInclude(s => s.Profile)
                 .Include(n => n.Invitation)
                     .ThenInclude(i => i!.Company)
-                .Where(n => n.UserId == userId)
+                .Where(n => n.IsActive && n.UserId == userId)
                 .OrderByDescending(n => n.CreatedAt)
                 .ToListAsync();
         }
@@ -59,7 +59,7 @@ namespace DataAccessLayer.Repositories
         public async Task MarkAllAsReadByUserIdAsync(int userId)
         {
             var notifs = await _context.Notifications
-                .Where(n => n.UserId == userId && !n.IsRead)
+                .Where(n => n.IsActive && n.UserId == userId && !n.IsRead)
                 .ToListAsync();
 
             if (notifs.Count > 0)
@@ -77,13 +77,13 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Notifications
                 .AsNoTracking()
-                .FirstOrDefaultAsync(n => n.NotifId == notifId);
+                .FirstOrDefaultAsync(n => n.IsActive && n.NotifId == notifId);
         }
 
         public async Task<Notification?> GetForUpdateAsync(int notifId)
         {
             return await _context.Notifications
-                .FirstOrDefaultAsync(n => n.NotifId == notifId);
+                .FirstOrDefaultAsync(n => n.IsActive && n.NotifId == notifId);
         }
 
         public async Task UpdateAsync(Notification notification)

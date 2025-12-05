@@ -27,7 +27,7 @@ namespace DataAccessLayer.Repositories
                 .Include(u => u.Profile)
                 .Include(u => u.CompanyUser)
                     .ThenInclude(cu => cu.Company)
-                .FirstOrDefaultAsync(u => u.Email == email);
+                .FirstOrDefaultAsync(u => u.IsActive && u.Email == email);
         }
 
         public async Task<User?> GetForUpdateByEmailAsync(string email)
@@ -37,7 +37,7 @@ namespace DataAccessLayer.Repositories
                 .Include(u => u.Profile)
                 .Include(u => u.CompanyUser)
                     .ThenInclude(cu => cu.Company)
-                .FirstOrDefaultAsync(u => u.Email == email);
+                .FirstOrDefaultAsync(u => u.IsActive && u.Email == email);
         }
 
         public async Task<User> AddAsync(User user)
@@ -50,7 +50,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Users
                 .AsNoTracking()
-                .AnyAsync(u => u.Email == email);
+                .AnyAsync(u => u.IsActive && u.Email == email);
         }
 
         public async Task UpdateAsync(User user)
@@ -72,7 +72,7 @@ namespace DataAccessLayer.Repositories
                 .Include(u => u.Role)
                 .Include(u => u.Profile)
                 .Include(u => u.LoginProviders)
-                .FirstOrDefaultAsync(u => u.LoginProviders.Any(lp => lp.AuthProvider == provider && lp.ProviderId == providerId));
+                .FirstOrDefaultAsync(u => u.IsActive && u.LoginProviders.Any(lp => lp.AuthProvider == provider && lp.ProviderId == providerId));
         }
 
         public async Task<LoginProvider> AddLoginProviderAsync(LoginProvider loginProvider)
@@ -85,7 +85,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.LoginProviders
                 .AsNoTracking()
-                .FirstOrDefaultAsync(lp => lp.UserId == userId && lp.AuthProvider == provider);
+                .FirstOrDefaultAsync(lp => lp.IsActive && lp.UserId == userId && lp.AuthProvider == provider);
         }
 
         public async Task<IEnumerable<User>> GetUsersByRoleAsync(string roleName)
@@ -94,10 +94,8 @@ namespace DataAccessLayer.Repositories
                 .AsNoTracking()
                 .Include(u => u.Role)
                 .Include(u => u.Profile)
-                .Where(u => u.Role.RoleName == roleName && u.IsActive)
+                .Where(u => u.IsActive && u.Role.RoleName == roleName)
                 .ToListAsync();
         }
-
-
     }
 }
