@@ -970,6 +970,9 @@ namespace BusinessObjectLayer.Services
         public async Task<ServiceResponse> DeleteAsync(int id)
         {
             var companyRepo = _uow.GetRepository<ICompanyRepository>();
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var userRepo = _uow.GetRepository<IUserRepository>();
+            
             var company = await companyRepo.GetForUpdateAsync(id);
             if (company == null)
             {
@@ -980,17 +983,63 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
+            // Get all CompanyUsers for this company (read-only list to get IDs)
+            var companyUsersList = await companyUserRepo.GetMembersByCompanyIdAsync(id);
+            
             await _uow.BeginTransactionAsync();
             try
             {
+                // Soft delete company
                 company.IsActive = false;
                 await companyRepo.UpdateAsync(company);
+
+                // Process each CompanyUser
+                foreach (var companyUserInfo in companyUsersList)
+                {
+                    // Get CompanyUser with tracking enabled for update
+                    var companyUser = await companyUserRepo.GetByComUserIdAsync(companyUserInfo.ComUserId);
+                    if (companyUser == null || companyUser.User == null)
+                        continue;
+
+                    // Remove companyId from CompanyUser
+                    companyUser.CompanyId = null;
+                    await companyUserRepo.UpdateAsync(companyUser);
+
+                    // If user is HR_Manager (roleId = 4), change to HR_Recruiter (roleId = 5)
+                    if (companyUser.User.RoleId == 4)
+                    {
+                        // Get User with tracking enabled to ensure proper update
+                        var user = await userRepo.GetForUpdateAsync(companyUser.UserId);
+                        if (user != null)
+                        {
+                            user.RoleId = 5;
+                            await userRepo.UpdateAsync(user);
+                        }
+                    }
+
+                    // Send notification to user
+                    try
+                    {
+                        await _notificationService.CreateAsync(
+                            userId: companyUser.UserId,
+                            type: NotificationTypeEnum.Company,
+                            message: $"Company '{company.Name}' has been deleted",
+                            detail: $"Your company '{company.Name}' has been deleted. Your company association has been removed."
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log but don't fail the transaction if notification fails
+                        Console.WriteLine($"Error sending notification to user {companyUser.UserId}: {ex.Message}");
+                    }
+                }
+
                 await _uow.CommitTransactionAsync();
 
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
-                    Message = "Company deactivated successfully."
+                    Message = "Company deleted successfully and all associated users have been notified."
                 };
             }
             catch
