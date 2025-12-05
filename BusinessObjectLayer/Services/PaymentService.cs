@@ -171,7 +171,7 @@ namespace BusinessObjectLayer.Services
                 CustomerEmail = userEmail, // Ensure email is passed to checkout for receipt delivery
                 SuccessUrl = $"{domain}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
                 CancelUrl = $"{domain}/subscriptions",
-                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(3).DateTime,
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(31).DateTime,
                 Metadata = metadata,
                 SubscriptionData = new SessionSubscriptionDataOptions
                 {
