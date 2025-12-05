@@ -480,6 +480,42 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // 1.5 Handle AI-side validation errors (e.g. not a resume)
+                if (!string.IsNullOrWhiteSpace(request.Error))
+                {
+                    await _uow.BeginTransactionAsync();
+                    try
+                    {
+                        parsedResume.ResumeStatus = ResumeStatusEnum.Invalid;
+                        parsedResume.Data = JsonSerializer.Serialize(
+                            new { error = request.Error },
+                            new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                WriteIndented = false
+                            });
+
+                        await parsedResumeRepo.UpdateAsync(parsedResume);
+                        await _uow.CommitTransactionAsync();
+                    }
+                    catch
+                    {
+                        await _uow.RollbackTransactionAsync();
+                        throw;
+                    }
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Uploaded file is not a valid resume.",
+                        Data = new
+                        {
+                            resumeId = parsedResume.ResumeId,
+                            status = ResumeStatusEnum.Invalid
+                        }
+                    };
+                }
+
                 // 2. Validate resumeId
                 if (parsedResume.ResumeId != request.ResumeId)
                 {
@@ -487,6 +523,25 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.Validation,
                         Message = "Resume ID mismatch."
+                    };
+                }
+
+                // 2.5 Validate required scoring fields when there's no AI error
+                if (request.TotalResumeScore == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Total resume score is required."
+                    };
+                }
+
+                if (request.AIScoreDetail == null || request.AIScoreDetail.Count == 0)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "AIScoreDetail is required."
                     };
                 }
 
@@ -560,7 +615,7 @@ namespace BusinessObjectLayer.Services
                     var aiScore = new AIScores
                     {
                         CandidateId = parsedCandidate.CandidateId,
-                        TotalResumeScore = request.TotalResumeScore,
+                        TotalResumeScore = request.TotalResumeScore.Value,
                         AIExplanation = aiExplanationString
                     };
 

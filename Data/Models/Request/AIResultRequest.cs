@@ -16,14 +16,12 @@ namespace Data.Models.Request
         [JsonPropertyName("jobId")]
         public int? JobId { get; set; }
 
-        [Required]
         [JsonPropertyName("totalResumeScore")]
-        public decimal TotalResumeScore { get; set; }
+        public decimal? TotalResumeScore { get; set; }
 
         [JsonPropertyName("AIExplanation")]
         public object? AIExplanation { get; set; }
 
-        [Required]
         [JsonPropertyName("AIScoreDetail")]
         public List<AIScoreDetailRequest> AIScoreDetail { get; set; } = new();
 
@@ -32,6 +30,9 @@ namespace Data.Models.Request
 
         [JsonPropertyName("candidateInfo")]
         public CandidateInfoRequest? CandidateInfo { get; set; }
+
+        [JsonPropertyName("error")]
+        public string? Error { get; set; }
     }
 
     public class AIScoreDetailRequest

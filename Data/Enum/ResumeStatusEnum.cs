@@ -13,6 +13,7 @@ namespace Data.Enum
         Completed,
         Failed,
         Timeout,
+        Invalid,
         Canceled
     }
 }
