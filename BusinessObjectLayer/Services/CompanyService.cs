@@ -1132,16 +1132,8 @@ namespace BusinessObjectLayer.Services
                         break;
 
                     case CompanyStatusEnum.Rejected:
-                        // Rejected -> Approved, Suspended
-                        if (status == CompanyStatusEnum.Approved || 
-                            status == CompanyStatusEnum.Suspended)
-                        {
-                            isValidTransition = true;
-                        }
-                        else
-                        {
-                            transitionErrorMessage = "From Rejected status, only Approved or Suspended statuses are allowed.";
-                        }
+                        // Rejected -> No transitions allowed
+                        transitionErrorMessage = "Cannot change status from Rejected status.";
                         break;
 
                     case CompanyStatusEnum.Suspended:
@@ -1203,16 +1195,20 @@ namespace BusinessObjectLayer.Services
                             await companyRepo.UpdateAsync(company);
                             await _uow.SaveChangesAsync();
 
-                            // Promote the recruiter to HR_Manager
-                            bool updated = await companyRepo.UpdateUserRoleByCompanyAsync(companyId, "HR_Manager");
-                            if (!updated)
+                            // Only promote the recruiter to HR_Manager if company is being approved for the first time (from Pending)
+                            // If company is being approved from Suspended, recruiter is already HR_Manager, no need to promote again
+                            if (currentStatus == CompanyStatusEnum.Pending)
                             {
-                                await _uow.RollbackTransactionAsync();
-                                return new ServiceResponse
+                                bool updated = await companyRepo.UpdateUserRoleByCompanyAsync(companyId, "HR_Manager");
+                                if (!updated)
                                 {
-                                    Status = SRStatus.Error,
-                                    Message = "Company approved, but failed to promote the recruiter to HR_Manager."
-                                };
+                                    await _uow.RollbackTransactionAsync();
+                                    return new ServiceResponse
+                                    {
+                                        Status = SRStatus.Error,
+                                        Message = "Company approved, but failed to promote the recruiter to HR_Manager."
+                                    };
+                                }
                             }
                             
                             await _uow.CommitTransactionAsync();
