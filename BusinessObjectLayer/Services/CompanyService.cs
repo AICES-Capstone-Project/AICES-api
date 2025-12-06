@@ -286,31 +286,6 @@ namespace BusinessObjectLayer.Services
                             request.DocumentTypes);
                     }
 
-                    // Tự động tạo subscription Free cho company mới được tạo (status Approved)
-                    var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
-                    var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
-                    
-                    var allSubscriptions = await subscriptionRepo.GetAllAsync();
-                    var freeSubscription = allSubscriptions.FirstOrDefault(s => 
-                        s.Price == 0 || s.Name.Equals("Free", StringComparison.OrdinalIgnoreCase));
-                    
-                    if (freeSubscription != null)
-                    {
-                        var now = DateTime.UtcNow;
-                        var freeCompanySubscription = new CompanySubscription
-                        {
-                            CompanyId = company.CompanyId,
-                            SubscriptionId = freeSubscription.SubscriptionId,
-                            StartDate = now,
-                            EndDate = now.AddDays(freeSubscription.Duration.ToDays() > 0 ? freeSubscription.Duration.ToDays() : 36500), // 100 years if unlimited
-                            SubscriptionStatus = SubscriptionStatusEnum.Active,
-                            StripeSubscriptionId = null // Free subscription không có Stripe ID
-                        };
-                        
-                        await companySubRepo.AddAsync(freeCompanySubscription);
-                        await _uow.SaveChangesAsync();
-                    }
-
                     await _uow.CommitTransactionAsync();
 
                     return new ServiceResponse
@@ -1236,37 +1211,6 @@ namespace BusinessObjectLayer.Services
                                 }
                             }
 
-                            // Tự động tạo subscription Free cho company mới được approve
-                            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
-                            var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
-                            
-                            // Kiểm tra company đã có subscription chưa
-                            var existingSubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
-                            if (existingSubscription == null)
-                            {
-                                // Tìm subscription Free (Price == 0 hoặc Name == "Free")
-                                var allSubscriptions = await subscriptionRepo.GetAllAsync();
-                                var freeSubscription = allSubscriptions.FirstOrDefault(s => 
-                                    s.Price == 0 || s.Name.Equals("Free", StringComparison.OrdinalIgnoreCase));
-                                
-                                if (freeSubscription != null)
-                                {
-                                    var now = DateTime.UtcNow;
-                                    var freeCompanySubscription = new CompanySubscription
-                                    {
-                                        CompanyId = companyId,
-                                        SubscriptionId = freeSubscription.SubscriptionId,
-                                        StartDate = now,
-                                        EndDate = now.AddDays(freeSubscription.Duration.ToDays() > 0 ? freeSubscription.Duration.ToDays() : 36500), // 100 years if unlimited
-                                        SubscriptionStatus = SubscriptionStatusEnum.Active,
-                                        StripeSubscriptionId = null // Free subscription không có Stripe ID
-                                    };
-                                    
-                                    await companySubRepo.AddAsync(freeCompanySubscription);
-                                    await _uow.SaveChangesAsync();
-                                }
-                            }
-                            
                             await _uow.CommitTransactionAsync();
 
                             // Send notification to recruiter

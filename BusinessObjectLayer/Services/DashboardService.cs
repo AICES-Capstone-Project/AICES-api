@@ -166,26 +166,49 @@ namespace BusinessObjectLayer.Services
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
                 var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
 
+                int? resumeLimit;
+                int? hoursLimit;
+                DateTime? startDate;
+
                 if (companySubscription != null)
                 {
-                    int? resumeLimit = companySubscription.Subscription?.ResumeLimit;
-                    int? hoursLimit = companySubscription.Subscription?.HoursLimit;
-
-                    if (resumeLimit.HasValue && resumeLimit.Value > 0)
+                    resumeLimit = companySubscription.Subscription?.ResumeLimit;
+                    hoursLimit = companySubscription.Subscription?.HoursLimit;
+                    startDate = companySubscription.StartDate;
+                }
+                else
+                {
+                    // Không có subscription active, sử dụng Free subscription
+                    var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+                    var freeSubscription = await subscriptionRepo.GetFreeSubscriptionAsync();
+                    
+                    if (freeSubscription != null)
                     {
-                        var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
-                        var resumeCount = await parsedResumeRepo.CountResumesSinceDateAsync(
-                            companyId,
-                            companySubscription.StartDate,
-                            hoursLimit ?? 0);
-
-                        creditsRemaining = Math.Max(0, resumeLimit.Value - resumeCount);
+                        resumeLimit = freeSubscription.ResumeLimit;
+                        hoursLimit = freeSubscription.HoursLimit;
+                        startDate = null; // Free subscription không có StartDate
                     }
                     else
                     {
-                        // No limit set, return a large number or -1 to indicate unlimited
-                        creditsRemaining = -1; // -1 means unlimited
+                        resumeLimit = null;
+                        hoursLimit = null;
+                        startDate = null;
                     }
+                }
+
+                if (resumeLimit.HasValue && resumeLimit.Value > 0)
+                {
+                    var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                    var resumeCount = startDate.HasValue
+                        ? await parsedResumeRepo.CountResumesSinceDateAsync(companyId, startDate.Value, hoursLimit ?? 0)
+                        : await parsedResumeRepo.CountResumesInLastHoursAsync(companyId, hoursLimit ?? 0);
+
+                    creditsRemaining = Math.Max(0, resumeLimit.Value - resumeCount);
+                }
+                else
+                {
+                    // No limit set, return a large number or -1 to indicate unlimited
+                    creditsRemaining = -1; // -1 means unlimited
                 }
 
                 var response = new DashboardSummaryResponse

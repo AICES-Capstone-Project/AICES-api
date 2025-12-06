@@ -348,28 +348,52 @@ namespace BusinessObjectLayer.Services
             // Lấy subscription hiện tại (Active hoặc Pending và chưa hết hạn)
             var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
             
+            CurrentSubscriptionResponse response;
+            
             if (companySubscription == null)
             {
-                return new ServiceResponse
+                // Không có subscription active, trả về Free subscription
+                var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+                var freeSubscription = await subscriptionRepo.GetFreeSubscriptionAsync();
+                
+                if (freeSubscription == null)
                 {
-                    Status = SRStatus.NotFound,
-                    Message = "No active subscription found for your company.",
-                    Data = null
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "No active subscription found and Free subscription not configured.",
+                        Data = null
+                    };
+                }
+                
+                response = new CurrentSubscriptionResponse
+                {
+                    SubscriptionName = freeSubscription.Name,
+                    Description = freeSubscription.Description,
+                    Price = freeSubscription.Price,
+                    Duration = freeSubscription.Duration,
+                    ResumeLimit = freeSubscription.ResumeLimit,
+                    HoursLimit = freeSubscription.HoursLimit,
+                    StartDate = null,
+                    EndDate = null,
+                    SubscriptionStatus = SubscriptionStatusEnum.Active
                 };
             }
-
-            var response = new CurrentSubscriptionResponse
+            else
             {
-                SubscriptionName = companySubscription.Subscription?.Name ?? string.Empty,
-                Description = companySubscription.Subscription?.Description,
-                Price = companySubscription.Subscription?.Price ?? 0,
-                Duration = companySubscription.Subscription?.Duration ?? DurationEnum.Monthly,
-                ResumeLimit = companySubscription.Subscription?.ResumeLimit ?? 0,
-                HoursLimit = companySubscription.Subscription?.HoursLimit ?? 0,
-                StartDate = companySubscription.StartDate,
-                EndDate = companySubscription.EndDate,
-                SubscriptionStatus = companySubscription.SubscriptionStatus
-            };
+                response = new CurrentSubscriptionResponse
+                {
+                    SubscriptionName = companySubscription.Subscription?.Name ?? string.Empty,
+                    Description = companySubscription.Subscription?.Description,
+                    Price = companySubscription.Subscription?.Price ?? 0,
+                    Duration = companySubscription.Subscription?.Duration,
+                    ResumeLimit = companySubscription.Subscription?.ResumeLimit ?? 0,
+                    HoursLimit = companySubscription.Subscription?.HoursLimit ?? 0,
+                    StartDate = companySubscription.StartDate,
+                    EndDate = companySubscription.EndDate,
+                    SubscriptionStatus = companySubscription.SubscriptionStatus
+                };
+            }
 
             return new ServiceResponse
             {

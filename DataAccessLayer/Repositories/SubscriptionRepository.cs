@@ -99,5 +99,13 @@ namespace DataAccessLayer.Repositories
                 .AsNoTracking()
                 .AnyAsync(s => s.Name == name);
         }
+
+        public async Task<Subscription?> GetFreeSubscriptionAsync()
+        {
+            return await _context.Subscriptions
+                .AsNoTracking()
+                .Where(s => s.IsActive && (s.Price == 0 || s.Name.Equals("Free", StringComparison.OrdinalIgnoreCase)))
+                .FirstOrDefaultAsync();
+        }
     }
 }

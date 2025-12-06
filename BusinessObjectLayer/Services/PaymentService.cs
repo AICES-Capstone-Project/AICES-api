@@ -78,7 +78,8 @@ namespace BusinessObjectLayer.Services
                 return new ServiceResponse { Status = SRStatus.NotFound, Message = "Subscription not found" };
 
             // Kiểm tra subscription Free không được thanh toán
-            if (subscription.Price == 0 || subscription.Name.Equals("Free", StringComparison.OrdinalIgnoreCase))
+            var freeSubscription = await subscriptionRepo.GetFreeSubscriptionAsync();
+            if (freeSubscription != null && subscription.SubscriptionId == freeSubscription.SubscriptionId)
             {
                 return new ServiceResponse 
                 { 
@@ -1241,7 +1242,7 @@ namespace BusinessObjectLayer.Services
                 return new ServiceResponse
                 {
                     Status = SRStatus.NotFound,
-                    Message = "No active subscription found for your company."
+                    Message = "No active paid subscription found. You are currently on the Free plan which cannot be canceled."
                 };
             }
 
@@ -1258,7 +1259,8 @@ namespace BusinessObjectLayer.Services
             // Kiểm tra nếu là Free subscription thì không cho hủy (chỉ có thể hủy subscription trả phí)
             var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
             var subscription = await subscriptionRepo.GetByIdAsync(companySubscription.SubscriptionId);
-            if (subscription != null && (subscription.Price == 0 || subscription.Name.Equals("Free", StringComparison.OrdinalIgnoreCase)))
+            var freeSubscription = await subscriptionRepo.GetFreeSubscriptionAsync();
+            if (freeSubscription != null && subscription != null && subscription.SubscriptionId == freeSubscription.SubscriptionId)
             {
                 return new ServiceResponse
                 {
@@ -1297,37 +1299,10 @@ namespace BusinessObjectLayer.Services
                 await companySubRepo.UpdateAsync(companySubscription);
                 await _uow.SaveChangesAsync();
 
-                // Tự động tạo subscription Free sau khi hủy subscription trả phí
-                var allSubscriptions = await subscriptionRepo.GetAllAsync();
-                var freeSubscription = allSubscriptions.FirstOrDefault(s => 
-                    s.Price == 0 || s.Name.Equals("Free", StringComparison.OrdinalIgnoreCase));
-                
-                if (freeSubscription != null)
-                {
-                    // Kiểm tra company chưa có Free subscription active
-                    var existingFreeSubscription = await companySubRepo.GetActiveSubscriptionAsync(companyId, freeSubscription.SubscriptionId);
-                    if (existingFreeSubscription == null)
-                    {
-                        var now = DateTime.UtcNow;
-                        var freeCompanySubscription = new CompanySubscription
-                        {
-                            CompanyId = companyId,
-                            SubscriptionId = freeSubscription.SubscriptionId,
-                            StartDate = now,
-                            EndDate = now.AddDays(freeSubscription.Duration.ToDays() > 0 ? freeSubscription.Duration.ToDays() : 36500), // 100 years if unlimited
-                            SubscriptionStatus = SubscriptionStatusEnum.Active,
-                            StripeSubscriptionId = null // Free subscription không có Stripe ID
-                        };
-                        
-                        await companySubRepo.AddAsync(freeCompanySubscription);
-                        await _uow.SaveChangesAsync();
-                    }
-                }
-
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
-                    Message = "Subscription has been canceled successfully. You have been automatically assigned to the Free plan."
+                    Message = "Subscription has been canceled successfully. You are now on the Free plan."
                 };
             }
             catch (StripeException ex)
@@ -1373,28 +1348,52 @@ namespace BusinessObjectLayer.Services
             // Lấy subscription hiện tại (Active hoặc Pending và chưa hết hạn)
             var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
             
+            CurrentSubscriptionResponse response;
+            
             if (companySubscription == null)
             {
-                return new ServiceResponse
+                // Không có subscription active, trả về Free subscription
+                var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+                var freeSubscription = await subscriptionRepo.GetFreeSubscriptionAsync();
+                
+                if (freeSubscription == null)
                 {
-                    Status = SRStatus.NotFound,
-                    Message = "No active subscription found for your company.",
-                    Data = null
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "No active subscription found and Free subscription not configured.",
+                        Data = null
+                    };
+                }
+                
+                response = new CurrentSubscriptionResponse
+                {
+                    SubscriptionName = freeSubscription.Name,
+                    Description = freeSubscription.Description,
+                    Price = freeSubscription.Price,
+                    Duration = freeSubscription.Duration,
+                    ResumeLimit = freeSubscription.ResumeLimit,
+                    HoursLimit = freeSubscription.HoursLimit,
+                    StartDate = null,
+                    EndDate = null,
+                    SubscriptionStatus = SubscriptionStatusEnum.Active
                 };
             }
-
-            var response = new CurrentSubscriptionResponse
+            else
             {
-                SubscriptionName = companySubscription.Subscription?.Name ?? string.Empty,
-                Description = companySubscription.Subscription?.Description,
-                Price = companySubscription.Subscription?.Price ?? 0,
-                Duration = companySubscription.Subscription?.Duration,
-                ResumeLimit = companySubscription.Subscription?.ResumeLimit ?? 0,
-                HoursLimit = companySubscription.Subscription?.HoursLimit ?? 0,
-                StartDate = companySubscription.StartDate,
-                EndDate = companySubscription.EndDate,
-                SubscriptionStatus = companySubscription.SubscriptionStatus
-            };
+                response = new CurrentSubscriptionResponse
+                {
+                    SubscriptionName = companySubscription.Subscription?.Name ?? string.Empty,
+                    Description = companySubscription.Subscription?.Description,
+                    Price = companySubscription.Subscription?.Price ?? 0,
+                    Duration = companySubscription.Subscription?.Duration,
+                    ResumeLimit = companySubscription.Subscription?.ResumeLimit ?? 0,
+                    HoursLimit = companySubscription.Subscription?.HoursLimit ?? 0,
+                    StartDate = companySubscription.StartDate,
+                    EndDate = companySubscription.EndDate,
+                    SubscriptionStatus = companySubscription.SubscriptionStatus
+                };
+            }
 
             return new ServiceResponse
             {

@@ -108,17 +108,8 @@ namespace BusinessObjectLayer.Services
                 // Check if company has an active subscription
                 var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
                 
-                if (companySubscription == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Forbidden,
-                        Message = "Your company does not have an active subscription. Please subscribe to a plan to upload resumes."
-                    };
-                }
-
-                // Check if subscription is Active (not just Pending)
-                if (companySubscription.SubscriptionStatus != SubscriptionStatusEnum.Active)
+                // Check if subscription is Active (not just Pending) - chỉ check nếu có subscription
+                if (companySubscription != null && companySubscription.SubscriptionStatus != SubscriptionStatusEnum.Active)
                 {
                     return new ServiceResponse
                     {
@@ -126,6 +117,7 @@ namespace BusinessObjectLayer.Services
                         Message = "Your company subscription is not active. Please wait for activation or contact support."
                     };
                 }
+                // Nếu không có subscription, company đang ở Free plan - cho phép upload
 
                 // Check resume limit before uploading (early check for fast fail)
                 var limitCheck = await _resumeLimitService.CheckResumeLimitAsync(companyId);

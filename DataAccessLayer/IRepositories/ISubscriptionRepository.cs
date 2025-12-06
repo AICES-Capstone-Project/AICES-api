@@ -18,5 +18,6 @@ namespace DataAccessLayer.IRepositories
         Task UpdateAsync(Subscription subscription);
         Task SoftDeleteAsync(Subscription subscription);
         Task<bool> ExistsByNameAsync(string name);
+        Task<Subscription?> GetFreeSubscriptionAsync();
     }
 }

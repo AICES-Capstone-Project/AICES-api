@@ -25,18 +25,36 @@ namespace BusinessObjectLayer.Services.UsageLimits
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
                 var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
 
+                int? resumeLimit;
+                int? hoursLimit;
+                DateTime? startDate;
+
                 if (companySubscription == null)
                 {
-                    return new ServiceResponse
+                    // Không có subscription active, sử dụng Free subscription
+                    var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+                    var freeSubscription = await subscriptionRepo.GetFreeSubscriptionAsync();
+                    
+                    if (freeSubscription == null)
                     {
-                        Status = SRStatus.NotFound,
-                        Message = "No active subscription found for your company."
-                    };
-                }
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.NotFound,
+                            Message = "No active subscription found and Free subscription not configured."
+                        };
+                    }
 
-                // Get resume limit and hours limit from subscription
-                int? resumeLimit = companySubscription.Subscription?.ResumeLimit;
-                int? hoursLimit = companySubscription.Subscription?.HoursLimit;
+                    resumeLimit = freeSubscription.ResumeLimit;
+                    hoursLimit = freeSubscription.HoursLimit;
+                    startDate = null; // Free subscription không có StartDate
+                }
+                else
+                {
+                    // Get resume limit and hours limit from subscription
+                    resumeLimit = companySubscription.Subscription?.ResumeLimit;
+                    hoursLimit = companySubscription.Subscription?.HoursLimit;
+                    startDate = companySubscription.StartDate;
+                }
 
                 if (resumeLimit <= 0)
                 {
@@ -48,13 +66,11 @@ namespace BusinessObjectLayer.Services.UsageLimits
                     };
                 }
 
-                // Count resumes uploaded since subscription start date (only count resumes from current subscription)
-                // This ensures that when a new subscription starts, old resumes don't count against the limit
+                // Count resumes uploaded since subscription start date or in last HoursLimit hours for Free plan
                 var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
-                var resumeCount = await parsedResumeRepo.CountResumesSinceDateAsync(
-                    companyId, 
-                    companySubscription.StartDate, 
-                    hoursLimit ?? 0);
+                var resumeCount = startDate.HasValue
+                    ? await parsedResumeRepo.CountResumesSinceDateAsync(companyId, startDate.Value, hoursLimit ?? 0)
+                    : await parsedResumeRepo.CountResumesInLastHoursAsync(companyId, hoursLimit ?? 0);
 
                 if (resumeCount >= resumeLimit)
                 {
@@ -104,18 +120,38 @@ namespace BusinessObjectLayer.Services.UsageLimits
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
                 var companySubscription = await companySubRepo.GetAnyActiveSubscriptionForUpdateByCompanyAsync(companyId);
 
+                int? resumeLimit;
+                int? hoursLimit;
+                DateTime? startDate;
+
                 if (companySubscription == null)
                 {
-                    return new ServiceResponse
+                    // Không có subscription active, sử dụng Free subscription (không cần lock vì không có CompanySubscription)
+                    var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+                    var allSubscriptions = await subscriptionRepo.GetAllAsync();
+                    var freeSubscription = allSubscriptions.FirstOrDefault(s => 
+                        s.Price == 0 || s.Name.Equals("Free", StringComparison.OrdinalIgnoreCase));
+                    
+                    if (freeSubscription == null)
                     {
-                        Status = SRStatus.NotFound,
-                        Message = "No active subscription found for your company."
-                    };
-                }
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.NotFound,
+                            Message = "No active subscription found and Free subscription not configured."
+                        };
+                    }
 
-                // Get resume limit and hours limit from subscription
-                int? resumeLimit = companySubscription.Subscription?.ResumeLimit;
-                int? hoursLimit = companySubscription.Subscription?.HoursLimit;
+                    resumeLimit = freeSubscription.ResumeLimit;
+                    hoursLimit = freeSubscription.HoursLimit;
+                    startDate = null; // Free subscription không có StartDate
+                }
+                else
+                {
+                    // Get resume limit and hours limit from subscription
+                    resumeLimit = companySubscription.Subscription?.ResumeLimit;
+                    hoursLimit = companySubscription.Subscription?.HoursLimit;
+                    startDate = companySubscription.StartDate;
+                }
 
                 if (resumeLimit <= 0)
                 {
@@ -127,13 +163,12 @@ namespace BusinessObjectLayer.Services.UsageLimits
                     };
                 }
 
-                // Count resumes uploaded since subscription start date (only count resumes from current subscription)
+                // Count resumes uploaded since subscription start date or in last HoursLimit hours for Free plan
                 // Use InTransaction method to see records created in current transaction
                 var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
-                var resumeCount = await parsedResumeRepo.CountResumesSinceDateInTransactionAsync(
-                    companyId, 
-                    companySubscription.StartDate, 
-                    hoursLimit ?? 0);
+                var resumeCount = startDate.HasValue
+                    ? await parsedResumeRepo.CountResumesSinceDateInTransactionAsync(companyId, startDate.Value, hoursLimit ?? 0)
+                    : await parsedResumeRepo.CountResumesInLastHoursInTransactionAsync(companyId, hoursLimit ?? 0);
 
                 if (resumeCount >= resumeLimit)
                 {
