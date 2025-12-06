@@ -372,7 +372,7 @@ namespace BusinessObjectLayer.Services
                         SubscriptionName = freeSubscription.Name,
                         Description = freeSubscription.Description,
                         Price = freeSubscription.Price,
-                        Duration = freeSubscription.Duration,
+                        Duration = null,
                         ResumeLimit = freeSubscription.ResumeLimit,
                         HoursLimit = freeSubscription.HoursLimit,
                         StartDate = null,
