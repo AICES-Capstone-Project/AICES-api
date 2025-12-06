@@ -93,7 +93,7 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            var endDate = request.StartDate.AddDays(subscription.DurationDays);
+            var endDate = request.StartDate.AddDays(subscription.Duration.ToDays());
 
             var anyActiveSubscription = await companySubscriptionRepo.GetAnyActiveSubscriptionByCompanyAsync(request.CompanyId);
             if (anyActiveSubscription != null && anyActiveSubscription.SubscriptionId != request.SubscriptionId)
@@ -119,7 +119,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var newStartDate = activeSubscription.EndDate.AddSeconds(1);
-                var newEndDate = newStartDate.AddDays(subscription.DurationDays);
+                var newEndDate = newStartDate.AddDays(subscription.Duration.ToDays());
 
                 var renewedSubscription = new CompanySubscription
                 {
@@ -363,7 +363,7 @@ namespace BusinessObjectLayer.Services
                 SubscriptionName = companySubscription.Subscription?.Name ?? string.Empty,
                 Description = companySubscription.Subscription?.Description,
                 Price = companySubscription.Subscription?.Price ?? 0,
-                DurationDays = companySubscription.Subscription?.DurationDays ?? 0,
+                Duration = companySubscription.Subscription?.Duration ?? DurationEnum.Monthly,
                 ResumeLimit = companySubscription.Subscription?.ResumeLimit ?? 0,
                 HoursLimit = companySubscription.Subscription?.HoursLimit ?? 0,
                 StartDate = companySubscription.StartDate,

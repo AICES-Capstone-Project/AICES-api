@@ -1,4 +1,5 @@
 using Data.Entities.Base;
+using Data.Enum;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -25,7 +26,7 @@ namespace Data.Entities
 
         public int Price { get; set; }
 
-        public int DurationDays { get; set; }
+        public DurationEnum Duration { get; set; }
     
         public int ResumeLimit { get; set; } 
         

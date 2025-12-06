@@ -15,7 +15,7 @@ namespace Data.Models.Response
         public DateTime CreatedAt { get; set; }
 
         public string SubscriptionName { get; set; } = string.Empty;
-        public int DurationDays { get; set; }
+        public DurationEnum Duration { get; set; }
 
         public List<TransactionItem> Transactions { get; set; } = new();
     }

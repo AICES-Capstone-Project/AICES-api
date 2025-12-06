@@ -8,7 +8,7 @@ namespace Data.Models.Response
         public string SubscriptionName { get; set; } = string.Empty;
         public string? Description { get; set; }
         public int Price { get; set; }
-        public int DurationDays { get; set; }
+        public DurationEnum? Duration { get; set; }
         public int ResumeLimit { get; set; }
         public int HoursLimit { get; set; }
         public DateTime StartDate { get; set; }

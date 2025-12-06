@@ -90,7 +90,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Payments
                 .AsNoTracking()
-                .Where(p => p.IsActive && p.CompanyId == companyId)
+                .Where(p => p.IsActive && p.CompanyId == companyId && (p.PaymentStatus == PaymentStatusEnum.Paid || p.PaymentStatus == PaymentStatusEnum.Canceled || p.PaymentStatus == PaymentStatusEnum.Refunded || p.PaymentStatus == PaymentStatusEnum.Failed))
                 .Include(p => p.CompanySubscription)
                     .ThenInclude(cs => cs.Subscription)
                 .Include(p => p.Transactions)
@@ -102,7 +102,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Payments
                 .AsNoTracking()
-                .Where(p => p.IsActive && p.PaymentId == paymentId && p.CompanyId == companyId)
+                .Where(p => p.IsActive && p.PaymentId == paymentId && p.CompanyId == companyId && (p.PaymentStatus == PaymentStatusEnum.Paid || p.PaymentStatus == PaymentStatusEnum.Canceled || p.PaymentStatus == PaymentStatusEnum.Refunded || p.PaymentStatus == PaymentStatusEnum.Failed))
                 .Include(p => p.CompanySubscription)
                     .ThenInclude(cs => cs.Subscription)
                 .Include(p => p.Transactions)

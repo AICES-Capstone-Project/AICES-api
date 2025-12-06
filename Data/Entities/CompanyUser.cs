@@ -28,6 +28,7 @@ namespace Data.Entities
         public User User { get; set; } = null!;
         public Company? Company { get; set; } 
         public ICollection<Job>? Jobs { get; set; }
+        public ICollection<Feedback>? Feedbacks { get; set; }
     }
 }
 

@@ -77,6 +77,16 @@ namespace BusinessObjectLayer.Services
             if (subscription == null)
                 return new ServiceResponse { Status = SRStatus.NotFound, Message = "Subscription not found" };
 
+            // Kiểm tra subscription Free không được thanh toán
+            if (subscription.Price == 0 || subscription.Name.Equals("Free", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ServiceResponse 
+                { 
+                    Status = SRStatus.Validation, 
+                    Message = "Free subscription cannot be purchased. It is automatically assigned to companies." 
+                };
+            }
+
             // Lấy priceId: ưu tiên lưu trong Subscription.StripePriceId, nếu null/empty -> dùng env STRIPE__PRICE_DEFAULT
             string stripePriceId = !string.IsNullOrWhiteSpace(subscription.StripePriceId) 
                 ? subscription.StripePriceId
@@ -139,15 +149,15 @@ namespace BusinessObjectLayer.Services
             }
 
             // Check if there's already a pending payment for this company
-            // var existingPendingPayment = await paymentRepo.GetLatestPendingByCompanyAsync(companyId);
-            // if (existingPendingPayment != null)
-            // {
-            //     return new ServiceResponse
-            //     {
-            //         Status = SRStatus.Error,
-            //         Message = "You already have a pending payment session. Please complete or cancel the existing payment before creating a new one."
-            //     };
-            // }
+            var existingPendingPayment = await paymentRepo.GetLatestPendingByCompanyAsync(companyId);
+            if (existingPendingPayment != null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "You already have a pending payment session. Please complete or cancel the existing payment before creating a new one."
+                };
+            }
 
             string domain = Environment.GetEnvironmentVariable("APPURL__CLIENTURL") ?? "https://aices-client.vercel.app";
 
@@ -440,8 +450,10 @@ namespace BusinessObjectLayer.Services
 
                 var paymentRepo = _uow.GetRepository<IPaymentRepository>();
                 var authRepo = _uow.GetRepository<IAuthRepository>();
+                var companyRepo = _uow.GetRepository<ICompanyRepository>();
                 
                 var subscriptionEntity = await subscriptionRepo.GetByIdAsync(subscriptionId);
+                var company = await companyRepo.GetByIdAsync(companyId);
                 var now = DateTime.UtcNow;
 
                 var companySubscription = new CompanySubscription
@@ -449,7 +461,7 @@ namespace BusinessObjectLayer.Services
                     CompanyId = companyId,
                     SubscriptionId = subscriptionId,
                     StartDate = now,
-                    EndDate = now.AddDays(subscriptionEntity?.DurationDays ?? 0),
+                    EndDate = now.AddDays(subscriptionEntity?.Duration.ToDays() ?? 0),
                     SubscriptionStatus = SubscriptionStatusEnum.Active,
                     StripeSubscriptionId = stripeSubscriptionId
                 };
@@ -477,7 +489,7 @@ namespace BusinessObjectLayer.Services
                         admin.UserId,
                         NotificationTypeEnum.Subscription,
                         "A company subscribed",
-                        $"Company {companyId} subscribed to {subscriptionEntity?.Name} (stripeSub: {stripeSubscriptionId})"
+                        $"Company {company?.Name ?? companyId.ToString()} subscribed to {subscriptionEntity?.Name}"
                     );
                 }
 
@@ -622,13 +634,21 @@ namespace BusinessObjectLayer.Services
                     else
                     {
                         // Create new subscription if not exists
+                        // Use Stripe period dates if available, otherwise calculate from subscription Duration
+                        var startDate = periodStart ?? DateTime.UtcNow;
+                        var endDate = periodEnd;
+                        if (!endDate.HasValue && subscriptionDef != null)
+                        {
+                            endDate = startDate.AddDays(subscriptionDef.Duration.ToDays());
+                        }
+                        
                         targetSub = new CompanySubscription
                         {
                             CompanyId = companyId,
                             SubscriptionId = subscriptionId,
                             StripeSubscriptionId = stripeSubId,
-                            StartDate = periodStart.Value,
-                            EndDate = periodEnd.Value,
+                            StartDate = startDate,
+                            EndDate = endDate ?? startDate.AddDays(subscriptionDef?.Duration.ToDays() ?? 30),
                             SubscriptionStatus = SubscriptionStatusEnum.Active
                         };
                         await companySubRepo.AddAsync(targetSub);
@@ -673,17 +693,31 @@ namespace BusinessObjectLayer.Services
                 else if (isRenewal)
                 {
                     // Renewal
+                    if (currentSub == null)
+                    {
+                        _logger.LogWarning("Renewal invoice received but no existing subscription found for Stripe ID {StripeSubId}", stripeSubId);
+                        return new ServiceResponse { Status = SRStatus.Error, Message = "Cannot process renewal: existing subscription not found." };
+                    }
+
                     currentSub.SubscriptionStatus = SubscriptionStatusEnum.Expired;
                     await companySubRepo.UpdateAsync(currentSub);
                     await _uow.SaveChangesAsync();
+
+                    // Use Stripe period dates if available, otherwise calculate from subscription Duration
+                    var startDate = periodStart ?? DateTime.UtcNow;
+                    var endDate = periodEnd;
+                    if (!endDate.HasValue && subscriptionDef != null)
+                    {
+                        endDate = startDate.AddDays(subscriptionDef.Duration.ToDays());
+                    }
 
                     targetSub = new CompanySubscription
                     {
                         CompanyId = companyId,
                         SubscriptionId = subscriptionId,
                         StripeSubscriptionId = stripeSubId,
-                        StartDate = periodStart.Value,
-                        EndDate = periodEnd.Value,
+                        StartDate = startDate,
+                        EndDate = endDate ?? startDate.AddDays(subscriptionDef?.Duration.ToDays() ?? 30),
                         SubscriptionStatus = SubscriptionStatusEnum.Active
                     };
 
@@ -1221,6 +1255,18 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
+            // Kiểm tra nếu là Free subscription thì không cho hủy (chỉ có thể hủy subscription trả phí)
+            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+            var subscription = await subscriptionRepo.GetByIdAsync(companySubscription.SubscriptionId);
+            if (subscription != null && (subscription.Price == 0 || subscription.Name.Equals("Free", StringComparison.OrdinalIgnoreCase)))
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Validation,
+                    Message = "Free subscription cannot be canceled. It is the default subscription."
+                };
+            }
+
             // Kiểm tra có Stripe Subscription ID không
             if (string.IsNullOrWhiteSpace(companySubscription.StripeSubscriptionId))
             {
@@ -1251,10 +1297,37 @@ namespace BusinessObjectLayer.Services
                 await companySubRepo.UpdateAsync(companySubscription);
                 await _uow.SaveChangesAsync();
 
+                // Tự động tạo subscription Free sau khi hủy subscription trả phí
+                var allSubscriptions = await subscriptionRepo.GetAllAsync();
+                var freeSubscription = allSubscriptions.FirstOrDefault(s => 
+                    s.Price == 0 || s.Name.Equals("Free", StringComparison.OrdinalIgnoreCase));
+                
+                if (freeSubscription != null)
+                {
+                    // Kiểm tra company chưa có Free subscription active
+                    var existingFreeSubscription = await companySubRepo.GetActiveSubscriptionAsync(companyId, freeSubscription.SubscriptionId);
+                    if (existingFreeSubscription == null)
+                    {
+                        var now = DateTime.UtcNow;
+                        var freeCompanySubscription = new CompanySubscription
+                        {
+                            CompanyId = companyId,
+                            SubscriptionId = freeSubscription.SubscriptionId,
+                            StartDate = now,
+                            EndDate = now.AddDays(freeSubscription.Duration.ToDays() > 0 ? freeSubscription.Duration.ToDays() : 36500), // 100 years if unlimited
+                            SubscriptionStatus = SubscriptionStatusEnum.Active,
+                            StripeSubscriptionId = null // Free subscription không có Stripe ID
+                        };
+                        
+                        await companySubRepo.AddAsync(freeCompanySubscription);
+                        await _uow.SaveChangesAsync();
+                    }
+                }
+
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
-                    Message = "Subscription has been canceled successfully. All access has been revoked immediately."
+                    Message = "Subscription has been canceled successfully. You have been automatically assigned to the Free plan."
                 };
             }
             catch (StripeException ex)
@@ -1315,7 +1388,7 @@ namespace BusinessObjectLayer.Services
                 SubscriptionName = companySubscription.Subscription?.Name ?? string.Empty,
                 Description = companySubscription.Subscription?.Description,
                 Price = companySubscription.Subscription?.Price ?? 0,
-                DurationDays = companySubscription.Subscription?.DurationDays ?? 0,
+                Duration = companySubscription.Subscription?.Duration,
                 ResumeLimit = companySubscription.Subscription?.ResumeLimit ?? 0,
                 HoursLimit = companySubscription.Subscription?.HoursLimit ?? 0,
                 StartDate = companySubscription.StartDate,

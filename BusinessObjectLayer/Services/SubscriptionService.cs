@@ -34,7 +34,7 @@ namespace BusinessObjectLayer.Services
                 Name = s.Name,
                 Description = s.Description,
                 Price = s.Price,
-                DurationDays = s.DurationDays,
+                Duration = s.Duration,
                 ResumeLimit = s.ResumeLimit,
                 HoursLimit = s.HoursLimit,
                 CreatedAt = s.CreatedAt
@@ -75,7 +75,7 @@ namespace BusinessObjectLayer.Services
                 Name = subscription.Name,
                 Description = subscription.Description,
                 Price = subscription.Price,
-                DurationDays = subscription.DurationDays,
+                Duration = subscription.Duration,
                 ResumeLimit = subscription.ResumeLimit,
                 HoursLimit = subscription.HoursLimit,
                 CreatedAt = subscription.CreatedAt
@@ -111,7 +111,7 @@ namespace BusinessObjectLayer.Services
                     Name = request.Name,
                     Description = request.Description,
                     Price = request.Price,
-                    DurationDays = request.DurationDays,
+                    Duration = request.Duration,
                     ResumeLimit = request.ResumeLimit,
                     HoursLimit = request.HoursLimit,
                     StripePriceId = request.StripePriceId,
@@ -150,7 +150,7 @@ namespace BusinessObjectLayer.Services
             subscription.Name = request.Name ?? subscription.Name;
             subscription.Description = request.Description ?? subscription.Description;
             subscription.Price = request.Price;
-            subscription.DurationDays = request.DurationDays;
+            subscription.Duration = request.Duration;
             subscription.ResumeLimit = request.ResumeLimit;
             subscription.HoursLimit = request.HoursLimit;
             subscription.StripePriceId = request.StripePriceId;

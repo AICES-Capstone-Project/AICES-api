@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Data.Enum;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,7 +13,7 @@ namespace Data.Models.Response
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public int Price { get; set; }
-        public int DurationDays { get; set; }
+        public DurationEnum Duration { get; set; }
         public int ResumeLimit { get; set; }
         public int HoursLimit { get; set; }
         public DateTime? CreatedAt { get; set; }
