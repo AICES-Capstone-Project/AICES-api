@@ -50,6 +50,7 @@ namespace DataAccessLayer
         public virtual DbSet<Notification> Notifications { get; set; }
         public virtual DbSet<Blog> Blogs { get; set; }
         public virtual DbSet<Invitation> Invitations { get; set; }
+        public virtual DbSet<Feedback> Feedbacks { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -214,6 +215,13 @@ namespace DataAccessLayer
                 .HasMany(cu => cu.Jobs)
                 .WithOne(j => j.CompanyUser)
                 .HasForeignKey(j => j.ComUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // CompanyUser - Feedbacks
+            modelBuilder.Entity<CompanyUser>()
+                .HasMany(cu => cu.Feedbacks)
+                .WithOne(f => f.CompanyUser)
+                .HasForeignKey(f => f.ComUserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             // Company - Jobs

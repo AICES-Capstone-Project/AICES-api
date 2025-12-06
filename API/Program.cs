@@ -263,6 +263,7 @@ builder.Services.AddScoped<IAIScoreDetailRepository, AIScoreDetailRepository>();
 builder.Services.AddScoped<IBlogRepository, BlogRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<IInvitationRepository, InvitationRepository>();
+builder.Services.AddScoped<IFeedbackRepository, FeedbackRepository>();
 
 
 // Services
@@ -281,6 +282,7 @@ builder.Services.AddScoped<IBannerConfigService, BannerConfigService>();
 builder.Services.AddScoped<ISkillService, SkillService>();
 builder.Services.AddScoped<IJobSkillService, JobSkillService>();
 builder.Services.AddScoped<ICriteriaService, CriteriaService>();
+builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IResumeLimitService, BusinessObjectLayer.Services.UsageLimits.ResumeLimitService>();
