@@ -330,77 +330,87 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetCurrentSubscriptionAsync(ClaimsPrincipal userClaims)
         {
-            var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
-            if (userIdClaim == null)
-                return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
+            try{
+                var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
+                if (userIdClaim == null)
+                    return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
 
-            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
-            var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
-            
-            var userId = int.Parse(userIdClaim);
-
-            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
-            if (companyUser == null || companyUser.CompanyId == null)
-                return new ServiceResponse { Status = SRStatus.Error, Message = "You must join a company to view subscription." };
-
-            int companyId = companyUser.CompanyId.Value;
-
-            // Lấy subscription hiện tại (Active hoặc Pending và chưa hết hạn)
-            var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
-            
-            CurrentSubscriptionResponse response;
-            
-            if (companySubscription == null)
-            {
-                // Không có subscription active, trả về Free subscription
-                var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
-                var freeSubscription = await subscriptionRepo.GetFreeSubscriptionAsync();
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
                 
-                if (freeSubscription == null)
+                var userId = int.Parse(userIdClaim);
+
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+                if (companyUser == null || companyUser.CompanyId == null)
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "You must join a company to view subscription." };
+
+                int companyId = companyUser.CompanyId.Value;
+
+                // Lấy subscription hiện tại (Active hoặc Pending và chưa hết hạn)
+                var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+                
+                CurrentSubscriptionResponse response;
+                
+                if (companySubscription == null)
                 {
-                    return new ServiceResponse
+                    // Không có subscription active, trả về Free subscription
+                    var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+                    var freeSubscription = await subscriptionRepo.GetFreeSubscriptionAsync();
+                    
+                    if (freeSubscription == null)
                     {
-                        Status = SRStatus.NotFound,
-                        Message = "No active subscription found and Free subscription not configured.",
-                        Data = null
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.NotFound,
+                            Message = "No active subscription found and Free subscription not configured.",
+                            Data = null
+                        };
+                    }
+                    
+                    response = new CurrentSubscriptionResponse
+                    {
+                        SubscriptionName = freeSubscription.Name,
+                        Description = freeSubscription.Description,
+                        Price = freeSubscription.Price,
+                        Duration = freeSubscription.Duration,
+                        ResumeLimit = freeSubscription.ResumeLimit,
+                        HoursLimit = freeSubscription.HoursLimit,
+                        StartDate = null,
+                        EndDate = null,
+                        SubscriptionStatus = SubscriptionStatusEnum.Active
                     };
                 }
-                
-                response = new CurrentSubscriptionResponse
+                else
                 {
-                    SubscriptionName = freeSubscription.Name,
-                    Description = freeSubscription.Description,
-                    Price = freeSubscription.Price,
-                    Duration = freeSubscription.Duration,
-                    ResumeLimit = freeSubscription.ResumeLimit,
-                    HoursLimit = freeSubscription.HoursLimit,
-                    StartDate = null,
-                    EndDate = null,
-                    SubscriptionStatus = SubscriptionStatusEnum.Active
-                };
-            }
-            else
-            {
-                response = new CurrentSubscriptionResponse
-                {
-                    SubscriptionName = companySubscription.Subscription?.Name ?? string.Empty,
-                    Description = companySubscription.Subscription?.Description,
-                    Price = companySubscription.Subscription?.Price ?? 0,
-                    Duration = companySubscription.Subscription?.Duration,
-                    ResumeLimit = companySubscription.Subscription?.ResumeLimit ?? 0,
-                    HoursLimit = companySubscription.Subscription?.HoursLimit ?? 0,
-                    StartDate = companySubscription.StartDate,
-                    EndDate = companySubscription.EndDate,
-                    SubscriptionStatus = companySubscription.SubscriptionStatus
-                };
-            }
+                    response = new CurrentSubscriptionResponse
+                    {
+                        SubscriptionName = companySubscription.Subscription?.Name ?? string.Empty,
+                        Description = companySubscription.Subscription?.Description,
+                        Price = companySubscription.Subscription?.Price ?? 0,
+                        Duration = companySubscription.Subscription?.Duration,
+                        ResumeLimit = companySubscription.Subscription?.ResumeLimit ?? 0,
+                        HoursLimit = companySubscription.Subscription?.HoursLimit ?? 0,
+                        StartDate = companySubscription.StartDate,
+                        EndDate = companySubscription.EndDate,
+                        SubscriptionStatus = companySubscription.SubscriptionStatus
+                    };
+                }
 
-            return new ServiceResponse
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Current subscription retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch(Exception ex)
             {
-                Status = SRStatus.Success,
-                Message = "Current subscription retrieved successfully.",
-                Data = response
-            };
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "Error retrieving current subscription: " + ex.Message
+                };
+            }
         }
     }
 }

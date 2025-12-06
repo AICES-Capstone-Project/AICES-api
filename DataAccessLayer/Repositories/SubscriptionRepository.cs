@@ -104,7 +104,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Subscriptions
                 .AsNoTracking()
-                .Where(s => s.IsActive && (s.Price == 0 || s.Name.Equals("Free", StringComparison.OrdinalIgnoreCase)))
+                .Where(s => s.IsActive && (s.Price == 0 || s.Name.ToLower() == "free"))
                 .FirstOrDefaultAsync();
         }
     }
