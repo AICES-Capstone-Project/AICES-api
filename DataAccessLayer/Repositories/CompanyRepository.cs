@@ -201,6 +201,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Companies
                 .AsNoTracking()
+                .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
                 .AnyAsync(c => c.Name == name);
         }
 
@@ -208,6 +209,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Companies
                 .AsNoTracking()
+                .Where(c => c.IsActive)
                 .AnyAsync(c => c.CompanyId == companyId);
         }
 

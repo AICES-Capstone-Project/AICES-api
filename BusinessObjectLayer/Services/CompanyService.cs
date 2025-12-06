@@ -1247,6 +1247,27 @@ namespace BusinessObjectLayer.Services
                             company.RejectReason = rejectionReason;
                             company.ApprovedBy = null;
                             await companyRepo.UpdateAsync(company);
+
+                            // Remove companyId from creator's CompanyUser
+                            if (creatorUserId.HasValue)
+                            {
+                                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                                // Get CompanyUser by UserId (read-only to get ComUserId)
+                                var creatorCompanyUserInfo = await companyUserRepo.GetByUserIdAsync(creatorUserId.Value);
+                                
+                                if (creatorCompanyUserInfo != null && creatorCompanyUserInfo.CompanyId == companyId)
+                                {
+                                    // Get CompanyUser with tracking enabled for update
+                                    var creatorCompanyUser = await companyUserRepo.GetByComUserIdAsync(creatorCompanyUserInfo.ComUserId);
+                                    if (creatorCompanyUser != null)
+                                    {
+                                        creatorCompanyUser.CompanyId = null;
+                                        creatorCompanyUser.JoinStatus = JoinStatusEnum.NotApplied;
+                                        await companyUserRepo.UpdateAsync(creatorCompanyUser);
+                                    }
+                                }
+                            }
+
                             await _uow.CommitTransactionAsync();
                         }
                         catch
