@@ -90,6 +90,11 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Check if company has active paid subscription (Free plan cannot export)
+                var subscriptionCheck = await CheckIfCompanyHasPaidSubscriptionAsync(companyUser.CompanyId.Value, "Excel export");
+                if (subscriptionCheck != null)
+                    return subscriptionCheck;
+
                 // Get candidates with their scores and rankings
                 var candidates = await parsedCandidateRepo.GetCandidatesWithScoresByJobIdAsync(jobId);
 
@@ -262,6 +267,11 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Check if company has active paid subscription (Free plan cannot export PDF)
+                var subscriptionCheck = await CheckIfCompanyHasPaidSubscriptionAsync(companyUser.CompanyId.Value, "PDF export");
+                if (subscriptionCheck != null)
+                    return subscriptionCheck;
+
                 // Get candidates with full details
                 var candidates = await parsedCandidateRepo.GetCandidatesWithFullDetailsByJobIdAsync(jobId);
 
@@ -354,6 +364,42 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        #region Subscription Check Helper Methods
+
+        private async Task<ServiceResponse?> CheckIfCompanyHasPaidSubscriptionAsync(int companyId, string exportType = "export")
+        {
+            var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            
+            if (companySubscription == null)
+            {
+                // No active subscription means Free plan
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Forbidden,
+                    Message = $"{exportType} feature is only available for paid subscriptions. Please upgrade your plan to {exportType} reports."
+                };
+            }
+
+            // Check if subscription is Free (additional check)
+            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+            var subscription = await subscriptionRepo.GetByIdAsync(companySubscription.SubscriptionId);
+            var freeSubscription = await subscriptionRepo.GetFreeSubscriptionAsync();
+            
+            if (freeSubscription != null && subscription != null && subscription.SubscriptionId == freeSubscription.SubscriptionId)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Forbidden,
+                    Message = $"{exportType} feature is only available for paid subscriptions. Please upgrade your plan to {exportType} reports."
+                };
+            }
+
+            return null; // Company has paid subscription
+        }
+
+        #endregion
 
         #region PDF Helper Methods
 
