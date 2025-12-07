@@ -229,8 +229,15 @@ namespace BusinessObjectLayer.Services
 
                         await _uow.CommitTransactionAsync();
 
+                        // Reload resume for SignalR to get fresh data
+                        var uploadedResume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(jobId, parsedResume.ResumeId);
+                        
                         // Send real-time SignalR update
-                        _ = Task.Run(async () => await SendResumeUpdateAsync(jobId, parsedResume.ResumeId, "uploaded"));
+                        _ = Task.Run(async () => 
+                        {
+                            await Task.Delay(200);
+                            await SendResumeUpdateAsync(jobId, parsedResume.ResumeId, "uploaded", null, uploadedResume);
+                        });
 
                         return new ServiceResponse
                         {
@@ -422,8 +429,16 @@ namespace BusinessObjectLayer.Services
                     await parsedResumeRepo.UpdateAsync(resume);
                     await _uow.CommitTransactionAsync();
 
+                    // Reload resume for SignalR
+                    var rescoreResume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(jobId, resume.ResumeId);
+                    
                     // Send real-time SignalR update
-                    _ = Task.Run(async () => await SendResumeUpdateAsync(jobId, resume.ResumeId, "rescore_initiated", new { newStatus = "Pending" }));
+                    _ = Task.Run(async () => 
+                    {
+                        await Task.Delay(200);
+                        await SendResumeUpdateAsync(jobId, resume.ResumeId, "rescore_initiated", 
+                            new { newStatus = "Pending" }, rescoreResume);
+                    });
                 }
                 catch
                 {
@@ -502,8 +517,16 @@ namespace BusinessObjectLayer.Services
                         await parsedResumeRepo.UpdateAsync(parsedResume);
                         await _uow.CommitTransactionAsync();
 
+                        // Reload resume for SignalR
+                        var resumeForSignalR = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(parsedResume.JobId, parsedResume.ResumeId);
+                        
                         // Send real-time SignalR update
-                        _ = Task.Run(async () => await SendResumeUpdateAsync(parsedResume.JobId, parsedResume.ResumeId, "status_changed", new { newStatus = "Invalid" }));
+                        _ = Task.Run(async () => 
+                        {
+                            await Task.Delay(200);
+                            await SendResumeUpdateAsync(parsedResume.JobId, parsedResume.ResumeId, "status_changed", 
+                                new { newStatus = "Invalid" }, resumeForSignalR);
+                        });
                     }
                     catch
                     {
@@ -643,8 +666,17 @@ namespace BusinessObjectLayer.Services
                     await _uow.SaveChangesAsync();
                     await _uow.CommitTransactionAsync();
 
-                    // Send real-time SignalR update
-                    _ = Task.Run(async () => await SendResumeUpdateAsync(parsedResume.JobId, parsedResume.ResumeId, "status_changed", new { newStatus = "Completed" }));
+                    // Reload resume with all includes to get fresh data for SignalR
+                    var resumeForSignalR = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(parsedResume.JobId, parsedResume.ResumeId);
+                    
+                    // Send real-time SignalR update (fire and forget, but with proper data)
+                    _ = Task.Run(async () => 
+                    {
+                        // Small delay to ensure all changes are persisted
+                        await Task.Delay(200);
+                        await SendResumeUpdateAsync(parsedResume.JobId, parsedResume.ResumeId, "status_changed", 
+                            new { newStatus = "Completed" }, resumeForSignalR);
+                    });
 
                     // 7. Response
                     return new ServiceResponse
@@ -677,8 +709,16 @@ namespace BusinessObjectLayer.Services
                             await parsedResumeRepo.UpdateAsync(parsedResume);
                             await _uow.CommitTransactionAsync();
 
+                            // Reload resume for SignalR
+                            var resumeForSignalR = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(parsedResume.JobId, parsedResume.ResumeId);
+                            
                             // Send real-time SignalR update
-                            _ = Task.Run(async () => await SendResumeUpdateAsync(parsedResume.JobId, parsedResume.ResumeId, "status_changed", new { newStatus = "Failed" }));
+                            _ = Task.Run(async () => 
+                            {
+                                await Task.Delay(200);
+                                await SendResumeUpdateAsync(parsedResume.JobId, parsedResume.ResumeId, "status_changed", 
+                                    new { newStatus = "Failed" }, resumeForSignalR);
+                            });
                         }
                         catch
                         {
@@ -1025,6 +1065,17 @@ namespace BusinessObjectLayer.Services
                     resume.ResumeStatus = ResumeStatusEnum.Pending;
                     await parsedResumeRepo.UpdateAsync(resume);
                     await _uow.CommitTransactionAsync();
+
+                    // Reload resume for SignalR
+                    var retryResume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(resume.JobId, resume.ResumeId);
+                    
+                    // Send real-time SignalR update
+                    _ = Task.Run(async () => 
+                    {
+                        await Task.Delay(200);
+                        await SendResumeUpdateAsync(resume.JobId, resume.ResumeId, "retried", 
+                            new { newStatus = "Pending" }, retryResume);
+                    });
                 }
                 catch
                 {
@@ -1127,8 +1178,13 @@ namespace BusinessObjectLayer.Services
                     await parsedResumeRepo.UpdateAsync(resume);
                     await _uow.CommitTransactionAsync();
 
+                    // Note: For deleted resumes, we still send update but resume will be null in query
                     // Send real-time SignalR update
-                    _ = Task.Run(async () => await SendResumeUpdateAsync(resume.JobId, resume.ResumeId, "deleted"));
+                    _ = Task.Run(async () => 
+                    {
+                        await Task.Delay(200);
+                        await SendResumeUpdateAsync(resume.JobId, resume.ResumeId, "deleted", null, resume);
+                    });
                 }
                 catch
                 {
@@ -1157,14 +1213,23 @@ namespace BusinessObjectLayer.Services
         /// <summary>
         /// Send real-time SignalR update to clients watching a job's resumes
         /// </summary>
-        private async Task SendResumeUpdateAsync(int jobId, int resumeId, string eventType, object? data = null)
+        private async Task SendResumeUpdateAsync(int jobId, int resumeId, string eventType, object? data = null, ParsedResumes? resume = null)
         {
             try
             {
-                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
-                var resume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
+                // If resume is not provided, query it (with small delay to ensure transaction committed)
+                if (resume == null)
+                {
+                    await Task.Delay(100); // Small delay to ensure transaction is committed
+                    var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                    resume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
+                }
                 
-                if (resume == null) return;
+                if (resume == null)
+                {
+                    Console.WriteLine($"⚠️ SignalR: Resume {resumeId} not found, cannot send update");
+                    return;
+                }
 
                 var updateData = new
                 {
@@ -1182,12 +1247,13 @@ namespace BusinessObjectLayer.Services
                 await _hubContext.Clients.Group($"job-{jobId}")
                     .SendAsync("ResumeUpdated", updateData);
 
-                Console.WriteLine($"📡 SignalR: Sent {eventType} update for resume {resumeId} in job {jobId}");
+                Console.WriteLine($"📡 SignalR: Sent {eventType} update for resume {resumeId} in job {jobId} - Status: {resume.ResumeStatus}, Score: {updateData.totalResumeScore}");
             }
             catch (Exception ex)
             {
                 // Don't fail the main operation if SignalR fails
                 Console.WriteLine($"⚠️ Error sending SignalR update: {ex.Message}");
+                Console.WriteLine($"⚠️ Stack trace: {ex.StackTrace}");
             }
         }
 
