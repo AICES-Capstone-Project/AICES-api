@@ -339,7 +339,7 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 
-    // ?? Th�m ?o?n n�y ?? SignalR ??c JWT t? query string
+    // Add query string for SignalR
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -347,8 +347,9 @@ builder.Services.AddAuthentication(options =>
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
 
-            // N?u request ??n SignalR th� l?y token t? query string
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/notification"))
+            // If request is SignalR, get token from query string
+            if (!string.IsNullOrEmpty(accessToken) && 
+                (path.StartsWithSegments("/hubs/notification") || path.StartsWithSegments("/hubs/resume")))
             {
                 context.Token = accessToken;
             }
@@ -412,6 +413,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notification");
+app.MapHub<ResumeHub>("/hubs/resume");
 
 // ------------------------
 // ?? REDIS TEST ENDPOINT
