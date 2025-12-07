@@ -28,7 +28,7 @@ namespace API.Controllers
         }
 
         [HttpGet("current-subscription")]
-        [Authorize(Roles = "HR_Manager")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetCurrentSubscription()
         {
             var result = await _companySubscriptionService.GetCurrentSubscriptionAsync(User);
