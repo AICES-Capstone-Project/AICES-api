@@ -51,6 +51,61 @@ namespace BusinessObjectLayer.Common
                 return default;
             }
         }
+
+        /// <summary>
+        /// Store job data with a specific key (for tracking and retrieval)
+        /// </summary>
+        // public async Task<bool> SetJobDataAsync(string key, object jobData, TimeSpan? expiry = null)
+        // {
+        //     try
+        //     {
+        //         var json = JsonSerializer.Serialize(jobData);
+        //         await _database.StringSetAsync(key, json, expiry);
+        //         return true;
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Console.WriteLine($"Error setting job data in Redis: {ex.Message}");
+        //         return false;
+        //     }
+        // }
+
+        // /// <summary>
+        // /// Get job data by key
+        // /// </summary>
+        // public async Task<T?> GetJobDataAsync<T>(string key)
+        // {
+        //     try
+        //     {
+        //         var json = await _database.StringGetAsync(key);
+        //         if (json.IsNullOrEmpty)
+        //             return default;
+
+        //         return JsonSerializer.Deserialize<T>(json!);
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Console.WriteLine($"Error getting job data from Redis: {ex.Message}");
+        //         return default;
+        //     }
+        // }
+
+        // /// <summary>
+        // /// Delete job data by key
+        // /// </summary>
+        // public async Task<bool> DeleteJobDataAsync(string key)
+        // {
+        //     try
+        //     {
+        //         await _database.KeyDeleteAsync(key);
+        //         return true;
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Console.WriteLine($"Error deleting job data from Redis: {ex.Message}");
+        //         return false;
+        //     }
+        // }
     }
 }
 

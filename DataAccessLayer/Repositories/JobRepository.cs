@@ -414,6 +414,26 @@ namespace DataAccessLayer.Repositories
                 .AnyAsync(j => j.CompanyId == companyId && j.Title == title && j.IsActive);
         }
 
+        public async Task<List<string>> GetEmploymentTypesByJobIdAsync(int jobId)
+        {
+            return await _context.JobEmploymentTypes
+                .AsNoTracking()
+                .Where(jet => jet.JobId == jobId)
+                .Include(jet => jet.EmploymentType)
+                .Select(jet => jet.EmploymentType.Name)
+                .ToListAsync();
+        }
+
+        public async Task<List<string>> GetSkillsByJobIdAsync(int jobId)
+        {
+            return await _context.JobSkills
+                .AsNoTracking()
+                .Where(js => js.JobId == jobId)
+                .Include(js => js.Skill)
+                .Select(js => js.Skill.Name)
+                .ToListAsync();
+        }
+
         public void UpdateJob(Job job)
         {
             _context.Jobs.Update(job);

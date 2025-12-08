@@ -208,7 +208,11 @@ namespace BusinessObjectLayer.Services
                             weight = c.Weight
                         }).ToList() ?? new List<CriteriaQueueResponse>();
 
-                        // Push job to Redis queue with requirements and criteria
+                        // Extract skills and employment types from repository
+                        var skillsList = await jobRepo.GetSkillsByJobIdAsync(jobId);
+                        var employmentTypesList = await jobRepo.GetEmploymentTypesByJobIdAsync(jobId);
+
+                        // Push job to Redis queue 
                         var jobData = new ResumeQueueJobResponse
                         {
                             resumeId = parsedResume.ResumeId,
@@ -216,6 +220,9 @@ namespace BusinessObjectLayer.Services
                             jobId = jobId,
                             fileUrl = fileUrl,
                             requirements = job.Requirements,
+                            skills = skillsList.Any() ? string.Join(", ", skillsList) : null,
+                            specialization = job.Specialization?.Name,
+                            employmentType = employmentTypesList.Any() ? string.Join(", ", employmentTypesList) : null,
                             criteria = criteriaData,
                             mode = "parse"
                         };
@@ -226,6 +233,11 @@ namespace BusinessObjectLayer.Services
                             // Log warning but don't fail the request
                             Console.WriteLine($"Warning: Failed to push job to Redis queue for resumeId: {parsedResume.ResumeId}");
                         }
+
+                        // Store job data with queueJobId as key for tracking and retrieval (expires in 24 hours)
+                        // await _redisHelper.SetJobDataAsync($"resume:job:{queueJobId}", jobData, TimeSpan.FromHours(24));
+                        // // Also store with resumeId for easy lookup
+                        // await _redisHelper.SetJobDataAsync($"resume:data:{parsedResume.ResumeId}", jobData, TimeSpan.FromHours(24));
 
                         await _uow.CommitTransactionAsync();
 
@@ -397,6 +409,10 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Extract skills and employment types from repository
+                var skillsList = await jobRepo.GetSkillsByJobIdAsync(jobId);
+                var employmentTypesList = await jobRepo.GetEmploymentTypesByJobIdAsync(jobId);
+
                 // Push job to Redis queue with mode = "rescore" and parsedData
                 var jobData = new ResumeQueueJobResponse
                 {
@@ -405,6 +421,9 @@ namespace BusinessObjectLayer.Services
                     jobId = jobId,
                     fileUrl = resume.FileUrl ?? string.Empty,
                     requirements = job.Requirements,
+                    skills = skillsList.Any() ? string.Join(", ", skillsList) : null,
+                    specialization = job.Specialization?.Name,
+                    employmentType = employmentTypesList.Any() ? string.Join(", ", employmentTypesList) : null,
                     criteria = criteriaData,
                     mode = "rescore",
                     parsedData = parsedData
@@ -419,6 +438,11 @@ namespace BusinessObjectLayer.Services
                         Message = "Failed to push job to Redis queue."
                     };
                 }
+
+                // Store rescore job data with queueJobId as key (expires in 24 hours)
+                // await _redisHelper.SetJobDataAsync($"resume:job:{newQueueJobId}", jobData, TimeSpan.FromHours(24));
+                // // Update the resume data key with new job info
+                // await _redisHelper.SetJobDataAsync($"resume:data:{resume.ResumeId}", jobData, TimeSpan.FromHours(24));
 
                 await _uow.BeginTransactionAsync();
                 try
@@ -1035,6 +1059,10 @@ namespace BusinessObjectLayer.Services
                     weight = c.Weight
                 }).ToList() ?? new List<CriteriaQueueResponse>();
 
+                // Extract skills and employment types from repository
+                var skillsList = await jobRepo.GetSkillsByJobIdAsync(resume.JobId);
+                var employmentTypesList = await jobRepo.GetEmploymentTypesByJobIdAsync(resume.JobId);
+
                 // Push job to Redis queue with requirements and criteria
                 var jobData = new ResumeQueueJobResponse
                 {
@@ -1043,6 +1071,9 @@ namespace BusinessObjectLayer.Services
                     jobId = resume.JobId,
                     fileUrl = resume.FileUrl ?? string.Empty,
                     requirements = job.Requirements,
+                    skills = skillsList.Any() ? string.Join(", ", skillsList) : null,
+                    specialization = job.Specialization?.Name,
+                    employmentType = employmentTypesList.Any() ? string.Join(", ", employmentTypesList) : null,
                     criteria = criteriaData,
                     mode = "parse"
                 };
@@ -1056,6 +1087,11 @@ namespace BusinessObjectLayer.Services
                         Message = "Failed to push job to Redis queue."
                     };
                 }
+
+                // Store retry job data with queueJobId as key (expires in 24 hours)
+                // await _redisHelper.SetJobDataAsync($"resume:job:{newQueueJobId}", jobData, TimeSpan.FromHours(24));
+                // // Update the resume data key with new job info
+                // await _redisHelper.SetJobDataAsync($"resume:data:{resume.ResumeId}", jobData, TimeSpan.FromHours(24));
 
                 await _uow.BeginTransactionAsync();
                 try

@@ -10,6 +10,10 @@ namespace Data.Models.Response
         public int jobId { get; set; }
         public string fileUrl { get; set; } = string.Empty;
         public string? requirements { get; set; }
+        public string? skills { get; set; }
+        public string? category { get; set; }
+        public string? specialization { get; set; }
+        public string? employmentType { get; set; }
         public List<CriteriaQueueResponse> criteria { get; set; } = new();
         
         /// <summary>
