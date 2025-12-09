@@ -27,8 +27,8 @@ namespace DataAccessLayer.IRepositories
         Task<int> GetCompanySubTotalActiveExpiredAsync();
         Task<int> GetCompanySubCountByStatusAsync(Data.Enum.SubscriptionStatusEnum status);
         Task<int> GetCompanySubNewThisMonthAsync();
-        Task<decimal> GetRevenueByRangeAsync(DateTime from, DateTime to);
-        Task<decimal> GetRevenueFromNewSubscriptionsAsync(DateTime from, DateTime to);
+        Task<decimal> GetRevenueByRangeAsync(DateTime fromDate, DateTime toDate);
+        Task<decimal> GetRevenueFromNewSubscriptionsAsync(DateTime fromDate, DateTime toDate);
         Task<int> GetActiveUsersCountAsync();
         Task<int> GetLockedUsersCountAsync();
         Task<int> GetNewUsersThisMonthAsync();
@@ -39,6 +39,7 @@ namespace DataAccessLayer.IRepositories
         Task<int> GetTotalResumesAsync(bool onlyActive = true);
         Task<int> GetNewResumesThisMonthAsync();
         Task<int> GetAppliedResumesThisMonthAsync();
+        Task<List<(int SubscriptionId, string SubscriptionName, int ActiveCount, decimal MonthlyRevenue)>> GetSubscriptionPlanBreakdownAsync(DateTime fromDate, DateTime toDate);
     }
 }
 

@@ -242,21 +242,21 @@ namespace DataAccessLayer.Repositories
                 .CountAsync();
         }
 
-        public async Task<decimal> GetRevenueByRangeAsync(DateTime from, DateTime to)
+        public async Task<decimal> GetRevenueByRangeAsync(DateTime fromDate, DateTime toDate)
         {
             var total = await _context.Transactions
                 .AsNoTracking()
                 .Where(t => t.Payment.IsActive
                     && t.Payment.PaymentStatus == PaymentStatusEnum.Paid
                     && t.TransactionTime.HasValue
-                    && t.TransactionTime.Value >= from
-                    && t.TransactionTime.Value < to)
+                    && t.TransactionTime.Value >= fromDate
+                    && t.TransactionTime.Value < toDate)
                 .SumAsync(t => (decimal?)t.Amount) ?? 0m;
 
             return total;
         }
 
-        public async Task<decimal> GetRevenueFromNewSubscriptionsAsync(DateTime from, DateTime to)
+        public async Task<decimal> GetRevenueFromNewSubscriptionsAsync(DateTime fromDate, DateTime toDate)
         {
             var total = await _context.Transactions
                 .AsNoTracking()
@@ -264,13 +264,13 @@ namespace DataAccessLayer.Repositories
                     t.Payment.IsActive &&
                     t.Payment.PaymentStatus == PaymentStatusEnum.Paid &&
                     t.TransactionTime.HasValue &&
-                    t.TransactionTime.Value >= from &&
-                    t.TransactionTime.Value < to &&
+                    t.TransactionTime.Value >= fromDate &&
+                    t.TransactionTime.Value < toDate &&
                     t.Payment.CompanySubscription != null &&
                     t.Payment.CompanySubscription.IsActive &&
                     t.Payment.CompanySubscription.CreatedAt.HasValue &&
-                    t.Payment.CompanySubscription.CreatedAt.Value >= from &&
-                    t.Payment.CompanySubscription.CreatedAt.Value < to)
+                    t.Payment.CompanySubscription.CreatedAt.Value >= fromDate &&
+                    t.Payment.CompanySubscription.CreatedAt.Value < toDate)
                 .SumAsync(t => (decimal?)t.Amount) ?? 0m;
 
             return total;
@@ -382,6 +382,57 @@ namespace DataAccessLayer.Repositories
                     && pr.CreatedAt.Value >= startOfMonth
                     && pr.ResumeStatus == ResumeStatusEnum.Completed)
                 .CountAsync();
+        }
+
+        public async Task<List<(int SubscriptionId, string SubscriptionName, int ActiveCount, decimal MonthlyRevenue)>> GetSubscriptionPlanBreakdownAsync(DateTime fromDate, DateTime toDate)
+        {
+            var now = DateTime.UtcNow;
+
+            // Active subscriptions per plan
+            var activeByPlan = await _context.CompanySubscriptions
+                .AsNoTracking()
+                .Where(cs => cs.IsActive
+                    && cs.SubscriptionStatus == SubscriptionStatusEnum.Active
+                    && cs.EndDate > now)
+                .GroupBy(cs => cs.SubscriptionId)
+                .Select(g => new { SubscriptionId = g.Key, ActiveCount = g.Count() })
+                .ToListAsync();
+
+            // Monthly revenue per plan (transactions paid in range)
+            var revenueByPlan = await (from t in _context.Transactions.AsNoTracking()
+                                       join p in _context.Payments.AsNoTracking() on t.PaymentId equals p.PaymentId
+                                       join cs in _context.CompanySubscriptions.AsNoTracking() on p.ComSubId equals cs.ComSubId into csJoin
+                                       from cs in csJoin.DefaultIfEmpty()
+                                       where t.Payment.IsActive
+                                             && p.PaymentStatus == PaymentStatusEnum.Paid
+                                             && t.TransactionTime.HasValue
+                                             && t.TransactionTime.Value >= fromDate
+                                             && t.TransactionTime.Value < toDate
+                                             && cs != null
+                                       group t by cs.SubscriptionId into g
+                                       select new
+                                       {
+                                           SubscriptionId = g.Key,
+                                           Revenue = g.Sum(x => (decimal?)x.Amount) ?? 0m
+                                       }).ToListAsync();
+
+            var subs = await _context.Subscriptions
+                .AsNoTracking()
+                .Where(s => s.IsActive)
+                .Select(s => new { s.SubscriptionId, s.Name })
+                .ToListAsync();
+
+            var activeDict = activeByPlan.ToDictionary(x => x.SubscriptionId, x => x.ActiveCount);
+            var revenueDict = revenueByPlan.ToDictionary(x => x.SubscriptionId, x => x.Revenue);
+
+            var result = subs.Select(s => (
+                s.SubscriptionId,
+                s.Name,
+                activeDict.TryGetValue(s.SubscriptionId, out var ac) ? ac : 0,
+                revenueDict.TryGetValue(s.SubscriptionId, out var rev) ? rev : 0m
+            )).ToList();
+
+            return result;
         }
     }
 }

@@ -649,6 +649,55 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetSubscriptionPlanBreakdownAsync(string range = "month")
+        {
+            try
+            {
+                DateTime now = DateTime.UtcNow;
+                DateTime from;
+                DateTime to;
+
+                if (range.ToLower() == "month")
+                {
+                    from = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                    to = from.AddMonths(1);
+                }
+                else
+                {
+                    // mặc định month
+                    from = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                    to = from.AddMonths(1);
+                }
+
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+                var data = await dashboardRepo.GetSubscriptionPlanBreakdownAsync(from, to);
+
+                var response = data.Select(d => new SubscriptionPlanBreakdownResponse
+                {
+                    PlanName = d.SubscriptionName,
+                    ActiveSubscriptions = d.ActiveCount,
+                    MonthlyRevenue = d.MonthlyRevenue
+                }).ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Subscription plan breakdown retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get subscription plan breakdown error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving subscription plan breakdown."
+                };
+            }
+        }
     }
 }
 
