@@ -529,6 +529,50 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetSystemUserStatsAsync()
+        {
+            try
+            {
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+
+                var totalUsers = await dashboardRepo.GetTotalUsersAsync();
+                var activeUsers = await dashboardRepo.GetActiveUsersCountAsync();
+                var lockedUsers = await dashboardRepo.GetLockedUsersCountAsync();
+                var newUsersThisMonth = await dashboardRepo.GetNewUsersThisMonthAsync();
+                var byRoleRaw = await dashboardRepo.GetUsersCountByRoleAsync();
+
+                var response = new SystemUserStatsResponse
+                {
+                    TotalUsers = totalUsers,
+                    ActiveUsers = activeUsers,
+                    LockedUsers = lockedUsers,
+                    NewUsersThisMonth = newUsersThisMonth,
+                    ByRole = byRoleRaw.Select(r => new UserRoleCount
+                    {
+                        Role = r.RoleName,
+                        Count = r.Count
+                    }).ToList()
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "User statistics retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get system user stats error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving user statistics."
+                };
+            }
+        }
     }
 }
 

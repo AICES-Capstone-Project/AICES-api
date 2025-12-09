@@ -275,6 +275,52 @@ namespace DataAccessLayer.Repositories
 
             return total;
         }
+
+        public async Task<int> GetActiveUsersCountAsync()
+        {
+            return await _context.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive && u.Status == UserStatusEnum.Verified)
+                .CountAsync();
+        }
+
+        public async Task<int> GetLockedUsersCountAsync()
+        {
+            return await _context.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive && u.Status == UserStatusEnum.Locked)
+                .CountAsync();
+        }
+
+        public async Task<int> GetNewUsersThisMonthAsync()
+        {
+            var now = DateTime.UtcNow;
+            var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            return await _context.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive
+                    && u.CreatedAt.HasValue
+                    && u.CreatedAt.Value >= startOfMonth)
+                .CountAsync();
+        }
+
+        public async Task<List<(string RoleName, int Count)>> GetUsersCountByRoleAsync()
+        {
+            var data = await _context.Users
+                .AsNoTracking()
+                .Include(u => u.Role)
+                .Where(u => u.IsActive)
+                .GroupBy(u => u.Role.RoleName)
+                .Select(g => new
+                {
+                    RoleName = g.Key,
+                    Count = g.Count()
+                })
+                .ToListAsync();
+
+            return data.Select(x => (x.RoleName, x.Count)).ToList();
+        }
     }
 }
 

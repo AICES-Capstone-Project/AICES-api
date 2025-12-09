@@ -92,6 +92,17 @@ namespace API.Controllers
             var serviceResponse = await _dashboardService.GetSystemRevenueAsync(range);
             return ControllerResponse.Response(serviceResponse);
         }
+
+        /// <summary>
+        /// User statistics (system users + company users)
+        /// </summary>
+        [HttpGet("users")]
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+        public async Task<IActionResult> GetSystemUserStats()
+        {
+            var serviceResponse = await _dashboardService.GetSystemUserStatsAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
 
