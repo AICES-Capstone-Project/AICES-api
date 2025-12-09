@@ -17,6 +17,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetSystemTopCompaniesAsync(int top = 10);
         Task<ServiceResponse> GetSystemCompanySubscriptionsAsync();
         Task<ServiceResponse> GetSystemRevenueAsync(string range = "month");
+        Task<ServiceResponse> GetSystemUserStatsAsync();
     }
 }
 

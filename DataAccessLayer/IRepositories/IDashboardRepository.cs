@@ -29,6 +29,10 @@ namespace DataAccessLayer.IRepositories
         Task<int> GetCompanySubNewThisMonthAsync();
         Task<decimal> GetRevenueByRangeAsync(DateTime from, DateTime to);
         Task<decimal> GetRevenueFromNewSubscriptionsAsync(DateTime from, DateTime to);
+        Task<int> GetActiveUsersCountAsync();
+        Task<int> GetLockedUsersCountAsync();
+        Task<int> GetNewUsersThisMonthAsync();
+        Task<List<(string RoleName, int Count)>> GetUsersCountByRoleAsync();
     }
 }
 
