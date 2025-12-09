@@ -47,7 +47,7 @@ namespace BusinessObjectLayer.BackgroundJobs
         {
             using var scope = _scopeFactory.CreateScope();
             var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var parsedResumeRepository = uow.GetRepository<IParsedResumeRepository>();
+            var resumeRepository = uow.GetRepository<IResumeRepository>();
 
             // Calculate cutoff time (2 minutes ago)
             var cutoff = DateTime.UtcNow.AddMinutes(-2);
