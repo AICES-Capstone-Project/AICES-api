@@ -361,6 +361,48 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetSystemCompanyStatsAsync()
+        {
+            try
+            {
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+
+                var totalCompanies = await dashboardRepo.GetTotalCompaniesAsync();
+                var approvedCompanies = await dashboardRepo.GetTotalCompaniesByStatusAsync(CompanyStatusEnum.Approved);
+                var pendingCompanies = await dashboardRepo.GetTotalCompaniesByStatusAsync(CompanyStatusEnum.Pending);
+                var rejectedCompanies = await dashboardRepo.GetTotalCompaniesByStatusAsync(CompanyStatusEnum.Rejected);
+                var suspendedCompanies = await dashboardRepo.GetTotalCompaniesByStatusAsync(CompanyStatusEnum.Suspended);
+                var newCompaniesThisMonth = await dashboardRepo.GetNewCompaniesThisMonthAsync();
+
+                var response = new SystemCompanyStatsResponse
+                {
+                    TotalCompanies = totalCompanies,
+                    ApprovedCompanies = approvedCompanies,
+                    PendingCompanies = pendingCompanies,
+                    RejectedCompanies = rejectedCompanies,
+                    SuspendedCompanies = suspendedCompanies,
+                    NewCompaniesThisMonth = newCompaniesThisMonth
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Company statistics retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get system company stats error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving company statistics."
+                };
+            }
+        }
     }
 }
 

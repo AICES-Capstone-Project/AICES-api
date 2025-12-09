@@ -15,6 +15,8 @@ namespace DataAccessLayer.IRepositories
         Task<int> GetAiProcessedCountAsync(int companyId);
         Task<List<(string Name, string JobTitle, decimal AIScore, Data.Enum.ResumeStatusEnum Status)>> GetTopRatedCandidatesAsync(int companyId, int limit = 5);
         Task<int> GetTotalCompaniesAsync();
+        Task<int> GetTotalCompaniesByStatusAsync(Data.Enum.CompanyStatusEnum status);
+        Task<int> GetNewCompaniesThisMonthAsync();
         Task<int> GetTotalUsersAsync();
         Task<int> GetTotalJobsAsync();
         Task<int> GetTotalResumesAsync();

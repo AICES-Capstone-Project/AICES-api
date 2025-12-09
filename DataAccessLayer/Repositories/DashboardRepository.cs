@@ -116,6 +116,27 @@ namespace DataAccessLayer.Repositories
                 .CountAsync();
         }
 
+        public async Task<int> GetTotalCompaniesByStatusAsync(CompanyStatusEnum status)
+        {
+            return await _context.Companies
+                .AsNoTracking()
+                .Where(c => c.IsActive && c.CompanyStatus == status)
+                .CountAsync();
+        }
+
+        public async Task<int> GetNewCompaniesThisMonthAsync()
+        {
+            var now = DateTime.UtcNow;
+            var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            return await _context.Companies
+                .AsNoTracking()
+                .Where(c => c.IsActive
+                    && c.CreatedAt.HasValue
+                    && c.CreatedAt.Value >= startOfMonth)
+                .CountAsync();
+        }
+
         public async Task<int> GetTotalUsersAsync()
         {
             return await _context.Users
