@@ -29,7 +29,6 @@ namespace BusinessObjectLayer.Services
 
             var result = jobSkills.Select(js => new
             {
-                js.JobSkillId,
                 js.JobId,
                 JobName = js.Job?.Title,
                 js.SkillId,
@@ -44,10 +43,10 @@ namespace BusinessObjectLayer.Services
             };
         }
 
-        public async Task<ServiceResponse> GetByIdAsync(int id)
+        public async Task<ServiceResponse> GetByJobIdAndSkillIdAsync(int jobId, int skillId)
         {
             var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
-            var jobSkill = await jobSkillRepo.GetByIdAsync(id);
+            var jobSkill = await jobSkillRepo.GetByJobIdAndSkillIdAsync(jobId, skillId);
             if (jobSkill == null)
             {
                 return new ServiceResponse
@@ -59,7 +58,6 @@ namespace BusinessObjectLayer.Services
 
             var result = new
             {
-                jobSkill.JobSkillId,
                 jobSkill.JobId,
                 JobName = jobSkill.Job?.Title,
                 jobSkill.SkillId,
@@ -129,11 +127,15 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> UpdateAsync(int id, JobSkillRequest request)
+        public async Task<ServiceResponse> UpdateAsync(int jobId, int skillId, JobSkillRequest request)
         {
+            var jobRepo = _uow.GetRepository<IJobRepository>();
+            var skillRepo = _uow.GetRepository<ISkillRepository>();
             var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
-            var jobSkill = await jobSkillRepo.GetByIdAsync(id);
-            if (jobSkill == null)
+            
+            // Check if JobSkill exists
+            var existingJobSkill = await jobSkillRepo.GetForUpdateByJobIdAndSkillIdAsync(jobId, skillId);
+            if (existingJobSkill == null)
             {
                 return new ServiceResponse
                 {
@@ -142,13 +144,42 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
+            // Validate new Job exists
+            var job = await jobRepo.GetJobByIdAsync(request.JobId);
+            if (job == null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "Job not found."
+                };
+            }
+
+            // Validate new Skill exists
+            var skill = await skillRepo.GetByIdAsync(request.SkillId);
+            if (skill == null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "Skill not found."
+                };
+            }
+
             await _uow.BeginTransactionAsync();
             try
             {
-                jobSkill.JobId = request.JobId;
-                jobSkill.SkillId = request.SkillId;
+                // Delete old relationship
+                jobSkillRepo.Delete(existingJobSkill);
+                await _uow.SaveChangesAsync();
 
-                jobSkillRepo.Update(jobSkill);
+                // Create new relationship
+                var newJobSkill = new JobSkill
+                {
+                    JobId = request.JobId,
+                    SkillId = request.SkillId
+                };
+                await jobSkillRepo.AddAsync(newJobSkill);
                 await _uow.CommitTransactionAsync();
 
                 return new ServiceResponse
@@ -164,10 +195,10 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> DeleteAsync(int id)
+        public async Task<ServiceResponse> DeleteAsync(int jobId, int skillId)
         {
             var jobSkillRepo = _uow.GetRepository<IJobSkillRepository>();
-            var jobSkill = await jobSkillRepo.GetForUpdateAsync(id);
+            var jobSkill = await jobSkillRepo.GetForUpdateByJobIdAndSkillIdAsync(jobId, skillId);
             if (jobSkill == null)
             {
                 return new ServiceResponse

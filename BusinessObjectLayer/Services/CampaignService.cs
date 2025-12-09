@@ -781,6 +781,16 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Only allow Published and Private status updates
+                if (request.Status != CampaignStatusEnum.Published && request.Status != CampaignStatusEnum.Private)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Only Published and Private statuses are allowed."
+                    };
+                }
+
                 await _uow.BeginTransactionAsync();
                 try
                 {

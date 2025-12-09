@@ -55,7 +55,7 @@ namespace BusinessObjectLayer.BackgroundJobs
             // _logger.LogInformation($"🔍 Checking for timed-out resumes (before {cutoff:yyyy-MM-dd HH:mm:ss} UTC)");
 
             // Get all pending resumes that have timed out
-            var timedOutResumes = await parsedResumeRepository.GetPendingBeforeAsync(cutoff);
+            var timedOutResumes = await resumeRepository.GetPendingBeforeAsync(cutoff);
 
             if (timedOutResumes.Count == 0)
             {
@@ -74,8 +74,8 @@ namespace BusinessObjectLayer.BackgroundJobs
                 {
                     try
                     {
-                        resume.ResumeStatus = ResumeStatusEnum.Timeout;
-                        await parsedResumeRepository.UpdateAsync(resume);
+                        resume.Status = ResumeStatusEnum.Timeout;
+                        await resumeRepository.UpdateAsync(resume);
                         updatedCount++;
 
                         // _logger.LogInformation(

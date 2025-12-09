@@ -96,7 +96,7 @@ namespace BusinessObjectLayer.Services
                     return subscriptionCheck;
 
                 // Get candidates with their scores and rankings
-                var candidates = await parsedCandidateRepo.GetCandidatesWithScoresByJobIdAsync(jobId);
+                var candidates = await candidateRepo.GetCandidatesWithScoresByJobIdAsync(jobId);
 
                 if (candidates == null || !candidates.Any())
                 {
@@ -131,25 +131,26 @@ namespace BusinessObjectLayer.Services
 
                 // Data rows - sorted by rank
                 var sortedCandidates = candidates
-                    .OrderBy(c => c.RankingResult?.RankPosition ?? int.MaxValue)
-                    .ThenByDescending(c => c.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault()?.TotalResumeScore ?? 0)
+                    .OrderByDescending(c => GetLatestResume(c)?.AdjustedScore ?? GetLatestResume(c)?.TotalScore ?? 0)
                     .ToList();
 
                 int row = 2;
+                int rank = 1;
                 foreach (var c in sortedCandidates)
                 {
-                    var latestScore = c.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
+                    var latestResume = GetLatestResume(c);
 
-                    ws.Cells[row, 1].Value = c.RankingResult?.RankPosition ?? row - 1;
+                    ws.Cells[row, 1].Value = rank;
                     ws.Cells[row, 2].Value = c.FullName;
                     ws.Cells[row, 3].Value = c.Email;
-                    ws.Cells[row, 4].Value = latestScore?.TotalResumeScore ?? 0;
+                    ws.Cells[row, 4].Value = latestResume?.AdjustedScore ?? latestResume?.TotalScore ?? 0;
                     ws.Cells[row, 5].Value = c.PhoneNumber ?? "N/A";
                     ws.Cells[row, 6].Value = c.MatchSkills ?? "";
                     ws.Cells[row, 7].Value = c.MissingSkills ?? "";
-                    ws.Cells[row, 8].Value = latestScore?.AIExplanation ?? "";
+                    ws.Cells[row, 8].Value = latestResume?.AIExplanation ?? "";
 
                     row++;
+                    rank++;
                 }
 
                 // Auto-fit columns
@@ -273,7 +274,7 @@ namespace BusinessObjectLayer.Services
                     return subscriptionCheck;
 
                 // Get candidates with full details
-                var candidates = await parsedCandidateRepo.GetCandidatesWithFullDetailsByJobIdAsync(jobId);
+                var candidates = await candidateRepo.GetCandidatesWithFullDetailsByJobIdAsync(jobId);
 
                 if (candidates == null || !candidates.Any())
                 {
@@ -285,16 +286,15 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get job statistics
-                var allResumes = await parsedResumeRepo.GetByJobIdAsync(jobId);
+                var allResumes = await resumeRepo.GetByJobIdAsync(jobId);
                 var totalCandidates = allResumes.Count;
-                var parsedCount = allResumes.Count(r => r.ResumeStatus == ResumeStatusEnum.Completed);
-                var scoredCount = candidates.Count(c => c.AIScores?.Any() == true);
-                var shortlistedCount = candidates.Count(c => c.RankingResult != null);
+                var parsedCount = allResumes.Count(r => r.Status == ResumeStatusEnum.Completed);
+                var scoredCount = allResumes.Count(r => r.TotalScore.HasValue || r.AdjustedScore.HasValue);
+                var shortlistedCount = scoredCount;
 
                 // Sort candidates by rank
                 var sortedCandidates = candidates
-                    .OrderBy(c => c.RankingResult?.RankPosition ?? int.MaxValue)
-                    .ThenByDescending(c => c.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault()?.TotalResumeScore ?? 0)
+                    .OrderByDescending(c => GetLatestResume(c)?.AdjustedScore ?? GetLatestResume(c)?.TotalScore ?? 0)
                     .ToList();
 
                 // Generate PDF
@@ -442,7 +442,7 @@ namespace BusinessObjectLayer.Services
             });
         }
 
-        private void ComposeCoverContent(IContainer container, string companyName, Job job, int totalCandidates, int parsedCount, int scoredCount, int shortlistedCount, List<ParsedCandidates> topCandidates)
+        private void ComposeCoverContent(IContainer container, string companyName, Job job, int totalCandidates, int parsedCount, int scoredCount, int shortlistedCount, List<Candidate> topCandidates)
         {
             container.PaddingVertical(20).Column(col =>
             {
@@ -522,7 +522,7 @@ namespace BusinessObjectLayer.Services
             });
         }
 
-        private void ComposeTop5Section(IContainer container, List<ParsedCandidates> topCandidates)
+        private void ComposeTop5Section(IContainer container, List<Candidate> topCandidates)
         {
             container.Column(col =>
             {
@@ -536,7 +536,7 @@ namespace BusinessObjectLayer.Services
             });
         }
 
-        private void ComposeTop5Table(IContainer container, List<ParsedCandidates> topCandidates)
+        private void ComposeTop5Table(IContainer container, List<Candidate> topCandidates)
         {
             if (topCandidates == null || !topCandidates.Any())
                 return;
@@ -566,8 +566,8 @@ namespace BusinessObjectLayer.Services
                 int displayRank = 1;
                 foreach (var candidate in topCandidates.Take(5))
                 {
-                    var latestScore = candidate.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
-                    var score = (float)(latestScore?.TotalResumeScore ?? 0);
+                    var latestResume = GetLatestResume(candidate);
+                    var score = (float)(latestResume?.AdjustedScore ?? latestResume?.TotalScore ?? 0);
                     var bgColor = displayRank % 2 == 0 ? Colors.Grey.Lighten4 : Colors.White;
                     
                     // Color based on score range: 0-20 red, 20-40 orange, 40-60 yellow, 60-80 light green, 80-100 green
@@ -607,9 +607,18 @@ namespace BusinessObjectLayer.Services
             return "#F44336"; // Red
         }
 
-        private void ComposeCandidateHeader(IContainer container, ParsedCandidates candidate, int rank)
+        private Resume? GetLatestResume(Candidate candidate)
         {
-            var latestScore = candidate.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
+            return candidate.Resumes?
+                .Where(r => r.IsActive)
+                .OrderByDescending(r => r.IsLatest)
+                .ThenByDescending(r => r.CreatedAt ?? DateTime.MinValue)
+                .FirstOrDefault();
+        }
+
+        private void ComposeCandidateHeader(IContainer container, Candidate candidate, int rank)
+        {
+            var latestResume = GetLatestResume(candidate);
 
             container.Background(Colors.Green.Darken2).Padding(15).Row(row =>
             {
@@ -618,16 +627,16 @@ namespace BusinessObjectLayer.Services
                     .Bold()
                     .FontColor(Colors.White);
 
-                row.ConstantItem(120).AlignRight().Text($"Score: {latestScore?.TotalResumeScore ?? 0:F1}")
+                row.ConstantItem(120).AlignRight().Text($"Score: {latestResume?.AdjustedScore ?? latestResume?.TotalScore ?? 0:F1}")
                     .FontSize(16)
                     .Bold()
                     .FontColor(Colors.White);
             });
         }
 
-        private void ComposeCandidateContent(IContainer container, ParsedCandidates candidate)
+        private void ComposeCandidateContent(IContainer container, Candidate candidate)
         {
-            var latestScore = candidate.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
+            var latestResume = GetLatestResume(candidate);
 
             container.PaddingVertical(15).Column(col =>
             {
@@ -635,7 +644,7 @@ namespace BusinessObjectLayer.Services
                 col.Item().PaddingBottom(15).Element(c => ComposeCandidateBasicInfo(c, candidate));
 
                 // AI Score Breakdown Section
-                col.Item().PaddingBottom(15).Element(c => ComposeScoreBreakdown(c, latestScore));
+                col.Item().PaddingBottom(15).Element(c => ComposeScoreBreakdown(c, latestResume));
 
                 // Matched Skills Section
                 col.Item().PaddingBottom(15).Element(c => ComposeSkillsSection(c, "Matched Skills", candidate.MatchSkills, Colors.Green.Lighten4));
@@ -644,11 +653,11 @@ namespace BusinessObjectLayer.Services
                 col.Item().PaddingBottom(15).Element(c => ComposeSkillsSection(c, "Missing Skills", candidate.MissingSkills, Colors.Red.Lighten4));
 
                 // AI Summary Section
-                col.Item().Element(c => ComposeAISummary(c, latestScore?.AIExplanation));
+                col.Item().Element(c => ComposeAISummary(c, latestResume?.AIExplanation));
             });
         }
 
-        private void ComposeCandidateBasicInfo(IContainer container, ParsedCandidates candidate)
+        private void ComposeCandidateBasicInfo(IContainer container, Candidate candidate)
         {
             container.Background(Colors.Grey.Lighten4).Padding(12).Column(col =>
             {
@@ -686,7 +695,7 @@ namespace BusinessObjectLayer.Services
             });
         }
 
-        private void ComposeScoreBreakdown(IContainer container, AIScores? aiScore)
+        private void ComposeScoreBreakdown(IContainer container, Resume? resume)
         {
             container.Background(Colors.Blue.Lighten5).Padding(12).Column(col =>
             {
@@ -704,7 +713,7 @@ namespace BusinessObjectLayer.Services
                     // Left side - Total Score with progress bar
                     row.RelativeItem(1).Column(leftCol =>
                     {
-                        var totalScore = (float)(aiScore?.TotalResumeScore ?? 0);
+                        var totalScore = (float)(resume?.AdjustedScore ?? resume?.TotalScore ?? 0);
                         var totalScoreColorHex = GetScoreColor(totalScore);
                         
                         leftCol.Item().Text(t =>
@@ -739,11 +748,11 @@ namespace BusinessObjectLayer.Services
                     {
                         rightCol.Item().Text("Criteria Scores:").Bold().FontSize(11);
 
-                        if (aiScore?.AIScoreDetails != null && aiScore.AIScoreDetails.Any())
+                        if (resume?.ScoreDetails != null && resume.ScoreDetails.Any())
                         {
                             rightCol.Item().PaddingTop(8).Column(criteriaCol =>
                             {
-                                foreach (var detail in aiScore.AIScoreDetails)
+                                foreach (var detail in resume.ScoreDetails)
                                 {
                                     var criteriaScore = (float)detail.Score;
                                     var criteriaPercent = Math.Min(criteriaScore / 100f, 1f);

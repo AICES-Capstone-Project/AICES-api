@@ -231,7 +231,7 @@ namespace BusinessObjectLayer.Services
                         if (!pushed)
                         {
                             // Log warning but don't fail the request
-                            Console.WriteLine($"Warning: Failed to push job to Redis queue for resumeId: {parsedResume.ResumeId}");
+                            Console.WriteLine($"Warning: Failed to push job to Redis queue for resumeId: {resume.ResumeId}");
                         }
 
                         // Store job data with queueJobId as key for tracking and retrieval (expires in 24 hours)
@@ -257,7 +257,7 @@ namespace BusinessObjectLayer.Services
                             Message = "Resume uploaded successfully.",
                             Data = new ResumeUploadResponse
                             {
-                                ResumeId = parsedResume.ResumeId,
+                                ResumeId = resume.ResumeId,
                                 QueueJobId = queueJobId,
                                 Status = ResumeStatusEnum.Pending
                             }
@@ -528,8 +528,8 @@ namespace BusinessObjectLayer.Services
                     await _uow.BeginTransactionAsync();
                     try
                     {
-                        parsedResume.ResumeStatus = ResumeStatusEnum.Invalid;
-                        parsedResume.Data = JsonSerializer.Serialize(
+                        resume.Status = ResumeStatusEnum.Invalid;
+                        resume.Data = JsonSerializer.Serialize(
                             new { error = request.Error },
                             new JsonSerializerOptions
                             {
@@ -589,12 +589,12 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                if (request.AIScoreDetail == null || request.AIScoreDetail.Count == 0)
+                if (request.ScoreDetails == null || request.ScoreDetails.Count == 0)
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = "AIScoreDetail is required."
+                        Message = "ScoreDetails is required."
                     };
                 }
 
@@ -678,7 +678,7 @@ namespace BusinessObjectLayer.Services
                     await _uow.SaveChangesAsync();
 
                     // 6. Save ScoreDetails
-                    var scoreDetails = request.AIScoreDetail.Select(detail => new ScoreDetail
+                    var scoreDetails = request.ScoreDetails.Select(detail => new ScoreDetail
                     {
                         CriteriaId = detail.CriteriaId,
                         ResumeId = resume.ResumeId,
@@ -724,24 +724,24 @@ namespace BusinessObjectLayer.Services
                 try
                 {
                     var resumeRepo = _uow.GetRepository<IResumeRepository>();
-                    var parsedResume = await parsedResumeRepo.GetByQueueJobIdAsync(request.QueueJobId);
+                    var parsedResume = await resumeRepo.GetByQueueJobIdAsync(request.QueueJobId);
                     if (parsedResume != null)
                     {
                         await _uow.BeginTransactionAsync();
                         try
                         {
-                            parsedResume.ResumeStatus = ResumeStatusEnum.Failed;
-                        await resumeRepo.UpdateAsync(resume);
-                        await _uow.CommitTransactionAsync();
+                            parsedResume.Status = ResumeStatusEnum.Failed;
+                            await resumeRepo.UpdateAsync(parsedResume);
+                            await _uow.CommitTransactionAsync();
 
                         // Reload resume for SignalR
-                        var resumeForSignalR = await resumeRepo.GetByJobIdAndResumeIdAsync(resume.JobId, resume.ResumeId);
+                            var resumeForSignalR = await resumeRepo.GetByJobIdAndResumeIdAsync(parsedResume.JobId, parsedResume.ResumeId);
                             
                             // Send real-time SignalR update
                             _ = Task.Run(async () => 
                             {
                                 await Task.Delay(200);
-                                await SendResumeUpdateAsync(resume.JobId, resume.ResumeId, "status_changed", 
+                                await SendResumeUpdateAsync(parsedResume.JobId, parsedResume.ResumeId, "status_changed", 
                                     new { newStatus = "Failed" }, resumeForSignalR);
                             });
                         }
@@ -822,7 +822,8 @@ namespace BusinessObjectLayer.Services
                     ResumeId = resume.ResumeId,
                     Status = resume.Status,
                     FullName = resume.Candidate?.FullName ?? "Unknown",
-                    TotalResumeScore = resume.AdjustedScore ?? resume.TotalScore
+                    TotalScore = resume.TotalScore,
+                    AdjustedScore = resume.AdjustedScore
                 }).ToList();
 
                 return new ServiceResponse
@@ -921,16 +922,6 @@ namespace BusinessObjectLayer.Services
                         AINote = detail.AINote
                     }).ToList() ?? new List<ResumeScoreDetailResponse>();
 
-                // Create AIScoreResponse from Resume data
-                var aiScoreResponse = new AIScoreResponse
-                {
-                    ScoreId = resume.ResumeId, // Use ResumeId as identifier
-                    TotalResumeScore = resume.AdjustedScore ?? resume.TotalScore ?? 0m,
-                    AIExplanation = resume.AIExplanation,
-                    CreatedAt = resume.CreatedAt,
-                    ScoreDetails = scoreDetailsResponse
-                };
-
                 var response = new JobResumeDetailResponse
                 {
                     ResumeId = resume.ResumeId,
@@ -944,7 +935,10 @@ namespace BusinessObjectLayer.Services
                     PhoneNumber = candidate?.PhoneNumber,
                     MatchSkills = candidate?.MatchSkills,
                     MissingSkills = candidate?.MissingSkills,
-                    AIScores = new List<AIScoreResponse> { aiScoreResponse }
+                    TotalScore = resume.TotalScore,
+                    AdjustedScore = resume.AdjustedScore,
+                    AIExplanation = resume.AIExplanation,
+                    ScoreDetails = scoreDetailsResponse
                 };
 
                 return new ServiceResponse
@@ -1021,7 +1015,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Check if resume status is Failed
-                if (resume.ResumeStatus != ResumeStatusEnum.Failed)
+                if (resume.Status != ResumeStatusEnum.Failed)
                 {
                     return new ServiceResponse
                     {
@@ -1106,7 +1100,7 @@ namespace BusinessObjectLayer.Services
                     await _uow.CommitTransactionAsync();
 
                     // Reload resume for SignalR
-                    var retryResume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(resume.JobId, resume.ResumeId);
+                    var retryResume = await resumeRepo.GetByJobIdAndResumeIdAsync(resume.JobId, resume.ResumeId);
                     
                     // Send real-time SignalR update
                     _ = Task.Run(async () => 

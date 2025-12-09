@@ -11,9 +11,9 @@ namespace BusinessObjectLayer.IServices
     public interface IJobSkillService
     {
         Task<ServiceResponse> GetAllAsync();
-        Task<ServiceResponse> GetByIdAsync(int id);
+        Task<ServiceResponse> GetByJobIdAndSkillIdAsync(int jobId, int skillId);
         Task<ServiceResponse> CreateAsync(JobSkillRequest request);
-        Task<ServiceResponse> UpdateAsync(int id, JobSkillRequest request);
-        Task<ServiceResponse> DeleteAsync(int id);
+        Task<ServiceResponse> UpdateAsync(int jobId, int skillId, JobSkillRequest request);
+        Task<ServiceResponse> DeleteAsync(int jobId, int skillId);
     }
 }

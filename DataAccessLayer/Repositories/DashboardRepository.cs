@@ -85,7 +85,7 @@ namespace DataAccessLayer.Repositories
                 .CountAsync();
         }
 
-        public async Task<List<(string Name, string JobTitle, decimal AIScore, Data.Enum.ResumeStatusEnum Status)>> GetTopRatedCandidatesAsync(int companyId, int limit = 5)
+        public async Task<List<(string Name, string JobTitle, decimal Score, Data.Enum.ResumeStatusEnum Status)>> GetTopRatedCandidatesAsync(int companyId, int limit = 5)
         {
             var result = await (from r in _context.Resumes
                                join c in _context.Candidates on r.CandidateId equals c.CandidateId
@@ -98,13 +98,13 @@ namespace DataAccessLayer.Repositories
                                {
                                    Name = c.FullName,
                                    JobTitle = j.Title,
-                                   AIScore = r.AdjustedScore ?? r.TotalScore ?? 0m,
+                                   Score = r.AdjustedScore ?? r.TotalScore ?? 0m,
                                    Status = r.Status
                                })
                                .Take(limit)
                                .ToListAsync();
 
-            return result.Select(x => (x.Name, x.JobTitle, x.AIScore, x.Status)).ToList();
+            return result.Select(x => (x.Name, x.JobTitle, x.Score, x.Status)).ToList();
         }
 
         public async Task<int> GetTotalCompaniesAsync()

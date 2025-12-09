@@ -22,8 +22,8 @@ namespace Data.Models.Request
         [JsonPropertyName("AIExplanation")]
         public object? AIExplanation { get; set; }
 
-        [JsonPropertyName("AIScoreDetail")]
-        public List<AIScoreDetailRequest> AIScoreDetail { get; set; } = new();
+        [JsonPropertyName("scoreDetails")]
+        public List<ScoreDetailRequest> ScoreDetails { get; set; } = new();
 
         [JsonPropertyName("rawJson")]
         public object? RawJson { get; set; }
@@ -35,7 +35,7 @@ namespace Data.Models.Request
         public string? Error { get; set; }
     }
 
-    public class AIScoreDetailRequest
+    public class ScoreDetailRequest
     {
         [Required]
         public int CriteriaId { get; set; }

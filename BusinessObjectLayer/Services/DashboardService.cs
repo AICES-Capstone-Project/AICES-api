@@ -200,8 +200,8 @@ namespace BusinessObjectLayer.Services
                 {
                     var resumeRepo = _uow.GetRepository<IResumeRepository>();
                     var resumeCount = startDate.HasValue
-                        ? await parsedResumeRepo.CountResumesSinceDateAsync(companyId, startDate.Value, hoursLimit ?? 0)
-                        : await parsedResumeRepo.CountResumesInLastHoursAsync(companyId, hoursLimit ?? 0);
+                        ? await resumeRepo.CountResumesSinceDateAsync(companyId, startDate.Value, hoursLimit ?? 0)
+                        : await resumeRepo.CountResumesInLastHoursAsync(companyId, hoursLimit ?? 0);
 
                     creditsRemaining = Math.Max(0, resumeLimit.Value - resumeCount);
                 }
@@ -294,7 +294,7 @@ namespace BusinessObjectLayer.Services
                 {
                     Name = x.Name,
                     JobTitle = x.JobTitle,
-                    AIScore = x.AIScore,
+                    Score = x.Score,
                     Status = x.Status
                 }).ToList();
 

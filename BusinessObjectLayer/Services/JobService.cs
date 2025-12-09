@@ -1185,7 +1185,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Prevent deleting job if there is any resume associated with this job
-                var jobResumes = await parsedResumeRepo.GetByJobIdAsync(job.JobId);
+                var jobResumes = await resumeRepo.GetByJobIdAsync(job.JobId);
                 if (jobResumes != null && jobResumes.Any())
                 {
                     return new ServiceResponse

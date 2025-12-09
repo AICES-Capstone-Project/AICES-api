@@ -69,8 +69,8 @@ namespace BusinessObjectLayer.Services.UsageLimits
                 // Count resumes uploaded since subscription start date or in last HoursLimit hours for Free plan
                 var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 var resumeCount = startDate.HasValue
-                    ? await parsedResumeRepo.CountResumesSinceDateAsync(companyId, startDate.Value, hoursLimit ?? 0)
-                    : await parsedResumeRepo.CountResumesInLastHoursAsync(companyId, hoursLimit ?? 0);
+                    ? await resumeRepo.CountResumesSinceDateAsync(companyId, startDate.Value, hoursLimit ?? 0)
+                    : await resumeRepo.CountResumesInLastHoursAsync(companyId, hoursLimit ?? 0);
 
                 if (resumeCount >= resumeLimit)
                 {
@@ -167,8 +167,8 @@ namespace BusinessObjectLayer.Services.UsageLimits
                 // Use InTransaction method to see records created in current transaction
                 var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 var resumeCount = startDate.HasValue
-                    ? await parsedResumeRepo.CountResumesSinceDateInTransactionAsync(companyId, startDate.Value, hoursLimit ?? 0)
-                    : await parsedResumeRepo.CountResumesInLastHoursInTransactionAsync(companyId, hoursLimit ?? 0);
+                    ? await resumeRepo.CountResumesSinceDateInTransactionAsync(companyId, startDate.Value, hoursLimit ?? 0)
+                    : await resumeRepo.CountResumesInLastHoursInTransactionAsync(companyId, hoursLimit ?? 0);
 
                 if (resumeCount >= resumeLimit)
                 {

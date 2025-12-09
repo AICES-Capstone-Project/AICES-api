@@ -10,8 +10,8 @@ namespace DataAccessLayer.IRepositories
     public interface IJobSkillRepository
     {
         Task<IEnumerable<JobSkill>> GetAllAsync();
-        Task<JobSkill?> GetByIdAsync(int id);
-        Task<JobSkill?> GetForUpdateAsync(int id);
+        Task<JobSkill?> GetByJobIdAndSkillIdAsync(int jobId, int skillId);
+        Task<JobSkill?> GetForUpdateByJobIdAndSkillIdAsync(int jobId, int skillId);
         Task AddAsync(JobSkill jobSkill);
         void Update(JobSkill jobSkill);
         void Delete(JobSkill jobSkill);

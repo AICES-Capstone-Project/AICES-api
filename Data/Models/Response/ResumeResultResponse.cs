@@ -11,12 +11,13 @@ namespace Data.Models.Response
     public class ResumeResultData
     {
         public int ResumeId { get; set; }
-        public decimal TotalResumeScore { get; set; }
+        public decimal TotalScore { get; set; }
+        public decimal? AdjustedScore { get; set; }
         public string? AIExplanation { get; set; }
-        public List<AIScoreDetailResponse> AIScoreDetails { get; set; } = new();
+        public List<ScoreDetailResponse> ScoreDetails { get; set; } = new();
     }
 
-    public class AIScoreDetailResponse
+    public class ScoreDetailResponse
     {
         public int CriteriaId { get; set; }
         public string CriteriaName { get; set; } = string.Empty;

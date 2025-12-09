@@ -27,21 +27,21 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
-        public async Task<JobSkill?> GetByIdAsync(int id)
+        public async Task<JobSkill?> GetByJobIdAndSkillIdAsync(int jobId, int skillId)
         {
             return await _context.JobSkills
                 .AsNoTracking()
                 .Include(js => js.Job)
                 .Include(js => js.Skill)
-                .FirstOrDefaultAsync(js => js.JobSkillId == id);
+                .FirstOrDefaultAsync(js => js.JobId == jobId && js.SkillId == skillId);
         }
 
-        public async Task<JobSkill?> GetForUpdateAsync(int id)
+        public async Task<JobSkill?> GetForUpdateByJobIdAndSkillIdAsync(int jobId, int skillId)
         {
             return await _context.JobSkills
                 .Include(js => js.Job)
                 .Include(js => js.Skill)
-                .FirstOrDefaultAsync(js => js.JobSkillId == id);
+                .FirstOrDefaultAsync(js => js.JobId == jobId && js.SkillId == skillId);
         }
 
         public async Task AddAsync(JobSkill jobSkill)
