@@ -18,6 +18,8 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetSystemCompanySubscriptionsAsync();
         Task<ServiceResponse> GetSystemRevenueAsync(string range = "month");
         Task<ServiceResponse> GetSystemUserStatsAsync();
+        Task<ServiceResponse> GetSystemJobStatsAsync();
+        Task<ServiceResponse> GetSystemResumeStatsAsync();
     }
 }
 

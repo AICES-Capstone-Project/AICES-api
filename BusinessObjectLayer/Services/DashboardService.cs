@@ -573,6 +573,82 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetSystemJobStatsAsync()
+        {
+            try
+            {
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+
+                var totalJobs = await dashboardRepo.GetTotalJobsAsync();
+                var activeJobs = await dashboardRepo.GetJobsCountByStatusAsync(JobStatusEnum.Published);
+                var closedJobs = await dashboardRepo.GetJobsCountByStatusAsync(JobStatusEnum.Rejected);
+                var expiredJobs = await dashboardRepo.GetJobsCountByStatusAsync(JobStatusEnum.Archived);
+                var newJobsThisMonth = await dashboardRepo.GetNewJobsThisMonthAsync();
+
+                var response = new SystemJobStatsResponse
+                {
+                    TotalJobs = totalJobs,
+                    ActiveJobs = activeJobs,
+                    ClosedJobs = closedJobs,
+                    ExpiredJobs = expiredJobs,
+                    NewJobsThisMonth = newJobsThisMonth
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Job statistics retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get system job stats error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving job statistics."
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> GetSystemResumeStatsAsync()
+        {
+            try
+            {
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+
+                var totalResumes = await dashboardRepo.GetTotalResumesAsync();
+                var newResumesThisMonth = await dashboardRepo.GetNewResumesThisMonthAsync();
+                var appliedThisMonth = await dashboardRepo.GetAppliedResumesThisMonthAsync();
+
+                var response = new SystemResumeStatsResponse
+                {
+                    TotalResumes = totalResumes,
+                    NewResumesThisMonth = newResumesThisMonth,
+                    AppliedThisMonth = appliedThisMonth
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Resume statistics retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get system resume stats error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving resume statistics."
+                };
+            }
+        }
     }
 }
 
