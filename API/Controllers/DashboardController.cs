@@ -116,6 +116,14 @@ namespace API.Controllers
             var serviceResponse = await _dashboardService.GetSystemResumeStatsAsync();
             return ControllerResponse.Response(serviceResponse);
         }
+
+        [HttpGet("subscription-plans")]
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+        public async Task<IActionResult> GetSubscriptionPlanBreakdown([FromQuery] string range = "month")
+        {
+            var serviceResponse = await _dashboardService.GetSubscriptionPlanBreakdownAsync(range);
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
 
