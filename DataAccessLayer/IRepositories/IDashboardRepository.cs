@@ -33,6 +33,12 @@ namespace DataAccessLayer.IRepositories
         Task<int> GetLockedUsersCountAsync();
         Task<int> GetNewUsersThisMonthAsync();
         Task<List<(string RoleName, int Count)>> GetUsersCountByRoleAsync();
+        Task<int> GetTotalJobsAsync(bool onlyActive = true);
+        Task<int> GetJobsCountByStatusAsync(Data.Enum.JobStatusEnum status);
+        Task<int> GetNewJobsThisMonthAsync();
+        Task<int> GetTotalResumesAsync(bool onlyActive = true);
+        Task<int> GetNewResumesThisMonthAsync();
+        Task<int> GetAppliedResumesThisMonthAsync();
     }
 }
 

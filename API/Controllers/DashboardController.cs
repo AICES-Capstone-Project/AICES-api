@@ -93,14 +93,27 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        /// <summary>
-        /// User statistics (system users + company users)
-        /// </summary>
         [HttpGet("users")]
         [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
         public async Task<IActionResult> GetSystemUserStats()
         {
             var serviceResponse = await _dashboardService.GetSystemUserStatsAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpGet("jobs")]
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+        public async Task<IActionResult> GetSystemJobStats()
+        {
+            var serviceResponse = await _dashboardService.GetSystemJobStatsAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpGet("resumes")]
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+        public async Task<IActionResult> GetSystemResumeStats()
+        {
+            var serviceResponse = await _dashboardService.GetSystemResumeStatsAsync();
             return ControllerResponse.Response(serviceResponse);
         }
     }

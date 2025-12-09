@@ -321,6 +321,68 @@ namespace DataAccessLayer.Repositories
 
             return data.Select(x => (x.RoleName, x.Count)).ToList();
         }
+
+        public async Task<int> GetTotalJobsAsync(bool onlyActive = true)
+        {
+            var query = _context.Jobs.AsNoTracking().AsQueryable();
+            if (onlyActive) query = query.Where(j => j.IsActive);
+            return await query.CountAsync();
+        }
+
+        public async Task<int> GetJobsCountByStatusAsync(JobStatusEnum status)
+        {
+            return await _context.Jobs
+                .AsNoTracking()
+                .Where(j => j.IsActive && j.JobStatus == status)
+                .CountAsync();
+        }
+
+        public async Task<int> GetNewJobsThisMonthAsync()
+        {
+            var now = DateTime.UtcNow;
+            var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            return await _context.Jobs
+                .AsNoTracking()
+                .Where(j => j.IsActive
+                    && j.CreatedAt.HasValue
+                    && j.CreatedAt.Value >= startOfMonth)
+                .CountAsync();
+        }
+
+        public async Task<int> GetTotalResumesAsync(bool onlyActive = true)
+        {
+            var query = _context.ParsedResumes.AsNoTracking().AsQueryable();
+            if (onlyActive) query = query.Where(pr => pr.IsActive);
+            return await query.CountAsync();
+        }
+
+        public async Task<int> GetNewResumesThisMonthAsync()
+        {
+            var now = DateTime.UtcNow;
+            var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            return await _context.ParsedResumes
+                .AsNoTracking()
+                .Where(pr => pr.IsActive
+                    && pr.CreatedAt.HasValue
+                    && pr.CreatedAt.Value >= startOfMonth)
+                .CountAsync();
+        }
+
+        public async Task<int> GetAppliedResumesThisMonthAsync()
+        {
+            var now = DateTime.UtcNow;
+            var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            return await _context.ParsedResumes
+                .AsNoTracking()
+                .Where(pr => pr.IsActive
+                    && pr.CreatedAt.HasValue
+                    && pr.CreatedAt.Value >= startOfMonth
+                    && pr.ResumeStatus == ResumeStatusEnum.Completed)
+                .CountAsync();
+        }
     }
 }
 
