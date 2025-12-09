@@ -198,7 +198,7 @@ namespace BusinessObjectLayer.Services
 
                 if (resumeLimit.HasValue && resumeLimit.Value > 0)
                 {
-                    var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                    var resumeRepo = _uow.GetRepository<IResumeRepository>();
                     var resumeCount = startDate.HasValue
                         ? await parsedResumeRepo.CountResumesSinceDateAsync(companyId, startDate.Value, hoursLimit ?? 0)
                         : await parsedResumeRepo.CountResumesInLastHoursAsync(companyId, hoursLimit ?? 0);

@@ -169,7 +169,7 @@ namespace BusinessObjectLayer.Services
                 var jobRepo = _uow.GetRepository<IJobRepository>();
                 var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
                 var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
-                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 var skillRepo = _uow.GetRepository<ISkillRepository>();
                 
                 // Get user email from claims
@@ -1158,7 +1158,7 @@ namespace BusinessObjectLayer.Services
                 var authRepo = _uow.GetRepository<IAuthRepository>();
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 var jobRepo = _uow.GetRepository<IJobRepository>();
-                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 
                 var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
                 if (string.IsNullOrEmpty(emailClaim))

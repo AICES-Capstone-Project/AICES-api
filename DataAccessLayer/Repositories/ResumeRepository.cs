@@ -1,0 +1,136 @@
+using Data.Entities;
+using Data.Enum;
+using DataAccessLayer.IRepositories;
+using Microsoft.EntityFrameworkCore;
+
+namespace DataAccessLayer.Repositories
+{
+    public class ResumeRepository : IResumeRepository
+    {
+        private readonly AICESDbContext _context;
+
+        public ResumeRepository(AICESDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<Resume> CreateAsync(Resume resume)
+        {
+            await _context.Resumes.AddAsync(resume);
+            return resume;
+        }
+
+        public async Task<Resume?> GetByQueueJobIdAsync(string queueJobId)
+        {
+            return await _context.Resumes
+                .FirstOrDefaultAsync(r => r.QueueJobId == queueJobId);
+        }
+
+        public async Task<Resume?> GetByIdAsync(int resumeId)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.ResumeId == resumeId);
+        }
+
+        public async Task<Resume?> GetForUpdateAsync(int resumeId)
+        {
+            return await _context.Resumes
+                .FirstOrDefaultAsync(r => r.ResumeId == resumeId);
+        }
+
+        public async Task<Resume?> GetByIdWithDetailsAsync(int resumeId)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .Include(r => r.Candidate)
+                .Include(r => r.ScoreDetails)
+                    .ThenInclude(sd => sd.Criteria)
+                .FirstOrDefaultAsync(r => r.ResumeId == resumeId);
+        }
+
+        public async Task UpdateAsync(Resume resume)
+        {
+            _context.Resumes.Update(resume);
+        }
+
+        public async Task<List<Resume>> GetByJobIdAsync(int jobId)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .Include(r => r.Candidate)
+                .Where(r => r.JobId == jobId && r.IsActive)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<Resume?> GetByJobIdAndResumeIdAsync(int jobId, int resumeId)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .Include(r => r.Candidate)
+                .Include(r => r.ScoreDetails)
+                    .ThenInclude(sd => sd.Criteria)
+                .Where(r => r.JobId == jobId && r.ResumeId == resumeId && r.IsActive)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<List<Resume>> GetPendingBeforeAsync(DateTime cutoff)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .Where(x => x.Status == ResumeStatusEnum.Pending 
+                         && x.CreatedAt < cutoff
+                         && x.IsActive)
+                .ToListAsync();
+        }
+
+        public async Task<int> CountResumesInLastHoursAsync(int companyId, int hours)
+        {
+            var hoursAgo = DateTime.UtcNow.AddHours(-hours);
+            return await _context.Resumes
+                .AsNoTracking()
+                .Where(r => r.CompanyId == companyId
+                    && r.CreatedAt.HasValue
+                    && r.CreatedAt.Value >= hoursAgo)
+                .CountAsync();
+        }
+
+        public async Task<int> CountResumesInLastHoursInTransactionAsync(int companyId, int hours)
+        {
+            var hoursAgo = DateTime.UtcNow.AddHours(-hours);
+            // No AsNoTracking() to see records created in current transaction
+            return await _context.Resumes
+                .Where(r => r.CompanyId == companyId
+                    && r.CreatedAt.HasValue
+                    && r.CreatedAt.Value >= hoursAgo)
+                .CountAsync();
+        }
+
+        public async Task<int> CountResumesSinceDateAsync(int companyId, DateTime startDate, int hours)
+        {
+            var hoursAgo = DateTime.UtcNow.AddHours(-hours);
+            var effectiveStartDate = startDate > hoursAgo ? startDate : hoursAgo;
+            
+            return await _context.Resumes
+                .AsNoTracking()
+                .Where(r => r.CompanyId == companyId
+                    && r.CreatedAt.HasValue
+                    && r.CreatedAt.Value >= effectiveStartDate)
+                .CountAsync();
+        }
+
+        public async Task<int> CountResumesSinceDateInTransactionAsync(int companyId, DateTime startDate, int hours)
+        {
+            var hoursAgo = DateTime.UtcNow.AddHours(-hours);
+            var effectiveStartDate = startDate > hoursAgo ? startDate : hoursAgo;
+            
+            // No AsNoTracking() to see records created in current transaction
+            return await _context.Resumes
+                .Where(r => r.CompanyId == companyId
+                    && r.CreatedAt.HasValue
+                    && r.CreatedAt.Value >= effectiveStartDate)
+                .CountAsync();
+        }
+    }
+}

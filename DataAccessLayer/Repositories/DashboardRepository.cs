@@ -19,14 +19,14 @@ namespace DataAccessLayer.Repositories
 
         public async Task<List<(int CategoryId, string CategoryName, int SpecializationId, string SpecializationName, int ResumeCount)>> GetTopCategorySpecByResumeCountAsync(int companyId, int top = 10)
         {
-            var result = await (from pr in _context.ParsedResumes
-                               join j in _context.Jobs on pr.JobId equals j.JobId
+            var result = await (from r in _context.Resumes
+                               join j in _context.Jobs on r.JobId equals j.JobId
                                join s in _context.Specializations on j.SpecializationId equals s.SpecializationId
                                join c in _context.Categories on s.CategoryId equals c.CategoryId
-                               where pr.IsActive && pr.CompanyId == companyId 
+                               where r.IsActive && r.CompanyId == companyId 
                                   && j.IsActive 
                                   && j.SpecializationId != null
-                               group pr by new { c.CategoryId, CategoryName = c.Name, s.SpecializationId, SpecializationName = s.Name } into g
+                               group r by new { c.CategoryId, CategoryName = c.Name, s.SpecializationId, SpecializationName = s.Name } into g
                                select new
                                {
                                    g.Key.CategoryId,
@@ -54,12 +54,12 @@ namespace DataAccessLayer.Repositories
 
         public async Task<int> GetTotalCandidatesCountAsync(int companyId)
         {
-            // Count unique candidates (1 người chỉ được tính 1 lần) dựa trên email trong ParsedCandidates,
-            // join với ParsedResumes để filter theo CompanyId.
-            return await (from pr in _context.ParsedResumes
-                          join pc in _context.ParsedCandidates on pr.ResumeId equals pc.ResumeId
-                          where pr.CompanyId == companyId && pr.IsActive
-                          select pc.Email.ToLower())
+            // Count unique candidates (1 người chỉ được tính 1 lần) dựa trên email trong Candidates,
+            // join với Resumes để filter theo CompanyId.
+            return await (from r in _context.Resumes
+                          join c in _context.Candidates on r.CandidateId equals c.CandidateId
+                          where r.CompanyId == companyId && r.IsActive
+                          select c.Email.ToLower())
                          .Distinct()
                          .CountAsync();
         }
@@ -77,30 +77,29 @@ namespace DataAccessLayer.Repositories
 
         public async Task<int> GetAiProcessedCountAsync(int companyId)
         {
-            return await (from pr in _context.ParsedResumes
-                         join pc in _context.ParsedCandidates on pr.ResumeId equals pc.ResumeId
-                         join ais in _context.AIScores on pc.CandidateId equals ais.CandidateId
-                         where pr.CompanyId == companyId && pr.IsActive
-                         select pr.ResumeId)
-                         .Distinct()
-                         .CountAsync();
+            return await _context.Resumes
+                .AsNoTracking()
+                .Where(r => r.CompanyId == companyId 
+                         && r.IsActive 
+                         && r.TotalScore != null)
+                .CountAsync();
         }
 
         public async Task<List<(string Name, string JobTitle, decimal AIScore, Data.Enum.ResumeStatusEnum Status)>> GetTopRatedCandidatesAsync(int companyId, int limit = 5)
         {
-            var result = await (from pr in _context.ParsedResumes
-                               join pc in _context.ParsedCandidates on pr.ResumeId equals pc.ResumeId
-                               join ais in _context.AIScores on pc.CandidateId equals ais.CandidateId
-                               join j in _context.Jobs on pr.JobId equals j.JobId
-                               where pr.CompanyId == companyId 
-                                  && pr.IsActive
-                               orderby ais.TotalResumeScore descending, ais.CreatedAt descending
+            var result = await (from r in _context.Resumes
+                               join c in _context.Candidates on r.CandidateId equals c.CandidateId
+                               join j in _context.Jobs on r.JobId equals j.JobId
+                               where r.CompanyId == companyId 
+                                  && r.IsActive
+                                  && r.TotalScore != null
+                               orderby (r.AdjustedScore ?? r.TotalScore) descending, r.CreatedAt descending
                                select new
                                {
-                                   Name = pc.FullName,
+                                   Name = c.FullName,
                                    JobTitle = j.Title,
-                                   AIScore = ais.TotalResumeScore,
-                                   Status = pr.ResumeStatus
+                                   AIScore = r.AdjustedScore ?? r.TotalScore ?? 0m,
+                                   Status = r.Status
                                })
                                .Take(limit)
                                .ToListAsync();
@@ -155,9 +154,9 @@ namespace DataAccessLayer.Repositories
 
         public async Task<int> GetTotalResumesAsync()
         {
-            return await _context.ParsedResumes
+            return await _context.Resumes
                 .AsNoTracking()
-                .Where(pr => pr.IsActive)
+                .Where(r => r.IsActive)
                 .CountAsync();
         }
 
@@ -196,8 +195,8 @@ namespace DataAccessLayer.Repositories
                 {
                     c.CompanyId,
                     CompanyName = c.Name,
-                    ResumeCount = _context.ParsedResumes
-                        .Where(pr => pr.CompanyId == c.CompanyId && pr.IsActive)
+                    ResumeCount = _context.Resumes
+                        .Where(r => r.CompanyId == c.CompanyId && r.IsActive)
                         .Count(),
                     JobCount = _context.Jobs
                         .Where(j => j.CompanyId == c.CompanyId && j.IsActive)
@@ -352,8 +351,8 @@ namespace DataAccessLayer.Repositories
 
         public async Task<int> GetTotalResumesAsync(bool onlyActive = true)
         {
-            var query = _context.ParsedResumes.AsNoTracking().AsQueryable();
-            if (onlyActive) query = query.Where(pr => pr.IsActive);
+            var query = _context.Resumes.AsNoTracking().AsQueryable();
+            if (onlyActive) query = query.Where(r => r.IsActive);
             return await query.CountAsync();
         }
 
@@ -362,11 +361,11 @@ namespace DataAccessLayer.Repositories
             var now = DateTime.UtcNow;
             var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
-            return await _context.ParsedResumes
+            return await _context.Resumes
                 .AsNoTracking()
-                .Where(pr => pr.IsActive
-                    && pr.CreatedAt.HasValue
-                    && pr.CreatedAt.Value >= startOfMonth)
+                .Where(r => r.IsActive
+                    && r.CreatedAt.HasValue
+                    && r.CreatedAt.Value >= startOfMonth)
                 .CountAsync();
         }
 
@@ -375,12 +374,12 @@ namespace DataAccessLayer.Repositories
             var now = DateTime.UtcNow;
             var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
-            return await _context.ParsedResumes
+            return await _context.Resumes
                 .AsNoTracking()
-                .Where(pr => pr.IsActive
-                    && pr.CreatedAt.HasValue
-                    && pr.CreatedAt.Value >= startOfMonth
-                    && pr.ResumeStatus == ResumeStatusEnum.Completed)
+                .Where(r => r.IsActive
+                    && r.CreatedAt.HasValue
+                    && r.CreatedAt.Value >= startOfMonth
+                    && r.Status == ResumeStatusEnum.Completed)
                 .CountAsync();
         }
 

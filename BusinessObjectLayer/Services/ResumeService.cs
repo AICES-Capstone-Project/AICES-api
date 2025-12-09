@@ -62,7 +62,7 @@ namespace BusinessObjectLayer.Services
             {
                 var jobRepo = _uow.GetRepository<IJobRepository>();
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
-                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
                 // Validate job exists
                 var job = await jobRepo.GetJobByIdAsync(jobId);
@@ -187,17 +187,17 @@ namespace BusinessObjectLayer.Services
                             return limitCheckInTransaction;
                         }
 
-                        // Create ParsedResume record
-                        var parsedResume = new ParsedResumes
+                        // Create Resume record
+                        var resume = new Resume
                         {
                             CompanyId = companyUser.CompanyId.Value,
                             JobId = jobId,
                             QueueJobId = queueJobId,
                             FileUrl = fileUrl,
-                            ResumeStatus = ResumeStatusEnum.Pending
+                            Status = ResumeStatusEnum.Pending
                         };
 
-                        await parsedResumeRepo.CreateAsync(parsedResume);
+                        await resumeRepo.CreateAsync(resume);
                         await _uow.SaveChangesAsync(); // Get ResumeId
 
                         // Prepare criteria data for queue
@@ -215,7 +215,7 @@ namespace BusinessObjectLayer.Services
                         // Push job to Redis queue 
                         var jobData = new ResumeQueueJobResponse
                         {
-                            resumeId = parsedResume.ResumeId,
+                            resumeId = resume.ResumeId,
                             queueJobId = queueJobId,
                             jobId = jobId,
                             fileUrl = fileUrl,
@@ -242,13 +242,13 @@ namespace BusinessObjectLayer.Services
                         await _uow.CommitTransactionAsync();
 
                         // Reload resume for SignalR to get fresh data
-                        var uploadedResume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(jobId, parsedResume.ResumeId);
+                        var uploadedResume = await resumeRepo.GetByJobIdAndResumeIdAsync(jobId, resume.ResumeId);
                         
                         // Send real-time SignalR update
                         _ = Task.Run(async () => 
                         {
                             await Task.Delay(200);
-                            await SendResumeUpdateAsync(jobId, parsedResume.ResumeId, "uploaded", null, uploadedResume);
+                            await SendResumeUpdateAsync(jobId, resume.ResumeId, "uploaded", null, uploadedResume);
                         });
 
                         return new ServiceResponse
@@ -319,7 +319,7 @@ namespace BusinessObjectLayer.Services
                 int userId = int.Parse(userIdClaim);
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 var jobRepo = _uow.GetRepository<IJobRepository>();
-                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 
                 var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 
@@ -353,7 +353,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get resume with parsed data
-                var resume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
+                var resume = await resumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
                 if (resume == null)
                 {
                     return new ServiceResponse
@@ -374,12 +374,12 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Check if resume status is Completed
-                if (resume.ResumeStatus != ResumeStatusEnum.Completed)
+                if (resume.Status != ResumeStatusEnum.Completed)
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = $"Cannot rescore resume with status '{resume.ResumeStatus}'. Only 'Completed' resumes can be rescored."
+                        Message = $"Cannot rescore resume with status '{resume.Status}'. Only 'Completed' resumes can be rescored."
                     };
                 }
 
@@ -449,12 +449,12 @@ namespace BusinessObjectLayer.Services
                 {
                     // Update resume: new queueJobId and status = Pending
                     resume.QueueJobId = newQueueJobId;
-                    resume.ResumeStatus = ResumeStatusEnum.Pending;
-                    await parsedResumeRepo.UpdateAsync(resume);
+                    resume.Status = ResumeStatusEnum.Pending;
+                    await resumeRepo.UpdateAsync(resume);
                     await _uow.CommitTransactionAsync();
 
                     // Reload resume for SignalR
-                    var rescoreResume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(jobId, resume.ResumeId);
+                    var rescoreResume = await resumeRepo.GetByJobIdAndResumeIdAsync(jobId, resume.ResumeId);
                     
                     // Send real-time SignalR update
                     _ = Task.Run(async () => 
@@ -507,14 +507,13 @@ namespace BusinessObjectLayer.Services
 
             try
             {
-                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
-                var parsedCandidateRepo = _uow.GetRepository<IParsedCandidateRepository>();
-                var aiScoreRepo = _uow.GetRepository<IAIScoreRepository>();
-                var aiScoreDetailRepo = _uow.GetRepository<IAIScoreDetailRepository>();
+                var resumeRepo = _uow.GetRepository<IResumeRepository>();
+                var candidateRepo = _uow.GetRepository<ICandidateRepository>();
+                var scoreDetailRepo = _uow.GetRepository<IScoreDetailRepository>();
                 
                 // 1. Find resume
-                var parsedResume = await parsedResumeRepo.GetByQueueJobIdAsync(request.QueueJobId);
-                if (parsedResume == null)
+                var resume = await resumeRepo.GetByQueueJobIdAsync(request.QueueJobId);
+                if (resume == null)
                 {
                     return new ServiceResponse
                     {
@@ -538,17 +537,17 @@ namespace BusinessObjectLayer.Services
                                 WriteIndented = false
                             });
 
-                        await parsedResumeRepo.UpdateAsync(parsedResume);
+                        await resumeRepo.UpdateAsync(resume);
                         await _uow.CommitTransactionAsync();
 
                         // Reload resume for SignalR
-                        var resumeForSignalR = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(parsedResume.JobId, parsedResume.ResumeId);
+                        var resumeForSignalR = await resumeRepo.GetByJobIdAndResumeIdAsync(resume.JobId, resume.ResumeId);
                         
                         // Send real-time SignalR update
                         _ = Task.Run(async () => 
                         {
                             await Task.Delay(200);
-                            await SendResumeUpdateAsync(parsedResume.JobId, parsedResume.ResumeId, "status_changed", 
+                            await SendResumeUpdateAsync(resume.JobId, resume.ResumeId, "status_changed", 
                                 new { newStatus = "Invalid" }, resumeForSignalR);
                         });
                     }
@@ -564,14 +563,14 @@ namespace BusinessObjectLayer.Services
                         Message = "Uploaded file is not a valid resume.",
                         Data = new
                         {
-                            resumeId = parsedResume.ResumeId,
+                            resumeId = resume.ResumeId,
                             status = ResumeStatusEnum.Invalid
                         }
                     };
                 }
 
                 // 2. Validate resumeId
-                if (parsedResume.ResumeId != request.ResumeId)
+                if (resume.ResumeId != request.ResumeId)
                 {
                     return new ServiceResponse
                     {
@@ -603,11 +602,11 @@ namespace BusinessObjectLayer.Services
                 try
                 {
                     // 3. Update parsed resume (JSON + Completed)
-                    parsedResume.ResumeStatus = ResumeStatusEnum.Completed;
+                    resume.Status = ResumeStatusEnum.Completed;
 
                     if (request.RawJson != null)
                     {
-                        parsedResume.Data = request.RawJson is string rawJsonString
+                        resume.Data = request.RawJson is string rawJsonString
                             ? rawJsonString
                             : JsonSerializer.Serialize(request.RawJson, new JsonSerializerOptions
                             {
@@ -616,11 +615,11 @@ namespace BusinessObjectLayer.Services
                             });
                     }
 
-                    await parsedResumeRepo.UpdateAsync(parsedResume);
+                    await resumeRepo.UpdateAsync(resume);
                     await _uow.SaveChangesAsync();
 
-                    // 4. Create/Update ParsedCandidate first
-                    var existingCandidate = await parsedCandidateRepo.GetByResumeIdAsync(parsedResume.ResumeId);
+                    // 4. Create/Update Candidate first
+                    var existingCandidate = await candidateRepo.GetByResumeIdAsync(resume.ResumeId);
 
                     var fullName = request.CandidateInfo?.FullName ?? "Unknown";
                     var email = request.CandidateInfo?.Email ?? "unknown@example.com";
@@ -628,13 +627,12 @@ namespace BusinessObjectLayer.Services
                     var matchSkills = request.CandidateInfo?.MatchSkills;
                     var missingSkills = request.CandidateInfo?.MissingSkills;
 
-                    ParsedCandidates parsedCandidate;
+                    Candidate candidate;
                     if (existingCandidate == null)
                     {
-                        parsedCandidate = new ParsedCandidates
+                        candidate = new Candidate
                         {
-                            ResumeId = parsedResume.ResumeId,
-                            JobId = parsedResume.JobId,
+                            JobId = resume.JobId,
                             FullName = fullName,
                             Email = email,
                             PhoneNumber = phone,
@@ -642,8 +640,11 @@ namespace BusinessObjectLayer.Services
                             MissingSkills = missingSkills
                         };
 
-                        await parsedCandidateRepo.CreateAsync(parsedCandidate);
+                        await candidateRepo.CreateAsync(candidate);
                         await _uow.SaveChangesAsync(); // Get CandidateId
+                        
+                        // Link resume to candidate
+                        resume.CandidateId = candidate.CandidateId;
                     }
                     else
                     {
@@ -653,11 +654,14 @@ namespace BusinessObjectLayer.Services
                         existingCandidate.MatchSkills = matchSkills;
                         existingCandidate.MissingSkills = missingSkills;
 
-                        await parsedCandidateRepo.UpdateAsync(existingCandidate);
-                        parsedCandidate = existingCandidate;
+                        await candidateRepo.UpdateAsync(existingCandidate);
+                        candidate = existingCandidate;
+                        
+                        // Link resume to candidate
+                        resume.CandidateId = candidate.CandidateId;
                     }
 
-                    // 5. Save AI Score with CandidateId
+                    // 5. Save AI Score directly to Resume
                     string? aiExplanationString = request.AIExplanation switch
                     {
                         string s => s,
@@ -666,39 +670,36 @@ namespace BusinessObjectLayer.Services
                         _ => request.AIExplanation.ToString()
                     };
 
-                    var aiScore = new AIScores
-                    {
-                        CandidateId = parsedCandidate.CandidateId,
-                        TotalResumeScore = request.TotalResumeScore.Value,
-                        AIExplanation = aiExplanationString
-                    };
+                    resume.TotalScore = request.TotalResumeScore.Value;
+                    resume.AIExplanation = aiExplanationString;
+                    resume.IsLatest = true; // Mark as latest resume
+                    
+                    await resumeRepo.UpdateAsync(resume);
+                    await _uow.SaveChangesAsync();
 
-                    await aiScoreRepo.CreateAsync(aiScore);
-                    await _uow.SaveChangesAsync(); // Get ScoreId
-
-                    // 6. Save AIScoreDetail
-                    var scoreDetails = request.AIScoreDetail.Select(detail => new AIScoreDetail
+                    // 6. Save ScoreDetails
+                    var scoreDetails = request.AIScoreDetail.Select(detail => new ScoreDetail
                     {
                         CriteriaId = detail.CriteriaId,
-                        ScoreId = aiScore.ScoreId,
+                        ResumeId = resume.ResumeId,
                         Matched = detail.Matched,
                         Score = detail.Score,
                         AINote = detail.AINote
                     }).ToList();
 
-                    await aiScoreDetailRepo.CreateRangeAsync(scoreDetails);
+                    await scoreDetailRepo.CreateRangeAsync(scoreDetails);
                     await _uow.SaveChangesAsync();
                     await _uow.CommitTransactionAsync();
 
                     // Reload resume with all includes to get fresh data for SignalR
-                    var resumeForSignalR = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(parsedResume.JobId, parsedResume.ResumeId);
+                    var resumeForSignalR = await resumeRepo.GetByJobIdAndResumeIdAsync(resume.JobId, resume.ResumeId);
                     
                     // Send real-time SignalR update (fire and forget, but with proper data)
                     _ = Task.Run(async () => 
                     {
                         // Small delay to ensure all changes are persisted
                         await Task.Delay(200);
-                        await SendResumeUpdateAsync(parsedResume.JobId, parsedResume.ResumeId, "status_changed", 
+                        await SendResumeUpdateAsync(resume.JobId, resume.ResumeId, "status_changed", 
                             new { newStatus = "Completed" }, resumeForSignalR);
                     });
 
@@ -707,7 +708,7 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.Success,
                         Message = "AI result saved successfully.",
-                        Data = new { resumeId = parsedResume.ResumeId }
+                        Data = new { resumeId = resume.ResumeId }
                     };
                 }
                 catch
@@ -722,7 +723,7 @@ namespace BusinessObjectLayer.Services
                 Console.WriteLine(ex.StackTrace);
                 try
                 {
-                    var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                    var resumeRepo = _uow.GetRepository<IResumeRepository>();
                     var parsedResume = await parsedResumeRepo.GetByQueueJobIdAsync(request.QueueJobId);
                     if (parsedResume != null)
                     {
@@ -730,17 +731,17 @@ namespace BusinessObjectLayer.Services
                         try
                         {
                             parsedResume.ResumeStatus = ResumeStatusEnum.Failed;
-                            await parsedResumeRepo.UpdateAsync(parsedResume);
-                            await _uow.CommitTransactionAsync();
+                        await resumeRepo.UpdateAsync(resume);
+                        await _uow.CommitTransactionAsync();
 
-                            // Reload resume for SignalR
-                            var resumeForSignalR = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(parsedResume.JobId, parsedResume.ResumeId);
+                        // Reload resume for SignalR
+                        var resumeForSignalR = await resumeRepo.GetByJobIdAndResumeIdAsync(resume.JobId, resume.ResumeId);
                             
                             // Send real-time SignalR update
                             _ = Task.Run(async () => 
                             {
                                 await Task.Delay(200);
-                                await SendResumeUpdateAsync(parsedResume.JobId, parsedResume.ResumeId, "status_changed", 
+                                await SendResumeUpdateAsync(resume.JobId, resume.ResumeId, "status_changed", 
                                     new { newStatus = "Failed" }, resumeForSignalR);
                             });
                         }
@@ -780,7 +781,7 @@ namespace BusinessObjectLayer.Services
                 int userId = int.Parse(userIdClaim);
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 var jobRepo = _uow.GetRepository<IJobRepository>();
-                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 
                 var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 
@@ -814,14 +815,14 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get all resumes for this job
-                var resumes = await parsedResumeRepo.GetByJobIdAsync(jobId);
+                var resumes = await resumeRepo.GetByJobIdAsync(jobId);
 
                 var resumeList = resumes.Select(resume => new JobResumeListResponse
                 {
                     ResumeId = resume.ResumeId,
-                    Status = resume.ResumeStatus,
-                    FullName = resume.ParsedCandidates?.FullName ?? "Unknown",
-                    TotalResumeScore = resume.ParsedCandidates?.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault()?.TotalResumeScore
+                    Status = resume.Status,
+                    FullName = resume.Candidate?.FullName ?? "Unknown",
+                    TotalResumeScore = resume.AdjustedScore ?? resume.TotalScore
                 }).ToList();
 
                 return new ServiceResponse
@@ -863,7 +864,7 @@ namespace BusinessObjectLayer.Services
                 int userId = int.Parse(userIdClaim);
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 var jobRepo = _uow.GetRepository<IJobRepository>();
-                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 
                 var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 
@@ -897,7 +898,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get resume with full details
-                var resume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
+                var resume = await resumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
                 if (resume == null)
                 {
                     return new ServiceResponse
@@ -907,33 +908,35 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var candidate = resume.ParsedCandidates;
+                var candidate = resume.Candidate;
                 
-                // Get all AIScores for this candidate, ordered by CreatedAt descending (newest first)
-                var aiScoresResponse = candidate?.AIScores?
-                    .OrderByDescending(s => s.CreatedAt)
-                    .Select(aiScore => new AIScoreResponse
+                // Get score details for this resume
+                var scoreDetailsResponse = resume.ScoreDetails?
+                    .Select(detail => new ResumeScoreDetailResponse
                     {
-                        ScoreId = aiScore.ScoreId,
-                        TotalResumeScore = aiScore.TotalResumeScore,
-                        AIExplanation = aiScore.AIExplanation,
-                        CreatedAt = aiScore.CreatedAt,
-                        ScoreDetails = aiScore.AIScoreDetails?.Select(detail => new ResumeScoreDetailResponse
-                        {
-                            CriteriaId = detail.CriteriaId,
-                            CriteriaName = detail.Criteria?.Name ?? "",
-                            Matched = detail.Matched,
-                            Score = detail.Score,
-                            AINote = detail.AINote
-                        }).ToList() ?? new List<ResumeScoreDetailResponse>()
-                    }).ToList() ?? new List<AIScoreResponse>();
+                        CriteriaId = detail.CriteriaId,
+                        CriteriaName = detail.Criteria?.Name ?? "",
+                        Matched = detail.Matched,
+                        Score = detail.Score,
+                        AINote = detail.AINote
+                    }).ToList() ?? new List<ResumeScoreDetailResponse>();
+
+                // Create AIScoreResponse from Resume data
+                var aiScoreResponse = new AIScoreResponse
+                {
+                    ScoreId = resume.ResumeId, // Use ResumeId as identifier
+                    TotalResumeScore = resume.AdjustedScore ?? resume.TotalScore ?? 0m,
+                    AIExplanation = resume.AIExplanation,
+                    CreatedAt = resume.CreatedAt,
+                    ScoreDetails = scoreDetailsResponse
+                };
 
                 var response = new JobResumeDetailResponse
                 {
                     ResumeId = resume.ResumeId,
                     QueueJobId = resume.QueueJobId ?? string.Empty,
                     FileUrl = resume.FileUrl ?? string.Empty,
-                    Status = resume.ResumeStatus,
+                    Status = resume.Status,
                     CreatedAt = resume.CreatedAt,
                     CandidateId = candidate?.CandidateId ?? 0,
                     FullName = candidate?.FullName ?? "Unknown",
@@ -941,7 +944,7 @@ namespace BusinessObjectLayer.Services
                     PhoneNumber = candidate?.PhoneNumber,
                     MatchSkills = candidate?.MatchSkills,
                     MissingSkills = candidate?.MissingSkills,
-                    AIScores = aiScoresResponse
+                    AIScores = new List<AIScoreResponse> { aiScoreResponse }
                 };
 
                 return new ServiceResponse
@@ -983,7 +986,7 @@ namespace BusinessObjectLayer.Services
                 int userId = int.Parse(userIdClaim);
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 var jobRepo = _uow.GetRepository<IJobRepository>();
-                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 
                 var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 
@@ -997,7 +1000,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get resume
-                var resume = await parsedResumeRepo.GetForUpdateAsync(resumeId);
+                var resume = await resumeRepo.GetForUpdateAsync(resumeId);
                 if (resume == null)
                 {
                     return new ServiceResponse
@@ -1023,7 +1026,7 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = $"Cannot retry resume with status '{resume.ResumeStatus}'. Only 'Failed' resumes can be retried."
+                        Message = $"Cannot retry resume with status '{resume.Status}'. Only 'Failed' resumes can be retried."
                     };
                 }
 
@@ -1098,8 +1101,8 @@ namespace BusinessObjectLayer.Services
                 {
                     // Update resume: new queueJobId and status = Pending
                     resume.QueueJobId = newQueueJobId;
-                    resume.ResumeStatus = ResumeStatusEnum.Pending;
-                    await parsedResumeRepo.UpdateAsync(resume);
+                    resume.Status = ResumeStatusEnum.Pending;
+                    await resumeRepo.UpdateAsync(resume);
                     await _uow.CommitTransactionAsync();
 
                     // Reload resume for SignalR
@@ -1162,7 +1165,7 @@ namespace BusinessObjectLayer.Services
 
                 int userId = int.Parse(userIdClaim);
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
-                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 
                 var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 
@@ -1176,7 +1179,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Get resume
-                var resume = await parsedResumeRepo.GetForUpdateAsync(resumeId);
+                var resume = await resumeRepo.GetForUpdateAsync(resumeId);
                 if (resume == null)
                 {
                     return new ServiceResponse
@@ -1211,7 +1214,7 @@ namespace BusinessObjectLayer.Services
                 {
                     // Soft delete: set IsActive = false
                     resume.IsActive = false;
-                    await parsedResumeRepo.UpdateAsync(resume);
+                    await resumeRepo.UpdateAsync(resume);
                     await _uow.CommitTransactionAsync();
 
                     // Note: For deleted resumes, we still send update but resume will be null in query
@@ -1249,7 +1252,7 @@ namespace BusinessObjectLayer.Services
         /// <summary>
         /// Send real-time SignalR update to clients watching a job's resumes
         /// </summary>
-        private async Task SendResumeUpdateAsync(int jobId, int resumeId, string eventType, object? data = null, ParsedResumes? resume = null)
+        private async Task SendResumeUpdateAsync(int jobId, int resumeId, string eventType, object? data = null, Resume? resume = null)
         {
             try
             {
@@ -1257,8 +1260,8 @@ namespace BusinessObjectLayer.Services
                 if (resume == null)
                 {
                     await Task.Delay(100); // Small delay to ensure transaction is committed
-                    var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
-                    resume = await parsedResumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
+                    var resumeRepo = _uow.GetRepository<IResumeRepository>();
+                    resume = await resumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
                 }
                 
                 if (resume == null)
@@ -1272,9 +1275,9 @@ namespace BusinessObjectLayer.Services
                     eventType, // "uploaded", "status_changed", "deleted", "retried"
                     jobId,
                     resumeId,
-                    status = resume.ResumeStatus.ToString(),
-                    fullName = resume.ParsedCandidates?.FullName ?? "Unknown",
-                    totalResumeScore = resume.ParsedCandidates?.AIScores?.OrderByDescending(s => s.CreatedAt).FirstOrDefault()?.TotalResumeScore,
+                    status = resume.Status.ToString(),
+                    fullName = resume.Candidate?.FullName ?? "Unknown",
+                    totalResumeScore = resume.AdjustedScore ?? resume.TotalScore,
                     timestamp = DateTime.UtcNow,
                     data
                 };
@@ -1283,7 +1286,7 @@ namespace BusinessObjectLayer.Services
                 await _hubContext.Clients.Group($"job-{jobId}")
                     .SendAsync("ResumeUpdated", updateData);
 
-                Console.WriteLine($"📡 SignalR: Sent {eventType} update for resume {resumeId} in job {jobId} - Status: {resume.ResumeStatus}, Score: {updateData.totalResumeScore}");
+                Console.WriteLine($"📡 SignalR: Sent {eventType} update for resume {resumeId} in job {jobId} - Status: {resume.Status}, Score: {updateData.totalResumeScore}");
             }
             catch (Exception ex)
             {

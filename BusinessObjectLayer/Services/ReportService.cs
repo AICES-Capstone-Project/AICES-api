@@ -57,7 +57,7 @@ namespace BusinessObjectLayer.Services
                 int userId = int.Parse(userIdClaim);
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 var jobRepo = _uow.GetRepository<IJobRepository>();
-                var parsedCandidateRepo = _uow.GetRepository<IParsedCandidateRepository>();
+                var candidateRepo = _uow.GetRepository<ICandidateRepository>();
 
                 var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
 
@@ -222,8 +222,8 @@ namespace BusinessObjectLayer.Services
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 var jobRepo = _uow.GetRepository<IJobRepository>();
                 var companyRepo = _uow.GetRepository<ICompanyRepository>();
-                var parsedCandidateRepo = _uow.GetRepository<IParsedCandidateRepository>();
-                var parsedResumeRepo = _uow.GetRepository<IParsedResumeRepository>();
+                var candidateRepo = _uow.GetRepository<ICandidateRepository>();
+                var resumeRepo = _uow.GetRepository<IResumeRepository>();
 
                 var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
 
