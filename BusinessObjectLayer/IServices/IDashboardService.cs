@@ -13,6 +13,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetDashboardSummaryAsync();
         Task<ServiceResponse> GetTopRatedCandidatesAsync(int limit = 5);
         Task<ServiceResponse> GetSystemOverviewAsync();
+        Task<ServiceResponse> GetSystemCompanyStatsAsync();
     }
 }
 

@@ -60,6 +60,14 @@ namespace API.Controllers
             var serviceResponse = await _dashboardService.GetSystemOverviewAsync();
             return ControllerResponse.Response(serviceResponse);
         }
+       
+        [HttpGet("companies")]
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+        public async Task<IActionResult> GetSystemCompanyStats()
+        {
+            var serviceResponse = await _dashboardService.GetSystemCompanyStatsAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
 
