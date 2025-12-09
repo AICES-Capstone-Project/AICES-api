@@ -1,0 +1,37 @@
+using Data.Entities.Base;
+using Data.Enum;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Data.Entities
+{
+    [Table("Campaigns")]
+    public class Campaign : BaseEntity
+    {
+        [Key]
+        public int CampaignId { get; set; }
+
+        [ForeignKey("Company")]
+        public int CompanyId { get; set; }
+
+        [Required, MaxLength(255)]
+        public string Title { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
+
+        public DateTime StartDate { get; set; }
+
+        public DateTime EndDate { get; set; }
+
+        public CampaignStatusEnum Status { get; set; }
+
+        // Navigation
+        public Company Company { get; set; } = null!;
+        public ICollection<JobCampaign> JobCampaigns { get; set; } = new List<JobCampaign>();
+    }
+}

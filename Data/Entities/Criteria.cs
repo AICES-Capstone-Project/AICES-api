@@ -26,8 +26,8 @@ namespace Data.Entities
 
         // Navigation
         public Job Job { get; set; } = null!;
-        // Navigation: One Criteria -> Many AIScoreDetails
-        public List<AIScoreDetail> AIScoreDetails { get; set; } = new();
+        // Navigation: One Criteria -> Many ScoreDetails
+        public ICollection<ScoreDetail> ScoreDetails { get; set; } = new List<ScoreDetail>();
     }
 }
 

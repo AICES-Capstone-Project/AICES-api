@@ -37,15 +37,20 @@ namespace Data.Entities
         [ForeignKey("Specialization")]
         public int? SpecializationId { get; set; }
 
+        [ForeignKey("Level")]
+        public int? LevelId { get; set; }
+
         // Navigation
         public CompanyUser CompanyUser { get; set; } = null!;
         public Company Company { get; set; } = null!;
         public Specialization? Specialization { get; set; }
+        public Level? Level { get; set; }
         public ICollection<JobEmploymentType>? JobEmploymentTypes { get; set; }
         public ICollection<Criteria>? Criteria { get; set; }
-        public ICollection<ParsedCandidates>? ParsedCandidates { get; set; }
-        public ICollection<ParsedResumes>? ParsedResumes { get; set; }
-        public ICollection<RankingResults>? RankingResults { get; set; }
+        public ICollection<Candidate>? Candidates { get; set; }
+        public ICollection<Resume>? Resumes { get; set; }
         public ICollection<JobSkill>? JobSkills { get; set; }
+        public ICollection<JobLanguage>? JobLanguages { get; set; }
+        public ICollection<JobCampaign>? JobCampaigns { get; set; }
     }
 }

@@ -38,13 +38,16 @@ namespace DataAccessLayer
         public virtual DbSet<Specialization> Specializations { get; set; }
         public virtual DbSet<JobEmploymentType> JobEmploymentTypes { get; set; }
         public virtual DbSet<Criteria> Criterias { get; set; }
+        public virtual DbSet<Level> Levels { get; set; }
+        public virtual DbSet<Language> Languages { get; set; }
+        public virtual DbSet<JobLanguage> JobLanguages { get; set; }
+        public virtual DbSet<Campaign> Campaigns { get; set; }
+        public virtual DbSet<JobCampaign> JobCampaigns { get; set; }
         
         // Resume Screening
-        public virtual DbSet<ParsedResumes> ParsedResumes { get; set; }
-        public virtual DbSet<ParsedCandidates> ParsedCandidates { get; set; }
-        public virtual DbSet<AIScores> AIScores { get; set; }
-        public virtual DbSet<AIScoreDetail> AIScoreDetails { get; set; }
-        public virtual DbSet<RankingResults> RankingResults { get; set; }
+        public virtual DbSet<Resume> Resumes { get; set; }
+        public virtual DbSet<Candidate> Candidates { get; set; }
+        public virtual DbSet<ScoreDetail> ScoreDetails { get; set; }
         
         // Communication & Reporting
         public virtual DbSet<Notification> Notifications { get; set; }
@@ -173,6 +176,10 @@ namespace DataAccessLayer
                 .HasForeignKey(js => js.SkillId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // Configure composite key for JobSkill
+            modelBuilder.Entity<JobSkill>()
+                .HasKey(js => new { js.JobId, js.SkillId });
+
             // Company - CompanyDocuments
             modelBuilder.Entity<Company>()
                 .HasMany(c => c.CompanyDocuments)
@@ -197,6 +204,55 @@ namespace DataAccessLayer
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // Job - Level (Many-to-One)
+            modelBuilder.Entity<Job>()
+                .HasOne(j => j.Level)
+                .WithMany(l => l.Jobs)
+                .HasForeignKey(j => j.LevelId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Job - Languages (Many-to-Many through JobLanguage)
+            modelBuilder.Entity<JobLanguage>()
+                .HasOne(jl => jl.Job)
+                .WithMany(j => j.JobLanguages)
+                .HasForeignKey(jl => jl.JobId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<JobLanguage>()
+                .HasOne(jl => jl.Language)
+                .WithMany(l => l.JobLanguages)
+                .HasForeignKey(jl => jl.LanguageId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure composite key for JobLanguage
+            modelBuilder.Entity<JobLanguage>()
+                .HasKey(jl => new { jl.JobId, jl.LanguageId });
+
+            // Company - Campaigns
+            modelBuilder.Entity<Company>()
+                .HasMany(c => c.Campaigns)
+                .WithOne(ca => ca.Company)
+                .HasForeignKey(ca => ca.CompanyId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Job - Campaigns (Many-to-Many through JobCampaign)
+            modelBuilder.Entity<JobCampaign>()
+                .HasOne(jc => jc.Job)
+                .WithMany(j => j.JobCampaigns)
+                .HasForeignKey(jc => jc.JobId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<JobCampaign>()
+                .HasOne(jc => jc.Campaign)
+                .WithMany(ca => ca.JobCampaigns)
+                .HasForeignKey(jc => jc.CampaignId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure composite key for JobCampaign
+            modelBuilder.Entity<JobCampaign>()
+                .HasKey(jc => new { jc.JobId, jc.CampaignId });
+
             // Job - EmploymentType (Many-to-Many through JobEmploymentType)
             modelBuilder.Entity<JobEmploymentType>()
                 .HasOne(jet => jet.Job)
@@ -209,6 +265,10 @@ namespace DataAccessLayer
                 .WithMany(et => et.JobEmploymentTypes)
                 .HasForeignKey(jet => jet.EmployTypeId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure composite key for JobEmploymentType
+            modelBuilder.Entity<JobEmploymentType>()
+                .HasKey(jet => new { jet.JobId, jet.EmployTypeId });
 
             // CompanyUser - Jobs
             modelBuilder.Entity<CompanyUser>()
@@ -240,68 +300,52 @@ namespace DataAccessLayer
 
             // ===== RESUME SCREENING RELATIONSHIPS =====
             
-            // Company - ParsedResumes
+            // Company - Resumes
             modelBuilder.Entity<Company>()
-                .HasMany(c => c.ParsedResumes)
-                .WithOne(pr => pr.Company)
-                .HasForeignKey(pr => pr.CompanyId)
+                .HasMany(c => c.Resumes)
+                .WithOne(r => r.Company)
+                .HasForeignKey(r => r.CompanyId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Job - ParsedResumes
+            // Job - Resumes
             modelBuilder.Entity<Job>()
-                .HasMany(j => j.ParsedResumes)
-                .WithOne(pr => pr.Job)
-                .HasForeignKey(pr => pr.JobId)
+                .HasMany(j => j.Resumes)
+                .WithOne(r => r.Job)
+                .HasForeignKey(r => r.JobId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // ParsedResumes - ParsedCandidates (one-to-one)
-            modelBuilder.Entity<ParsedResumes>()
-                .HasOne(pr => pr.ParsedCandidates)
-                .WithOne(pc => pc.ParsedResumes)
-                .HasForeignKey<ParsedCandidates>(pc => pc.ResumeId)
+            // Candidate - Resumes (one-to-many)
+            modelBuilder.Entity<Candidate>()
+                .HasMany(c => c.Resumes)
+                .WithOne(r => r.Candidate)
+                .HasForeignKey(r => r.CandidateId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Job - ParsedCandidates
+            // Job - Candidates
             modelBuilder.Entity<Job>()
-                .HasMany(j => j.ParsedCandidates)
-                .WithOne(pc => pc.Job)
-                .HasForeignKey(pc => pc.JobId)
+                .HasMany(j => j.Candidates)
+                .WithOne(c => c.Job)
+                .HasForeignKey(c => c.JobId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // AIScores - ParsedCandidates (many-to-one)
-            modelBuilder.Entity<AIScores>()
-                .HasOne(s => s.ParsedCandidate)
-                .WithMany(pc => pc.AIScores)
-                .HasForeignKey(s => s.CandidateId)
+            // Resume - ScoreDetails (one-to-many)
+            modelBuilder.Entity<Resume>()
+                .HasMany(r => r.ScoreDetails)
+                .WithOne(sd => sd.Resume)
+                .HasForeignKey(sd => sd.ResumeId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // AIScores - AIScoreDetail
-            modelBuilder.Entity<AIScores>()
-                .HasMany(s => s.AIScoreDetails)
-                .WithOne(sd => sd.AIScores)
-                .HasForeignKey(sd => sd.ScoreId)
-                .OnDelete(DeleteBehavior.NoAction);
-
-            // Criteria - AIScoreDetail (one-to-many)
+            // Criteria - ScoreDetails (one-to-many)
             modelBuilder.Entity<Criteria>()
-                .HasMany(c => c.AIScoreDetails)
+                .HasMany(c => c.ScoreDetails)
                 .WithOne(sd => sd.Criteria)
                 .HasForeignKey(sd => sd.CriteriaId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Job - RankingResults
-            modelBuilder.Entity<Job>()
-                .HasMany(j => j.RankingResults)
-                .WithOne(rr => rr.Job)
-                .HasForeignKey(rr => rr.JobId)
-                .OnDelete(DeleteBehavior.NoAction);
-
-            // ParsedCandidates - RankingResults (one-to-one)
-            modelBuilder.Entity<ParsedCandidates>()
-                .HasOne(pc => pc.RankingResult)
-                .WithOne(rr => rr.ParsedCandidate)
-                .HasForeignKey<RankingResults>(rr => rr.CandidateId)
-                .OnDelete(DeleteBehavior.NoAction);
+            // Configure composite key for ScoreDetail
+            modelBuilder.Entity<ScoreDetail>()
+                .HasKey(sd => new { sd.CriteriaId, sd.ResumeId });
 
             // ===== COMMUNICATION & REPORTING RELATIONSHIPS =====
             
@@ -401,8 +445,13 @@ namespace DataAccessLayer
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
-            modelBuilder.Entity<ParsedResumes>()
-                .Property(pr => pr.ResumeStatus)
+            modelBuilder.Entity<Resume>()
+                .Property(r => r.Status)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<Campaign>()
+                .Property(c => c.Status)
                 .HasConversion<string>()
                 .HasMaxLength(50);
 

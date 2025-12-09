@@ -11,9 +11,6 @@ namespace Data.Entities
     [Table("JobEmploymentTypes")]
     public class JobEmploymentType
     {
-        [Key]
-        public int JobEmployTypeId { get; set; }
-
         [ForeignKey("Job")]
         public int JobId { get; set; }
 

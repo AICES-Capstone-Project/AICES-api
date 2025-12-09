@@ -46,9 +46,10 @@ namespace Data.Entities
         public ICollection<CompanyUser>? CompanyUsers { get; set; }
         public ICollection<Job>? Jobs { get; set; }
         public ICollection<CompanySubscription>? CompanySubscriptions { get; set; }
-        public ICollection<ParsedResumes>? ParsedResumes { get; set; }
+        public ICollection<Resume>? Resumes { get; set; }
         public ICollection<Payment>? Payments { get; set; }
         public ICollection<CompanyDocument>? CompanyDocuments { get; set; }
         public ICollection<Invitation>? Invitations { get; set; }
+        public ICollection<Campaign>? Campaigns { get; set; }
     }
 }

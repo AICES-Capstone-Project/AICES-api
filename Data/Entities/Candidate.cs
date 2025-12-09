@@ -9,14 +9,11 @@ using System.Threading.Tasks;
 
 namespace Data.Entities
 {
-    [Table("ParsedCandidates")]
-    public class ParsedCandidates : BaseEntity
+    [Table("Candidates")]
+    public class Candidate : BaseEntity
     {
         [Key]
         public int CandidateId { get; set; }
-
-        [ForeignKey("ParsedResumes")]
-        public int ResumeId { get; set; }
 
         [ForeignKey("Job")]
         public int JobId { get; set; }
@@ -33,11 +30,7 @@ namespace Data.Entities
         public string? MissingSkills { get; set; }
 
         // Navigation
-        public ParsedResumes ParsedResumes { get; set; } = null!;
         public Job Job { get; set; } = null!;
-        public ICollection<AIScores> AIScores { get; set; } = new List<AIScores>();
-        public RankingResults? RankingResult { get; set; }
+        public ICollection<Resume> Resumes { get; set; } = new List<Resume>();
     }
 }
-
-

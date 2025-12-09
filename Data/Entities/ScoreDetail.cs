@@ -9,17 +9,14 @@ using System.Threading.Tasks;
 
 namespace Data.Entities
 {
-    [Table("AIScoreDetail")]
-    public class AIScoreDetail : BaseEntity
+    [Table("ScoreDetails")]
+    public class ScoreDetail : BaseEntity
     {
-        [Key]
-        public int ScoreDetailId { get; set; }
-
         [ForeignKey("Criteria")]
         public int CriteriaId { get; set; }
 
-        [ForeignKey("AIScores")]
-        public int ScoreId { get; set; }
+        [ForeignKey("Resume")]
+        public int ResumeId { get; set; }
 
         [Column(TypeName = "decimal(5,2)")]
         public decimal Matched { get; set; } // Percentage of resume match with this criterion (0-100)
@@ -31,8 +28,6 @@ namespace Data.Entities
 
         // Navigation
         public Criteria Criteria { get; set; } = null!;
-        public AIScores AIScores { get; set; } = null!;
+        public Resume Resume { get; set; } = null!;
     }
 }
-
-

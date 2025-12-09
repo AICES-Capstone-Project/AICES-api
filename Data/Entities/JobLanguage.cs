@@ -4,17 +4,17 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Data.Entities
 {
-    [Table("JobSkills")]
-    public class JobSkill
+    [Table("JobLanguages")]
+    public class JobLanguage
     {
-        [ForeignKey("Skill")]
-        public int SkillId { get; set; }
-
         [ForeignKey("Job")]
         public int JobId { get; set; }
 
+        [ForeignKey("Language")]
+        public int LanguageId { get; set; }
+
         // Navigation
-        public Skill Skill { get; set; } = null!;
         public Job Job { get; set; } = null!;
+        public Language Language { get; set; } = null!;
     }
 }
