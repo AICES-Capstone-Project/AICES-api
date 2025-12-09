@@ -475,6 +475,60 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetSystemRevenueAsync(string range = "month")
+        {
+            try
+            {
+                // Xác định khoảng thời gian
+                DateTime now = DateTime.UtcNow;
+                DateTime from;
+                DateTime to;
+                string monthLabel;
+
+                if (range.ToLower() == "month")
+                {
+                    from = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                    to = from.AddMonths(1);
+                    monthLabel = $"{now:yyyy-MM}";
+                }
+                else
+                {
+                    // Mặc định month nếu range không hợp lệ
+                    from = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                    to = from.AddMonths(1);
+                    monthLabel = $"{now:yyyy-MM}";
+                }
+
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+                var totalRevenue = await dashboardRepo.GetRevenueByRangeAsync(from, to);
+                var fromNewSubscriptions = await dashboardRepo.GetRevenueFromNewSubscriptionsAsync(from, to);
+
+                var response = new SystemRevenueResponse
+                {
+                    Month = monthLabel,
+                    TotalRevenue = totalRevenue,
+                    FromNewSubscriptions = fromNewSubscriptions
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Revenue retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get system revenue error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving revenue."
+                };
+            }
+        }
     }
 }
 

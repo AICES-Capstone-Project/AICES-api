@@ -84,6 +84,14 @@ namespace API.Controllers
             var serviceResponse = await _dashboardService.GetSystemTopCompaniesAsync(top);
             return ControllerResponse.Response(serviceResponse);
         }
+
+        [HttpGet("revenue")]
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+        public async Task<IActionResult> GetSystemRevenue([FromQuery] string range = "month")
+        {
+            var serviceResponse = await _dashboardService.GetSystemRevenueAsync(range);
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
 
