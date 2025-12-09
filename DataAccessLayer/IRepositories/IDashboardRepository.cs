@@ -27,6 +27,8 @@ namespace DataAccessLayer.IRepositories
         Task<int> GetCompanySubTotalActiveExpiredAsync();
         Task<int> GetCompanySubCountByStatusAsync(Data.Enum.SubscriptionStatusEnum status);
         Task<int> GetCompanySubNewThisMonthAsync();
+        Task<decimal> GetRevenueByRangeAsync(DateTime from, DateTime to);
+        Task<decimal> GetRevenueFromNewSubscriptionsAsync(DateTime from, DateTime to);
     }
 }
 

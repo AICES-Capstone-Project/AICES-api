@@ -241,6 +241,40 @@ namespace DataAccessLayer.Repositories
                     && cs.CreatedAt.Value >= startOfMonth)
                 .CountAsync();
         }
+
+        public async Task<decimal> GetRevenueByRangeAsync(DateTime from, DateTime to)
+        {
+            var total = await _context.Transactions
+                .AsNoTracking()
+                .Where(t => t.Payment.IsActive
+                    && t.Payment.PaymentStatus == PaymentStatusEnum.Paid
+                    && t.TransactionTime.HasValue
+                    && t.TransactionTime.Value >= from
+                    && t.TransactionTime.Value < to)
+                .SumAsync(t => (decimal?)t.Amount) ?? 0m;
+
+            return total;
+        }
+
+        public async Task<decimal> GetRevenueFromNewSubscriptionsAsync(DateTime from, DateTime to)
+        {
+            var total = await _context.Transactions
+                .AsNoTracking()
+                .Where(t =>
+                    t.Payment.IsActive &&
+                    t.Payment.PaymentStatus == PaymentStatusEnum.Paid &&
+                    t.TransactionTime.HasValue &&
+                    t.TransactionTime.Value >= from &&
+                    t.TransactionTime.Value < to &&
+                    t.Payment.CompanySubscription != null &&
+                    t.Payment.CompanySubscription.IsActive &&
+                    t.Payment.CompanySubscription.CreatedAt.HasValue &&
+                    t.Payment.CompanySubscription.CreatedAt.Value >= from &&
+                    t.Payment.CompanySubscription.CreatedAt.Value < to)
+                .SumAsync(t => (decimal?)t.Amount) ?? 0m;
+
+            return total;
+        }
     }
 }
 
