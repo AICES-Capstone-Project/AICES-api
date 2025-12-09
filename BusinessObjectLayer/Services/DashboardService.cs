@@ -404,6 +404,44 @@ namespace BusinessObjectLayer.Services
             }
         }
 
+        public async Task<ServiceResponse> GetSystemCompanySubscriptionsAsync()
+        {
+            try
+            {
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+
+                var total = await dashboardRepo.GetCompanySubTotalActiveExpiredAsync();
+                var active = await dashboardRepo.GetCompanySubCountByStatusAsync(SubscriptionStatusEnum.Active);
+                var expired = await dashboardRepo.GetCompanySubCountByStatusAsync(SubscriptionStatusEnum.Expired);
+                var newThisMonth = await dashboardRepo.GetCompanySubNewThisMonthAsync();
+
+                var response = new SystemCompanySubStatsResponse
+                {
+                    TotalCompanySubscriptions = total,
+                    Active = active,
+                    Expired = expired,
+                    NewThisMonth = newThisMonth
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Company subscriptions retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get system company subscriptions error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving company subscriptions."
+                };
+            }
+        }
+
         public async Task<ServiceResponse> GetSystemTopCompaniesAsync(int top = 10)
         {
             try

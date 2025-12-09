@@ -210,6 +210,37 @@ namespace DataAccessLayer.Repositories
 
             return query.Select(x => (x.CompanyId, x.CompanyName, x.ResumeCount, x.JobCount)).ToList();
         }
+
+        public async Task<int> GetCompanySubTotalActiveExpiredAsync()
+        {
+            return await _context.CompanySubscriptions
+                .AsNoTracking()
+                .Where(cs => cs.IsActive &&
+                             (cs.SubscriptionStatus == SubscriptionStatusEnum.Active ||
+                              cs.SubscriptionStatus == SubscriptionStatusEnum.Expired))
+                .CountAsync();
+        }
+
+        public async Task<int> GetCompanySubCountByStatusAsync(SubscriptionStatusEnum status)
+        {
+            return await _context.CompanySubscriptions
+                .AsNoTracking()
+                .Where(cs => cs.IsActive && cs.SubscriptionStatus == status)
+                .CountAsync();
+        }
+
+        public async Task<int> GetCompanySubNewThisMonthAsync()
+        {
+            var now = DateTime.UtcNow;
+            var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            return await _context.CompanySubscriptions
+                .AsNoTracking()
+                .Where(cs => cs.IsActive
+                    && cs.CreatedAt.HasValue
+                    && cs.CreatedAt.Value >= startOfMonth)
+                .CountAsync();
+        }
     }
 }
 

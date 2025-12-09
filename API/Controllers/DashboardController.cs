@@ -69,6 +69,14 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
+        [HttpGet("company-subscriptions")]
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+        public async Task<IActionResult> GetSystemCompanySubscriptions()
+        {
+            var serviceResponse = await _dashboardService.GetSystemCompanySubscriptionsAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
         [HttpGet("top-companies")]
         [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
         public async Task<IActionResult> GetSystemTopCompanies([FromQuery] int top = 10)
