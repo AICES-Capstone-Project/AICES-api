@@ -609,6 +609,127 @@ namespace BusinessObjectLayer.Services
             }
         }
 
+        public async Task<ServiceResponse> RemoveJobsFromCampaignAsync(int campaignId, AddJobsToCampaignRequest request)
+        {
+            try
+            {
+                // Get current user
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+
+                if (companyUser == null || companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company not found for user."
+                    };
+                }
+
+                var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                var campaign = await campaignRepo.GetForUpdateAsync(campaignId);
+                if (campaign == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Campaign not found."
+                    };
+                }
+
+                // Verify campaign belongs to user's company
+                if (campaign.CompanyId != companyUser.CompanyId.Value)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You do not have permission to modify this campaign."
+                    };
+                }
+
+                // Validate request
+                if (request.JobIds == null || !request.JobIds.Any())
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "At least one job ID is required."
+                    };
+                }
+
+                await _uow.BeginTransactionAsync();
+                try
+                {
+                    // Ensure JobCampaigns is initialized
+                    if (campaign.JobCampaigns == null || !campaign.JobCampaigns.Any())
+                    {
+                        await _uow.RollbackTransactionAsync();
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = "Campaign has no jobs to remove."
+                        };
+                    }
+
+                    var jobsToRemove = campaign.JobCampaigns
+                        .Where(jc => request.JobIds.Contains(jc.JobId))
+                        .ToList();
+
+                    if (!jobsToRemove.Any())
+                    {
+                        await _uow.RollbackTransactionAsync();
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = "None of the specified jobs are in this campaign."
+                        };
+                    }
+
+                    var removedCount = jobsToRemove.Count;
+                    foreach (var jobCampaign in jobsToRemove)
+                    {
+                        campaign.JobCampaigns.Remove(jobCampaign);
+                    }
+
+                    campaignRepo.Update(campaign);
+                    await _uow.CommitTransactionAsync();
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = $"Successfully removed {removedCount} job(s) from campaign."
+                    };
+                }
+                catch
+                {
+                    await _uow.RollbackTransactionAsync();
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Remove jobs from campaign error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while removing jobs from the campaign."
+                };
+            }
+        }
+
         public async Task<ServiceResponse> UpdateStatusAsync(int id, UpdateCampaignStatusRequest request)
         {
             try
@@ -772,3 +893,4 @@ namespace BusinessObjectLayer.Services
         }
     }
 }
+

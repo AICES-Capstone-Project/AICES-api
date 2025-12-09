@@ -79,6 +79,14 @@ namespace API.Controllers
             return ControllerResponse.Response(response);
         }
 
+        [HttpDelete("{id}/jobs")]
+        [Authorize(Roles = "HR_Manager,HR_Recruiter")]
+        public async Task<IActionResult> RemoveJobsFromCampaign(int id, [FromBody] AddJobsToCampaignRequest request)
+        {
+            var response = await _campaignService.RemoveJobsFromCampaignAsync(id, request);
+            return ControllerResponse.Response(response);
+        }
+
         [HttpDelete("{id}")]
         [Authorize(Roles = "HR_Manager,HR_Recruiter")]
         public async Task<IActionResult> SoftDelete(int id)
@@ -88,3 +96,4 @@ namespace API.Controllers
         }
     }
 }
+
