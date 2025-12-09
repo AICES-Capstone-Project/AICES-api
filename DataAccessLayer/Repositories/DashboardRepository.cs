@@ -107,6 +107,64 @@ namespace DataAccessLayer.Repositories
 
             return result.Select(x => (x.Name, x.JobTitle, x.AIScore, x.Status)).ToList();
         }
+
+        public async Task<int> GetTotalCompaniesAsync()
+        {
+            return await _context.Companies
+                .AsNoTracking()
+                .Where(c => c.IsActive)
+                .CountAsync();
+        }
+
+        public async Task<int> GetTotalUsersAsync()
+        {
+            return await _context.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive)
+                .CountAsync();
+        }
+
+        public async Task<int> GetTotalJobsAsync()
+        {
+            return await _context.Jobs
+                .AsNoTracking()
+                .Where(j => j.IsActive)
+                .CountAsync();
+        }
+
+        public async Task<int> GetTotalResumesAsync()
+        {
+            return await _context.ParsedResumes
+                .AsNoTracking()
+                .Where(pr => pr.IsActive)
+                .CountAsync();
+        }
+
+        public async Task<int> GetTotalCompanySubscriptionsAsync()
+        {
+            return await _context.CompanySubscriptions
+                .AsNoTracking()
+                .Where(cs => cs.IsActive)
+                .CountAsync();
+        }
+
+        public async Task<int> GetTotalSubscriptionsAsync()
+        {
+            return await _context.Subscriptions
+                .AsNoTracking()
+                .Where(s => s.IsActive)
+                .CountAsync();
+        }
+
+        public async Task<decimal> GetTotalRevenueAsync()
+        {
+            var total = await _context.Transactions
+                .AsNoTracking()
+                .Where(t => t.Payment.IsActive && t.Payment.PaymentStatus == PaymentStatusEnum.Paid)
+                .SumAsync(t => (decimal?)t.Amount) ?? 0m;
+
+            return total;
+        }
     }
 }
 

@@ -316,6 +316,51 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetSystemOverviewAsync()
+        {
+            try
+            {
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+
+                // Lấy lần lượt để tránh cạnh tranh DbContext
+                var totalCompanies = await dashboardRepo.GetTotalCompaniesAsync();
+                var totalUsers = await dashboardRepo.GetTotalUsersAsync();
+                var totalJobs = await dashboardRepo.GetTotalJobsAsync();
+                var totalResumes = await dashboardRepo.GetTotalResumesAsync();
+                var totalCompanySubscriptions = await dashboardRepo.GetTotalCompanySubscriptionsAsync();
+                var totalSubscriptions = await dashboardRepo.GetTotalSubscriptionsAsync();
+                var totalRevenue = await dashboardRepo.GetTotalRevenueAsync();
+
+                var response = new SystemOverviewResponse
+                {
+                    TotalCompanies = totalCompanies,
+                    TotalUsers = totalUsers,
+                    TotalJobs = totalJobs,
+                    TotalResumes = totalResumes,
+                    TotalCompanySubscriptions = totalCompanySubscriptions,
+                    TotalSubscriptions = totalSubscriptions,
+                    TotalRevenue = totalRevenue
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "System overview retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get system overview error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving system overview."
+                };
+            }
+        }
     }
 }
 

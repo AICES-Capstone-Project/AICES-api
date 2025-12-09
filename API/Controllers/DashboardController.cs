@@ -40,5 +40,26 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
     }
+
+    [Route("api/system/dashboard")]
+    [ApiController]
+    public class SystemDashboardController : ControllerBase
+    {
+        private readonly IDashboardService _dashboardService;
+
+        public SystemDashboardController(IDashboardService dashboardService)
+        {
+            _dashboardService = dashboardService;
+        }
+
+       
+        [HttpGet("overview")]
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+        public async Task<IActionResult> GetSystemOverview()
+        {
+            var serviceResponse = await _dashboardService.GetSystemOverviewAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+    }
 }
 
