@@ -14,6 +14,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetTopRatedCandidatesAsync(int limit = 5);
         Task<ServiceResponse> GetSystemOverviewAsync();
         Task<ServiceResponse> GetSystemCompanyStatsAsync();
+        Task<ServiceResponse> GetSystemTopCompaniesAsync(int top = 10);
     }
 }
 

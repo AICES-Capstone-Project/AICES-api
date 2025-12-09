@@ -23,6 +23,7 @@ namespace DataAccessLayer.IRepositories
         Task<int> GetTotalCompanySubscriptionsAsync();
         Task<int> GetTotalSubscriptionsAsync();
         Task<decimal> GetTotalRevenueAsync();
+        Task<List<(int CompanyId, string CompanyName, int ResumeCount, int JobCount)>> GetTopCompaniesByResumeAndJobAsync(int top);
     }
 }
 

@@ -186,6 +186,30 @@ namespace DataAccessLayer.Repositories
 
             return total;
         }
+
+        public async Task<List<(int CompanyId, string CompanyName, int ResumeCount, int JobCount)>> GetTopCompaniesByResumeAndJobAsync(int top)
+        {
+            var query = await _context.Companies
+                .AsNoTracking()
+                .Where(c => c.IsActive)
+                .Select(c => new
+                {
+                    c.CompanyId,
+                    CompanyName = c.Name,
+                    ResumeCount = _context.ParsedResumes
+                        .Where(pr => pr.CompanyId == c.CompanyId && pr.IsActive)
+                        .Count(),
+                    JobCount = _context.Jobs
+                        .Where(j => j.CompanyId == c.CompanyId && j.IsActive)
+                        .Count()
+                })
+                .OrderByDescending(x => x.ResumeCount)
+                .ThenByDescending(x => x.JobCount)
+                .Take(top)
+                .ToListAsync();
+
+            return query.Select(x => (x.CompanyId, x.CompanyName, x.ResumeCount, x.JobCount)).ToList();
+        }
     }
 }
 
