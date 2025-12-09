@@ -403,6 +403,40 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetSystemTopCompaniesAsync(int top = 10)
+        {
+            try
+            {
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+                var topCompanies = await dashboardRepo.GetTopCompaniesByResumeAndJobAsync(top);
+
+                var response = topCompanies.Select(x => new TopCompanyDashboardResponse
+                {
+                    CompanyId = x.CompanyId,
+                    CompanyName = x.CompanyName,
+                    ResumeCount = x.ResumeCount,
+                    JobCount = x.JobCount
+                }).ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Top companies retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get system top companies error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving top companies."
+                };
+            }
+        }
     }
 }
 
