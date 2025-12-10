@@ -14,3 +14,4 @@ namespace Data.Models.Request
         public CampaignStatusEnum Status { get; set; }
     }
 }
+

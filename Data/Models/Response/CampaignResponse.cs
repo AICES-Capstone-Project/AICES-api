@@ -21,3 +21,4 @@ namespace Data.Models.Response
         public List<int> JobIds { get; set; } = new List<int>();
     }
 }
+

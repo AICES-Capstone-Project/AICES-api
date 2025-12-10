@@ -24,3 +24,4 @@ namespace DataAccessLayer.IRepositories
         Task SoftDeleteAsync(Campaign campaign);
     }
 }
+

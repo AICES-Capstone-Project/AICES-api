@@ -27,3 +27,4 @@ namespace Data.Models.Request
         public List<int>? JobIds { get; set; }
     }
 }
+

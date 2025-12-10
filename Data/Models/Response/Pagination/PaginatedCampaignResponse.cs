@@ -11,3 +11,4 @@ namespace Data.Models.Response.Pagination
         public List<CampaignResponse> Campaigns { get; set; } = new List<CampaignResponse>();
     }
 }
+
