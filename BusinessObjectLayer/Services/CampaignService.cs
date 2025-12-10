@@ -72,7 +72,13 @@ namespace BusinessObjectLayer.Services
                     EndDate = c.EndDate,
                     Status = c.Status,
                     CreatedAt = c.CreatedAt,
-                    JobIds = c.JobCampaigns?.Select(jc => jc.JobId).ToList() ?? new List<int>()
+                    Jobs = c.JobCampaigns?.Select(jc => new JobCampaignInfoResponse
+                    {
+                        JobId = jc.JobId,
+                        JobTitle = jc.Job?.Title,
+                        TargetQuantity = jc.TargetQuantity,
+                        CurrentHired = jc.CurrentHired
+                    }).ToList() ?? new List<JobCampaignInfoResponse>()
                 }).ToList();
 
                 return new ServiceResponse
@@ -165,7 +171,13 @@ namespace BusinessObjectLayer.Services
                         EndDate = campaign.EndDate,
                         Status = campaign.Status,
                         CreatedAt = campaign.CreatedAt,
-                        JobIds = campaign.JobCampaigns?.Select(jc => jc.JobId).ToList() ?? new List<int>()
+                        Jobs = campaign.JobCampaigns?.Select(jc => new JobCampaignInfoResponse
+                        {
+                            JobId = jc.JobId,
+                            JobTitle = jc.Job?.Title,
+                            TargetQuantity = jc.TargetQuantity,
+                            CurrentHired = jc.CurrentHired
+                        }).ToList() ?? new List<JobCampaignInfoResponse>()
                     }
                 };
             }
@@ -223,7 +235,13 @@ namespace BusinessObjectLayer.Services
                     EndDate = c.EndDate,
                     Status = c.Status,
                     CreatedAt = c.CreatedAt,
-                    JobIds = c.JobCampaigns?.Select(jc => jc.JobId).ToList() ?? new List<int>()
+                    Jobs = c.JobCampaigns?.Select(jc => new JobCampaignInfoResponse
+                    {
+                        JobId = jc.JobId,
+                        JobTitle = jc.Job?.Title,
+                        TargetQuantity = jc.TargetQuantity,
+                        CurrentHired = jc.CurrentHired
+                    }).ToList() ?? new List<JobCampaignInfoResponse>()
                 }).ToList();
 
                 return new ServiceResponse
@@ -302,20 +320,22 @@ namespace BusinessObjectLayer.Services
                     await _uow.SaveChangesAsync(); // Get CampaignId
 
                     // Add job campaigns if provided
-                    if (request.JobIds != null && request.JobIds.Any())
+                    if (request.Jobs != null && request.Jobs.Any())
                     {
                         var jobRepo = _uow.GetRepository<IJobRepository>();
                         
-                        foreach (var jobId in request.JobIds)
+                        foreach (var jobWithTarget in request.Jobs)
                         {
                             // Verify job belongs to the same company
-                            var job = await jobRepo.GetJobByIdAsync(jobId);
+                            var job = await jobRepo.GetJobByIdAsync(jobWithTarget.JobId);
                             if (job != null && job.CompanyId == companyUser.CompanyId.Value)
                             {
                                 campaign.JobCampaigns.Add(new JobCampaign
                                 {
-                                    JobId = jobId,
-                                    CampaignId = campaign.CampaignId
+                                    JobId = jobWithTarget.JobId,
+                                    CampaignId = campaign.CampaignId,
+                                    TargetQuantity = jobWithTarget.TargetQuantity,
+                                    CurrentHired = 0
                                 });
                             }
                         }
@@ -417,26 +437,44 @@ namespace BusinessObjectLayer.Services
                     campaign.Status = request.Status;
 
                     // Update job campaigns
-                    if (request.JobIds != null)
+                    if (request.Jobs != null)
                     {
+                        var jobRepo = _uow.GetRepository<IJobRepository>();
+                        
+                        // Get existing job campaigns to preserve CurrentHired
+                        var existingJobCampaigns = campaign.JobCampaigns?.ToList() ?? new List<JobCampaign>();
+                        var existingJobCampaignsDict = existingJobCampaigns.ToDictionary(jc => jc.JobId);
+                        
                         // Clear existing job campaigns
-                        campaign.JobCampaigns.Clear();
+                        if (campaign.JobCampaigns != null)
+                        {
+                            campaign.JobCampaigns.Clear();
+                        }
+                        else
+                        {
+                            campaign.JobCampaigns = new List<JobCampaign>();
+                        }
 
                         // Add new job campaigns
-                        if (request.JobIds.Any())
+                        if (request.Jobs.Any())
                         {
-                            var jobRepo = _uow.GetRepository<IJobRepository>();
-                            
-                            foreach (var jobId in request.JobIds)
+                            foreach (var jobWithTarget in request.Jobs)
                             {
                                 // Verify job belongs to the same company
-                                var job = await jobRepo.GetJobByIdAsync(jobId);
+                                var job = await jobRepo.GetJobByIdAsync(jobWithTarget.JobId);
                                 if (job != null && job.CompanyId == companyUser.CompanyId.Value)
                                 {
+                                    // Preserve CurrentHired if job was already in campaign, otherwise set to 0
+                                    var existingCurrentHired = existingJobCampaignsDict.ContainsKey(jobWithTarget.JobId)
+                                        ? existingJobCampaignsDict[jobWithTarget.JobId].CurrentHired
+                                        : 0;
+                                    
                                     campaign.JobCampaigns.Add(new JobCampaign
                                     {
-                                        JobId = jobId,
-                                        CampaignId = campaign.CampaignId
+                                        JobId = jobWithTarget.JobId,
+                                        CampaignId = campaign.CampaignId,
+                                        TargetQuantity = jobWithTarget.TargetQuantity,
+                                        CurrentHired = existingCurrentHired
                                     });
                                 }
                             }
@@ -521,12 +559,12 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Validate request
-                if (request.JobIds == null || !request.JobIds.Any())
+                if (request.Jobs == null || !request.Jobs.Any())
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = "At least one job ID is required."
+                        Message = "At least one job is required."
                     };
                 }
 
@@ -542,17 +580,17 @@ namespace BusinessObjectLayer.Services
                     var addedCount = 0;
                     var skippedCount = 0;
 
-                    foreach (var jobId in request.JobIds)
+                    foreach (var jobWithTarget in request.Jobs)
                     {
                         // Skip if already in campaign
-                        if (existingJobIds.Contains(jobId))
+                        if (existingJobIds.Contains(jobWithTarget.JobId))
                         {
                             skippedCount++;
                             continue;
                         }
 
                         // Verify job belongs to the same company
-                        var job = await jobRepo.GetJobByIdAsync(jobId);
+                        var job = await jobRepo.GetJobByIdAsync(jobWithTarget.JobId);
                         if (job != null && job.CompanyId == companyUser.CompanyId.Value && job.IsActive)
                         {
                             // Ensure JobCampaigns is initialized
@@ -563,8 +601,10 @@ namespace BusinessObjectLayer.Services
                             
                             campaign.JobCampaigns.Add(new JobCampaign
                             {
-                                JobId = jobId,
-                                CampaignId = campaign.CampaignId
+                                JobId = jobWithTarget.JobId,
+                                CampaignId = campaign.CampaignId,
+                                TargetQuantity = jobWithTarget.TargetQuantity,
+                                CurrentHired = 0
                             });
                             addedCount++;
                         }
@@ -661,12 +701,12 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Validate request
-                if (request.JobIds == null || !request.JobIds.Any())
+                if (request.Jobs == null || !request.Jobs.Any())
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = "At least one job ID is required."
+                        Message = "At least one job is required."
                     };
                 }
 
@@ -684,8 +724,9 @@ namespace BusinessObjectLayer.Services
                         };
                     }
 
+                    var jobIdsToRemove = request.Jobs.Select(j => j.JobId).ToList();
                     var jobsToRemove = campaign.JobCampaigns
-                        .Where(jc => request.JobIds.Contains(jc.JobId))
+                        .Where(jc => jobIdsToRemove.Contains(jc.JobId))
                         .ToList();
 
                     if (!jobsToRemove.Any())

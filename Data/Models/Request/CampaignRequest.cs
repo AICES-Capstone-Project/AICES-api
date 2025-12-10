@@ -24,7 +24,7 @@ namespace Data.Models.Request
 
         public CampaignStatusEnum Status { get; set; } = CampaignStatusEnum.Published;
 
-        public List<int>? JobIds { get; set; }
+        public List<JobWithTargetRequest>? Jobs { get; set; }
     }
 }
 

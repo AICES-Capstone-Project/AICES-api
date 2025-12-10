@@ -18,7 +18,7 @@ namespace Data.Models.Response
         public DateTime EndDate { get; set; }
         public CampaignStatusEnum Status { get; set; }
         public DateTime? CreatedAt { get; set; }
-        public List<int> JobIds { get; set; } = new List<int>();
+        public List<JobCampaignInfoResponse> Jobs { get; set; } = new List<JobCampaignInfoResponse>();
     }
 }
 

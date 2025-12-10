@@ -9,9 +9,9 @@ namespace Data.Models.Request
 {
     public class AddJobsToCampaignRequest
     {
-        [Required(ErrorMessage = "Job IDs are required.")]
-        [MinLength(1, ErrorMessage = "At least one job ID is required.")]
-        public List<int> JobIds { get; set; } = new List<int>();
+        [Required(ErrorMessage = "Jobs are required.")]
+        [MinLength(1, ErrorMessage = "At least one job is required.")]
+        public List<JobWithTargetRequest> Jobs { get; set; } = new List<JobWithTargetRequest>();
     }
 }
 
