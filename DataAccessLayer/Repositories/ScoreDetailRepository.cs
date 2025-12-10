@@ -25,12 +25,22 @@ namespace DataAccessLayer.Repositories
             return scoreDetails;
         }
 
+        public async Task<List<ScoreDetail>> GetByApplicationIdAsync(int applicationId)
+        {
+            return await _context.ScoreDetails
+                .AsNoTracking()
+                .Include(sd => sd.Criteria)
+                .Where(sd => sd.IsActive && sd.ApplicationId == applicationId)
+                .ToListAsync();
+        }
+
         public async Task<List<ScoreDetail>> GetByResumeIdAsync(int resumeId)
         {
             return await _context.ScoreDetails
                 .AsNoTracking()
                 .Include(sd => sd.Criteria)
-                .Where(sd => sd.IsActive && sd.ResumeId == resumeId)
+                .Include(sd => sd.ResumeApplication)
+                .Where(sd => sd.IsActive && sd.ResumeApplication.ResumeId == resumeId)
                 .ToListAsync();
         }
     }

@@ -19,11 +19,12 @@ namespace DataAccessLayer.Repositories
 
         public async Task<List<(int CategoryId, string CategoryName, int SpecializationId, string SpecializationName, int ResumeCount)>> GetTopCategorySpecByResumeCountAsync(int companyId, int top = 10)
         {
-            var result = await (from r in _context.Resumes
-                               join j in _context.Jobs on r.JobId equals j.JobId
+            var result = await (from ra in _context.ResumeApplications
+                               join r in _context.Resumes on ra.ResumeId equals r.ResumeId
+                               join j in _context.Jobs on ra.JobId equals j.JobId
                                join s in _context.Specializations on j.SpecializationId equals s.SpecializationId
                                join c in _context.Categories on s.CategoryId equals c.CategoryId
-                               where r.IsActive && r.CompanyId == companyId 
+                               where ra.IsActive && r.IsActive && r.CompanyId == companyId 
                                   && j.IsActive 
                                   && j.SpecializationId != null
                                group r by new { c.CategoryId, CategoryName = c.Name, s.SpecializationId, SpecializationName = s.Name } into g
@@ -77,28 +78,34 @@ namespace DataAccessLayer.Repositories
 
         public async Task<int> GetAiProcessedCountAsync(int companyId)
         {
-            return await _context.Resumes
+            return await _context.ResumeApplications
                 .AsNoTracking()
-                .Where(r => r.CompanyId == companyId 
-                         && r.IsActive 
-                         && r.TotalScore != null)
+                .Join(_context.Resumes, ra => ra.ResumeId, r => r.ResumeId, (ra, r) => new { ra, r })
+                .Where(x => x.r.CompanyId == companyId 
+                         && x.r.IsActive 
+                         && x.ra.IsActive
+                         && (x.ra.TotalScore != null || x.ra.AdjustedScore != null))
+                .Select(x => x.r.ResumeId)
+                .Distinct()
                 .CountAsync();
         }
 
         public async Task<List<(string Name, string JobTitle, decimal Score, Data.Enum.ResumeStatusEnum Status)>> GetTopRatedCandidatesAsync(int companyId, int limit = 5)
         {
-            var result = await (from r in _context.Resumes
+            var result = await (from ra in _context.ResumeApplications
+                               join r in _context.Resumes on ra.ResumeId equals r.ResumeId
                                join c in _context.Candidates on r.CandidateId equals c.CandidateId
-                               join j in _context.Jobs on r.JobId equals j.JobId
+                               join j in _context.Jobs on ra.JobId equals j.JobId
                                where r.CompanyId == companyId 
                                   && r.IsActive
-                                  && r.TotalScore != null
-                               orderby (r.AdjustedScore ?? r.TotalScore) descending, r.CreatedAt descending
+                                  && ra.IsActive
+                                  && (ra.TotalScore != null || ra.AdjustedScore != null)
+                               orderby (ra.AdjustedScore ?? ra.TotalScore) descending, r.CreatedAt descending
                                select new
                                {
                                    Name = c.FullName,
                                    JobTitle = j.Title,
-                                   Score = r.AdjustedScore ?? r.TotalScore ?? 0m,
+                                   Score = ra.AdjustedScore ?? ra.TotalScore ?? 0m,
                                    Status = r.Status
                                })
                                .Take(limit)

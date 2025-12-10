@@ -5,11 +5,13 @@ using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
 using Data.Models.Response;
+using DataAccessLayer;
 using DataAccessLayer.IRepositories;
 using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Concurrent;
 using System.ComponentModel.Design;
@@ -22,6 +24,7 @@ namespace BusinessObjectLayer.Services
     public class ResumeService : IResumeService
     {
         private readonly IUnitOfWork _uow;
+        private readonly AICESDbContext _context;
         private readonly GoogleCloudStorageHelper _storageHelper;
         private readonly RedisHelper _redisHelper;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -33,6 +36,7 @@ namespace BusinessObjectLayer.Services
 
         public ResumeService(
             IUnitOfWork uow,
+            AICESDbContext context,
             GoogleCloudStorageHelper storageHelper,
             RedisHelper redisHelper,
             IHttpContextAccessor httpContextAccessor,
@@ -40,6 +44,7 @@ namespace BusinessObjectLayer.Services
             IHubContext<ResumeHub> hubContext)
         {
             _uow = uow;
+            _context = context;
             _storageHelper = storageHelper;
             _redisHelper = redisHelper;
             _httpContextAccessor = httpContextAccessor;
@@ -187,11 +192,10 @@ namespace BusinessObjectLayer.Services
                             return limitCheckInTransaction;
                         }
 
-                        // Create Resume record
+                        // Create Resume record (no longer has JobId)
                         var resume = new Resume
                         {
                             CompanyId = companyUser.CompanyId.Value,
-                            JobId = jobId,
                             QueueJobId = queueJobId,
                             FileUrl = fileUrl,
                             Status = ResumeStatusEnum.Pending
@@ -199,6 +203,24 @@ namespace BusinessObjectLayer.Services
 
                         await resumeRepo.CreateAsync(resume);
                         await _uow.SaveChangesAsync(); // Get ResumeId
+
+                        // Find campaign for this job (nullable for backward compatibility)
+                        // Query JobCampaign to find associated campaign
+                        var jobCampaign = await _context.JobCampaigns
+                            .Where(jc => jc.JobId == jobId)
+                            .FirstOrDefaultAsync();
+                        int? campaignId = jobCampaign?.CampaignId;
+
+                        // Create ResumeApplication to link Resume to Job
+                        var resumeApplication = new ResumeApplication
+                        {
+                            ResumeId = resume.ResumeId,
+                            JobId = jobId,
+                            CampaignId = campaignId, // Nullable for backward compatibility
+                            Status = ApplicationStatusEnum.Pending
+                        };
+                        await _context.ResumeApplications.AddAsync(resumeApplication);
+                        await _uow.SaveChangesAsync();
 
                         // Prepare criteria data for queue
                         var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
@@ -522,7 +544,22 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // 1.5 Handle AI-side validation errors (e.g. not a resume)
+                    // Get ResumeApplication for this resume (needed for JobId and to update scores)
+                    var resumeApplication = await _context.ResumeApplications
+                        .Where(ra => ra.ResumeId == resume.ResumeId && ra.IsActive)
+                        .OrderByDescending(ra => ra.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    if (resumeApplication == null)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.NotFound,
+                            Message = "ResumeApplication not found for this resume."
+                        };
+                    }
+
+                    // 1.5 Handle AI-side validation errors (e.g. not a resume)
                 if (!string.IsNullOrWhiteSpace(request.Error))
                 {
                     await _uow.BeginTransactionAsync();
@@ -541,13 +578,13 @@ namespace BusinessObjectLayer.Services
                         await _uow.CommitTransactionAsync();
 
                         // Reload resume for SignalR
-                        var resumeForSignalR = await resumeRepo.GetByJobIdAndResumeIdAsync(resume.JobId, resume.ResumeId);
+                        var resumeForSignalR = await resumeRepo.GetByJobIdAndResumeIdAsync(resumeApplication.JobId, resume.ResumeId);
                         
                         // Send real-time SignalR update
                         _ = Task.Run(async () => 
                         {
                             await Task.Delay(200);
-                            await SendResumeUpdateAsync(resume.JobId, resume.ResumeId, "status_changed", 
+                            await SendResumeUpdateAsync(resumeApplication.JobId, resume.ResumeId, "status_changed", 
                                 new { newStatus = "Invalid" }, resumeForSignalR);
                         });
                     }
@@ -632,7 +669,7 @@ namespace BusinessObjectLayer.Services
                     {
                         candidate = new Candidate
                         {
-                            JobId = resume.JobId,
+                            JobId = resumeApplication.JobId,
                             FullName = fullName,
                             Email = email,
                             PhoneNumber = phone,
@@ -661,7 +698,7 @@ namespace BusinessObjectLayer.Services
                         resume.CandidateId = candidate.CandidateId;
                     }
 
-                    // 5. Save AI Score directly to Resume
+                    // 5. Save AI Score to ResumeApplication (not Resume)
                     string? aiExplanationString = request.AIExplanation switch
                     {
                         string s => s,
@@ -670,18 +707,23 @@ namespace BusinessObjectLayer.Services
                         _ => request.AIExplanation.ToString()
                     };
 
-                    resume.TotalScore = request.TotalResumeScore.Value;
+                    // Update ResumeApplication with scores
+                    resumeApplication.TotalScore = request.TotalResumeScore.Value;
+                    resumeApplication.Status = ApplicationStatusEnum.Reviewed;
+                    _context.ResumeApplications.Update(resumeApplication);
+
+                    // Update Resume with AIExplanation and mark as latest
                     resume.AIExplanation = aiExplanationString;
                     resume.IsLatest = true; // Mark as latest resume
                     
                     await resumeRepo.UpdateAsync(resume);
                     await _uow.SaveChangesAsync();
 
-                    // 6. Save ScoreDetails
+                    // 6. Save ScoreDetails (now linked to ResumeApplication, not Resume)
                     var scoreDetails = request.ScoreDetails.Select(detail => new ScoreDetail
                     {
                         CriteriaId = detail.CriteriaId,
-                        ResumeId = resume.ResumeId,
+                        ApplicationId = resumeApplication.ApplicationId,
                         Matched = detail.Matched,
                         Score = detail.Score,
                         AINote = detail.AINote
@@ -692,14 +734,14 @@ namespace BusinessObjectLayer.Services
                     await _uow.CommitTransactionAsync();
 
                     // Reload resume with all includes to get fresh data for SignalR
-                    var resumeForSignalR = await resumeRepo.GetByJobIdAndResumeIdAsync(resume.JobId, resume.ResumeId);
+                    var resumeForSignalR = await resumeRepo.GetByJobIdAndResumeIdAsync(resumeApplication.JobId, resume.ResumeId);
                     
                     // Send real-time SignalR update (fire and forget, but with proper data)
                     _ = Task.Run(async () => 
                     {
                         // Small delay to ensure all changes are persisted
                         await Task.Delay(200);
-                        await SendResumeUpdateAsync(resume.JobId, resume.ResumeId, "status_changed", 
+                        await SendResumeUpdateAsync(resumeApplication.JobId, resume.ResumeId, "status_changed", 
                             new { newStatus = "Completed" }, resumeForSignalR);
                     });
 
@@ -734,16 +776,24 @@ namespace BusinessObjectLayer.Services
                             await resumeRepo.UpdateAsync(parsedResume);
                             await _uow.CommitTransactionAsync();
 
-                        // Reload resume for SignalR
-                            var resumeForSignalR = await resumeRepo.GetByJobIdAndResumeIdAsync(parsedResume.JobId, parsedResume.ResumeId);
+                        // Get ResumeApplication to find JobId
+                            var failedResumeApplication = await _context.ResumeApplications
+                                .Where(ra => ra.ResumeId == parsedResume.ResumeId && ra.IsActive)
+                                .FirstOrDefaultAsync();
                             
-                            // Send real-time SignalR update
-                            _ = Task.Run(async () => 
+                            if (failedResumeApplication != null)
                             {
-                                await Task.Delay(200);
-                                await SendResumeUpdateAsync(parsedResume.JobId, parsedResume.ResumeId, "status_changed", 
-                                    new { newStatus = "Failed" }, resumeForSignalR);
-                            });
+                                // Reload resume for SignalR
+                                var resumeForSignalR = await resumeRepo.GetByJobIdAndResumeIdAsync(failedResumeApplication.JobId, parsedResume.ResumeId);
+                                
+                                // Send real-time SignalR update
+                                _ = Task.Run(async () => 
+                                {
+                                    await Task.Delay(200);
+                                    await SendResumeUpdateAsync(failedResumeApplication.JobId, parsedResume.ResumeId, "status_changed", 
+                                        new { newStatus = "Failed" }, resumeForSignalR);
+                                });
+                            }
                         }
                         catch
                         {
@@ -814,16 +864,26 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Get all resumes for this job
+                // Get all resumes for this job (through ResumeApplication)
                 var resumes = await resumeRepo.GetByJobIdAsync(jobId);
 
-                var resumeList = resumes.Select(resume => new JobResumeListResponse
+                // Get ResumeApplications for these resumes to get scores
+                var resumeIds = resumes.Select(r => r.ResumeId).ToList();
+                var resumeApplications = await _context.ResumeApplications
+                    .Where(ra => ra.JobId == jobId && resumeIds.Contains(ra.ResumeId) && ra.IsActive)
+                    .ToListAsync();
+
+                var resumeList = resumes.Select(resume => 
                 {
-                    ResumeId = resume.ResumeId,
-                    Status = resume.Status,
-                    FullName = resume.Candidate?.FullName ?? "Unknown",
-                    TotalScore = resume.TotalScore,
-                    AdjustedScore = resume.AdjustedScore
+                    var application = resumeApplications.FirstOrDefault(ra => ra.ResumeId == resume.ResumeId);
+                    return new JobResumeListResponse
+                    {
+                        ResumeId = resume.ResumeId,
+                        Status = resume.Status,
+                        FullName = resume.Candidate?.FullName ?? "Unknown",
+                        TotalScore = application?.TotalScore,
+                        AdjustedScore = application?.AdjustedScore
+                    };
                 }).ToList();
 
                 return new ServiceResponse
@@ -911,8 +971,15 @@ namespace BusinessObjectLayer.Services
 
                 var candidate = resume.Candidate;
                 
-                // Get score details for this resume
-                var scoreDetailsResponse = resume.ScoreDetails?
+                // Get ResumeApplication for scores
+                var resumeApplication = await _context.ResumeApplications
+                    .Where(ra => ra.ResumeId == resumeId && ra.JobId == jobId && ra.IsActive)
+                    .Include(ra => ra.ScoreDetails)
+                        .ThenInclude(sd => sd.Criteria)
+                    .FirstOrDefaultAsync();
+
+                // Get score details from ResumeApplication
+                var scoreDetailsResponse = resumeApplication?.ScoreDetails?
                     .Select(detail => new ResumeScoreDetailResponse
                     {
                         CriteriaId = detail.CriteriaId,
@@ -935,8 +1002,8 @@ namespace BusinessObjectLayer.Services
                     PhoneNumber = candidate?.PhoneNumber,
                     MatchSkills = candidate?.MatchSkills,
                     MissingSkills = candidate?.MissingSkills,
-                    TotalScore = resume.TotalScore,
-                    AdjustedScore = resume.AdjustedScore,
+                    TotalScore = resumeApplication?.TotalScore,
+                    AdjustedScore = resumeApplication?.AdjustedScore,
                     AIExplanation = resume.AIExplanation,
                     ScoreDetails = scoreDetailsResponse
                 };
@@ -1034,8 +1101,22 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Get ResumeApplication to find JobId
+                var resumeApplication = await _context.ResumeApplications
+                    .Where(ra => ra.ResumeId == resumeId && ra.IsActive)
+                    .FirstOrDefaultAsync();
+
+                if (resumeApplication == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "ResumeApplication not found for this resume."
+                    };
+                }
+
                 // Get job with requirements and criteria
-                var job = await jobRepo.GetJobByIdAsync(resume.JobId);
+                var job = await jobRepo.GetJobByIdAsync(resumeApplication.JobId);
                 if (job == null)
                 {
                     return new ServiceResponse
@@ -1057,15 +1138,15 @@ namespace BusinessObjectLayer.Services
                 }).ToList() ?? new List<CriteriaQueueResponse>();
 
                 // Extract skills and employment types from repository
-                var skillsList = await jobRepo.GetSkillsByJobIdAsync(resume.JobId);
-                var employmentTypesList = await jobRepo.GetEmploymentTypesByJobIdAsync(resume.JobId);
+                var skillsList = await jobRepo.GetSkillsByJobIdAsync(resumeApplication.JobId);
+                var employmentTypesList = await jobRepo.GetEmploymentTypesByJobIdAsync(resumeApplication.JobId);
 
                 // Push job to Redis queue with requirements and criteria
                 var jobData = new ResumeQueueJobResponse
                 {
                     resumeId = resume.ResumeId,
                     queueJobId = newQueueJobId,
-                    jobId = resume.JobId,
+                    jobId = resumeApplication.JobId,
                     fileUrl = resume.FileUrl ?? string.Empty,
                     requirements = job.Requirements,
                     skills = skillsList.Any() ? string.Join(", ", skillsList) : null,
@@ -1100,13 +1181,13 @@ namespace BusinessObjectLayer.Services
                     await _uow.CommitTransactionAsync();
 
                     // Reload resume for SignalR
-                    var retryResume = await resumeRepo.GetByJobIdAndResumeIdAsync(resume.JobId, resume.ResumeId);
+                    var retryResume = await resumeRepo.GetByJobIdAndResumeIdAsync(resumeApplication.JobId, resume.ResumeId);
                     
                     // Send real-time SignalR update
                     _ = Task.Run(async () => 
                     {
                         await Task.Delay(200);
-                        await SendResumeUpdateAsync(resume.JobId, resume.ResumeId, "retried", 
+                        await SendResumeUpdateAsync(resumeApplication.JobId, resume.ResumeId, "retried", 
                             new { newStatus = "Pending" }, retryResume);
                     });
                 }
@@ -1211,13 +1292,21 @@ namespace BusinessObjectLayer.Services
                     await resumeRepo.UpdateAsync(resume);
                     await _uow.CommitTransactionAsync();
 
-                    // Note: For deleted resumes, we still send update but resume will be null in query
-                    // Send real-time SignalR update
-                    _ = Task.Run(async () => 
+                    // Get ResumeApplication to find JobId
+                    var deletedResumeApplication = await _context.ResumeApplications
+                        .Where(ra => ra.ResumeId == resumeId && ra.IsActive)
+                        .FirstOrDefaultAsync();
+
+                    if (deletedResumeApplication != null)
                     {
-                        await Task.Delay(200);
-                        await SendResumeUpdateAsync(resume.JobId, resume.ResumeId, "deleted", null, resume);
-                    });
+                        // Note: For deleted resumes, we still send update but resume will be null in query
+                        // Send real-time SignalR update
+                        _ = Task.Run(async () => 
+                        {
+                            await Task.Delay(200);
+                            await SendResumeUpdateAsync(deletedResumeApplication.JobId, resume.ResumeId, "deleted", null, resume);
+                        });
+                    }
                 }
                 catch
                 {
@@ -1264,6 +1353,11 @@ namespace BusinessObjectLayer.Services
                     return;
                 }
 
+                // Get ResumeApplication for scores
+                var resumeApplication = await _context.ResumeApplications
+                    .Where(ra => ra.ResumeId == resumeId && ra.JobId == jobId && ra.IsActive)
+                    .FirstOrDefaultAsync();
+
                 var updateData = new
                 {
                     eventType, // "uploaded", "status_changed", "deleted", "retried"
@@ -1271,7 +1365,7 @@ namespace BusinessObjectLayer.Services
                     resumeId,
                     status = resume.Status.ToString(),
                     fullName = resume.Candidate?.FullName ?? "Unknown",
-                    totalResumeScore = resume.AdjustedScore ?? resume.TotalScore,
+                    totalResumeScore = resumeApplication?.AdjustedScore ?? resumeApplication?.TotalScore,
                     timestamp = DateTime.UtcNow,
                     data
                 };

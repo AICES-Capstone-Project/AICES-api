@@ -33,5 +33,6 @@ namespace Data.Entities
         // Navigation
         public Company Company { get; set; } = null!;
         public ICollection<JobCampaign> JobCampaigns { get; set; } = new List<JobCampaign>();
+        public ICollection<ResumeApplication> ResumeApplications { get; set; } = new List<ResumeApplication>();
     }
 }

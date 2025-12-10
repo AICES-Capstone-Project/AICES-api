@@ -13,6 +13,10 @@ namespace Data.Entities
         [ForeignKey("Campaign")]
         public int CampaignId { get; set; }
 
+        public int TargetQuantity { get; set; }
+
+        public int CurrentHired { get; set; }
+
         // Navigation
         public Job Job { get; set; } = null!;
         public Campaign Campaign { get; set; } = null!;

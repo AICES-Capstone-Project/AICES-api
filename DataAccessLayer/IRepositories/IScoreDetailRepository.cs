@@ -6,6 +6,7 @@ namespace DataAccessLayer.IRepositories
     {
         Task<ScoreDetail> CreateAsync(ScoreDetail scoreDetail);
         Task<List<ScoreDetail>> CreateRangeAsync(List<ScoreDetail> scoreDetails);
+        Task<List<ScoreDetail>> GetByApplicationIdAsync(int applicationId);
         Task<List<ScoreDetail>> GetByResumeIdAsync(int resumeId);
     }
 }

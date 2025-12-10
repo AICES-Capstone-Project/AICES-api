@@ -31,7 +31,6 @@ namespace Data.Entities
         public string? Slug { get; set; }
 
         public string? Requirements { get; set; }
-        public int? TargetQuantity { get; set; }
         public JobStatusEnum JobStatus { get; set; }
         
         [ForeignKey("Specialization")]
@@ -48,7 +47,7 @@ namespace Data.Entities
         public ICollection<JobEmploymentType>? JobEmploymentTypes { get; set; }
         public ICollection<Criteria>? Criteria { get; set; }
         public ICollection<Candidate>? Candidates { get; set; }
-        public ICollection<Resume>? Resumes { get; set; }
+        public ICollection<ResumeApplication>? ResumeApplications { get; set; }
         public ICollection<JobSkill>? JobSkills { get; set; }
         public ICollection<JobLanguage>? JobLanguages { get; set; }
         public ICollection<JobCampaign>? JobCampaigns { get; set; }

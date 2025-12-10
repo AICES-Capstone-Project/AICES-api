@@ -15,8 +15,8 @@ namespace Data.Entities
         [ForeignKey("Criteria")]
         public int CriteriaId { get; set; }
 
-        [ForeignKey("Resume")]
-        public int ResumeId { get; set; }
+        [ForeignKey("ResumeApplication")]
+        public int ApplicationId { get; set; }
 
         [Column(TypeName = "decimal(5,2)")]
         public decimal Matched { get; set; } // Percentage of resume match with this criterion (0-100)
@@ -28,6 +28,6 @@ namespace Data.Entities
 
         // Navigation
         public Criteria Criteria { get; set; } = null!;
-        public Resume Resume { get; set; } = null!;
+        public ResumeApplication ResumeApplication { get; set; } = null!;
     }
 }

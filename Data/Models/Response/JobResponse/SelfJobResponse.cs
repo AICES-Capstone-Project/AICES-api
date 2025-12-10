@@ -14,7 +14,6 @@ namespace Data.Models.Response
         public string? Description { get; set; }
         public string? Slug { get; set; }
         public string? Requirements { get; set; }
-        public int? TargetQuantity { get; set; }
         public JobStatusEnum JobStatus { get; set; }
         public DateTime? CreatedAt { get; set; }
         public string? CategoryName { get; set; }

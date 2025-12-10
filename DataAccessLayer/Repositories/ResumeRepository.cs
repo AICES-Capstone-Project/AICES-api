@@ -41,12 +41,14 @@ namespace DataAccessLayer.Repositories
 
         public async Task<Resume?> GetByIdWithDetailsAsync(int resumeId)
         {
-            return await _context.Resumes
+            var resume = await _context.Resumes
                 .AsNoTracking()
                 .Include(r => r.Candidate)
-                .Include(r => r.ScoreDetails)
-                    .ThenInclude(sd => sd.Criteria)
                 .FirstOrDefaultAsync(r => r.ResumeId == resumeId);
+
+            // Note: ScoreDetails are now on ResumeApplication, not Resume
+            // Access them through ResumeApplication if needed
+            return resume;
         }
 
         public async Task UpdateAsync(Resume resume)
@@ -56,23 +58,35 @@ namespace DataAccessLayer.Repositories
 
         public async Task<List<Resume>> GetByJobIdAsync(int jobId)
         {
-            return await _context.Resumes
+            return await _context.ResumeApplications
                 .AsNoTracking()
+                .Where(ra => ra.JobId == jobId && ra.IsActive)
+                .Select(ra => ra.Resume)
+                .Where(r => r.IsActive)
                 .Include(r => r.Candidate)
-                .Where(r => r.JobId == jobId && r.IsActive)
+                .Distinct()
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync();
         }
 
         public async Task<Resume?> GetByJobIdAndResumeIdAsync(int jobId, int resumeId)
         {
-            return await _context.Resumes
+            var application = await _context.ResumeApplications
                 .AsNoTracking()
-                .Include(r => r.Candidate)
-                .Include(r => r.ScoreDetails)
+                .Where(ra => ra.JobId == jobId && ra.ResumeId == resumeId && ra.IsActive)
+                .Include(ra => ra.Resume)
+                    .ThenInclude(r => r.Candidate)
+                .Include(ra => ra.ScoreDetails)
                     .ThenInclude(sd => sd.Criteria)
-                .Where(r => r.JobId == jobId && r.ResumeId == resumeId && r.IsActive)
                 .FirstOrDefaultAsync();
+
+            if (application?.Resume == null)
+                return null;
+
+            // Note: ScoreDetails are now on ResumeApplication, not Resume
+            // The Resume object returned here won't have ScoreDetails directly
+            // Access them through ResumeApplication if needed
+            return application.Resume;
         }
 
         public async Task<List<Resume>> GetPendingBeforeAsync(DateTime cutoff)

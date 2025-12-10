@@ -1,6 +1,7 @@
 using Data.Entities;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace DataAccessLayer.Repositories
 {
@@ -33,23 +34,30 @@ namespace DataAccessLayer.Repositories
 
         public async Task<List<Candidate>> GetCandidatesWithScoresByJobIdAsync(int jobId)
         {
-            return await _context.Candidates
+            // Get candidates for this job
+            var candidates = await _context.Candidates
                 .AsNoTracking()
                 .Where(c => c.JobId == jobId && c.IsActive)
                 .Include(c => c.Resumes.Where(r => r.IsActive))
-                    .ThenInclude(r => r.ScoreDetails)
                 .ToListAsync();
+
+            // Note: ScoreDetails are now on ResumeApplication, not Resume
+            // Access them through ResumeApplication if needed
+            return candidates;
         }
 
         public async Task<List<Candidate>> GetCandidatesWithFullDetailsByJobIdAsync(int jobId)
         {
-            return await _context.Candidates
+            // Get candidates for this job
+            var candidates = await _context.Candidates
                 .AsNoTracking()
                 .Where(c => c.JobId == jobId && c.IsActive)
                 .Include(c => c.Resumes.Where(r => r.IsActive))
-                    .ThenInclude(r => r.ScoreDetails)
-                        .ThenInclude(sd => sd.Criteria)
                 .ToListAsync();
+
+            // Note: ScoreDetails are now on ResumeApplication, not Resume
+            // Access them through ResumeApplication if needed
+            return candidates;
         }
     }
 }

@@ -46,6 +46,7 @@ namespace DataAccessLayer
         
         // Resume Screening
         public virtual DbSet<Resume> Resumes { get; set; }
+        public virtual DbSet<ResumeApplication> ResumeApplications { get; set; }
         public virtual DbSet<Candidate> Candidates { get; set; }
         public virtual DbSet<ScoreDetail> ScoreDetails { get; set; }
         
@@ -307,13 +308,6 @@ namespace DataAccessLayer
                 .HasForeignKey(r => r.CompanyId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Job - Resumes
-            modelBuilder.Entity<Job>()
-                .HasMany(j => j.Resumes)
-                .WithOne(r => r.Job)
-                .HasForeignKey(r => r.JobId)
-                .OnDelete(DeleteBehavior.NoAction);
-
             // Candidate - Resumes (one-to-many)
             modelBuilder.Entity<Candidate>()
                 .HasMany(c => c.Resumes)
@@ -329,11 +323,33 @@ namespace DataAccessLayer
                 .HasForeignKey(c => c.JobId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Resume - ScoreDetails (one-to-many)
+            // Resume - ResumeApplications (one-to-many)
             modelBuilder.Entity<Resume>()
-                .HasMany(r => r.ScoreDetails)
-                .WithOne(sd => sd.Resume)
-                .HasForeignKey(sd => sd.ResumeId)
+                .HasMany(r => r.ResumeApplications)
+                .WithOne(ra => ra.Resume)
+                .HasForeignKey(ra => ra.ResumeId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Campaign - ResumeApplications (one-to-many)
+            modelBuilder.Entity<Campaign>()
+                .HasMany(c => c.ResumeApplications)
+                .WithOne(ra => ra.Campaign)
+                .HasForeignKey(ra => ra.CampaignId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Job - ResumeApplications (one-to-many)
+            modelBuilder.Entity<Job>()
+                .HasMany(j => j.ResumeApplications)
+                .WithOne(ra => ra.Job)
+                .HasForeignKey(ra => ra.JobId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // ResumeApplication - ScoreDetails (one-to-many)
+            modelBuilder.Entity<ResumeApplication>()
+                .HasMany(ra => ra.ScoreDetails)
+                .WithOne(sd => sd.ResumeApplication)
+                .HasForeignKey(sd => sd.ApplicationId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             // Criteria - ScoreDetails (one-to-many)
@@ -345,7 +361,7 @@ namespace DataAccessLayer
 
             // Configure composite key for ScoreDetail
             modelBuilder.Entity<ScoreDetail>()
-                .HasKey(sd => new { sd.CriteriaId, sd.ResumeId });
+                .HasKey(sd => new { sd.CriteriaId, sd.ApplicationId });
 
             // ===== COMMUNICATION & REPORTING RELATIONSHIPS =====
             
@@ -447,6 +463,11 @@ namespace DataAccessLayer
 
             modelBuilder.Entity<Resume>()
                 .Property(r => r.Status)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<ResumeApplication>()
+                .Property(ra => ra.Status)
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
