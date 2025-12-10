@@ -12,7 +12,7 @@ namespace BusinessObjectLayer.BackgroundJobs
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<ResumeTimeoutService> _logger;
         private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
-        private readonly TimeSpan _timeoutThreshold = TimeSpan.FromMinutes(2);
+        private readonly TimeSpan _timeoutThreshold = TimeSpan.FromMinutes(10);
 
         public ResumeTimeoutService(
             IServiceScopeFactory scopeFactory,
@@ -50,7 +50,7 @@ namespace BusinessObjectLayer.BackgroundJobs
             var resumeRepository = uow.GetRepository<IResumeRepository>();
 
             // Calculate cutoff time (2 minutes ago)
-            var cutoff = DateTime.UtcNow.AddMinutes(-2);
+            var cutoff = DateTime.UtcNow.AddMinutes(-10);
 
             // _logger.LogInformation($"🔍 Checking for timed-out resumes (before {cutoff:yyyy-MM-dd HH:mm:ss} UTC)");
 

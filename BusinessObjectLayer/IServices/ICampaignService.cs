@@ -13,11 +13,10 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null, Data.Enum.CampaignStatusEnum? status = null, DateTime? startDate = null, DateTime? endDate = null);
         Task<ServiceResponse> GetByIdAsync(int id);
         Task<ServiceResponse> GetMyCampaignsAsync();
-        Task<ServiceResponse> CreateAsync(CampaignRequest request);
-        Task<ServiceResponse> UpdateAsync(int id, CampaignRequest request);
-        Task<ServiceResponse> UpdateStatusAsync(int id, UpdateCampaignStatusRequest request);
+        Task<ServiceResponse> CreateAsync(CreateCampaignRequest request);
+        Task<ServiceResponse> UpdateAsync(int id, UpdateCampaignRequest request);
         Task<ServiceResponse> AddJobsToCampaignAsync(int campaignId, AddJobsToCampaignRequest request);
-        Task<ServiceResponse> RemoveJobsFromCampaignAsync(int campaignId, AddJobsToCampaignRequest request);
+        Task<ServiceResponse> RemoveJobsFromCampaignAsync(int campaignId, RemoveJobsFromCampaignRequest request);
         Task<ServiceResponse> SoftDeleteAsync(int id);
     }
 }

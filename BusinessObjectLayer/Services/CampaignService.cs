@@ -262,7 +262,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> CreateAsync(CampaignRequest request)
+        public async Task<ServiceResponse> CreateAsync(CreateCampaignRequest request)
         {
             try
             {
@@ -366,7 +366,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> UpdateAsync(int id, CampaignRequest request)
+        public async Task<ServiceResponse> UpdateAsync(int id, UpdateCampaignRequest request)
         {
             try
             {
@@ -417,8 +417,8 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Validate dates
-                if (request.EndDate <= request.StartDate)
+                // Validate dates only if both are provided
+                if (request.StartDate.HasValue && request.EndDate.HasValue && request.EndDate.Value <= request.StartDate.Value)
                 {
                     return new ServiceResponse
                     {
@@ -427,16 +427,55 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Validate dates if only one is provided (check against existing value)
+                if (request.StartDate.HasValue && !request.EndDate.HasValue && request.StartDate.Value >= campaign.EndDate)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Start date must be before the existing end date."
+                    };
+                }
+
+                if (request.EndDate.HasValue && !request.StartDate.HasValue && request.EndDate.Value <= campaign.StartDate)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "End date must be after the existing start date."
+                    };
+                }
+
                 await _uow.BeginTransactionAsync();
                 try
                 {
-                    campaign.Title = request.Title ?? campaign.Title;
-                    campaign.Description = request.Description ?? campaign.Description;
-                    campaign.StartDate = request.StartDate;
-                    campaign.EndDate = request.EndDate;
-                    campaign.Status = request.Status;
+                    // Only update fields that are provided (PATCH behavior)
+                    if (request.Title != null)
+                    {
+                        campaign.Title = request.Title;
+                    }
 
-                    // Update job campaigns
+                    if (request.Description != null)
+                    {
+                        campaign.Description = request.Description;
+                    }
+
+                    if (request.StartDate.HasValue)
+                    {
+                        campaign.StartDate = request.StartDate.Value;
+                    }
+
+                    if (request.EndDate.HasValue)
+                    {
+                        campaign.EndDate = request.EndDate.Value;
+                    }
+
+                    if (request.Status.HasValue)
+                    {
+                        campaign.Status = request.Status.Value;
+                    }
+
+                    // Update job campaigns only if provided
                     if (request.Jobs != null)
                     {
                         var jobRepo = _uow.GetRepository<IJobRepository>();
@@ -649,7 +688,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> RemoveJobsFromCampaignAsync(int campaignId, AddJobsToCampaignRequest request)
+        public async Task<ServiceResponse> RemoveJobsFromCampaignAsync(int campaignId, RemoveJobsFromCampaignRequest request)
         {
             try
             {
@@ -701,7 +740,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Validate request
-                if (request.Jobs == null || !request.Jobs.Any())
+                if (request.JobIds == null || !request.JobIds.Any())
                 {
                     return new ServiceResponse
                     {
@@ -724,9 +763,8 @@ namespace BusinessObjectLayer.Services
                         };
                     }
 
-                    var jobIdsToRemove = request.Jobs.Select(j => j.JobId).ToList();
                     var jobsToRemove = campaign.JobCampaigns
-                        .Where(jc => jobIdsToRemove.Contains(jc.JobId))
+                        .Where(jc => request.JobIds.Contains(jc.JobId))
                         .ToList();
 
                     if (!jobsToRemove.Any())
@@ -767,97 +805,6 @@ namespace BusinessObjectLayer.Services
                 {
                     Status = SRStatus.Error,
                     Message = "An error occurred while removing jobs from the campaign."
-                };
-            }
-        }
-
-        public async Task<ServiceResponse> UpdateStatusAsync(int id, UpdateCampaignStatusRequest request)
-        {
-            try
-            {
-                // Get current user
-                var user = _httpContextAccessor.HttpContext?.User;
-                var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
-
-                if (string.IsNullOrEmpty(userIdClaim))
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Unauthorized,
-                        Message = "User not authenticated."
-                    };
-                }
-
-                int userId = int.Parse(userIdClaim);
-                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
-                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
-
-                if (companyUser == null || companyUser.CompanyId == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Company not found for user."
-                    };
-                }
-
-                var campaignRepo = _uow.GetRepository<ICampaignRepository>();
-                var campaign = await campaignRepo.GetForUpdateAsync(id);
-                if (campaign == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Campaign not found."
-                    };
-                }
-
-                // Verify campaign belongs to user's company
-                if (campaign.CompanyId != companyUser.CompanyId.Value)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Forbidden,
-                        Message = "You do not have permission to update this campaign."
-                    };
-                }
-
-                // Only allow Published and Private status updates
-                if (request.Status != CampaignStatusEnum.Published && request.Status != CampaignStatusEnum.Private)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = "Only Published and Private statuses are allowed."
-                    };
-                }
-
-                await _uow.BeginTransactionAsync();
-                try
-                {
-                    campaign.Status = request.Status;
-                    campaignRepo.Update(campaign);
-                    await _uow.CommitTransactionAsync();
-
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Success,
-                        Message = "Campaign status updated successfully."
-                    };
-                }
-                catch
-                {
-                    await _uow.RollbackTransactionAsync();
-                    throw;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Update campaign status error: {ex.Message}");
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "An error occurred while updating the campaign status."
                 };
             }
         }

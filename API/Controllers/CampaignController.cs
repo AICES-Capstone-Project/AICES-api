@@ -49,7 +49,7 @@ namespace API.Controllers
 
         [HttpPost]
         [Authorize(Roles = "HR_Manager,HR_Recruiter")]
-        public async Task<IActionResult> Create([FromBody] CampaignRequest request)
+        public async Task<IActionResult> Create([FromBody] CreateCampaignRequest request)
         {
             var response = await _campaignService.CreateAsync(request);
             return ControllerResponse.Response(response);
@@ -57,17 +57,9 @@ namespace API.Controllers
 
         [HttpPatch("{id}")]
         [Authorize(Roles = "HR_Manager,HR_Recruiter")]
-        public async Task<IActionResult> Update(int id, [FromBody] CampaignRequest request)
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateCampaignRequest request)
         {
             var response = await _campaignService.UpdateAsync(id, request);
-            return ControllerResponse.Response(response);
-        }
-
-        [HttpPatch("{id}/status")]
-        [Authorize(Roles = "HR_Manager,HR_Recruiter")]
-        public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateCampaignStatusRequest request)
-        {
-            var response = await _campaignService.UpdateStatusAsync(id, request);
             return ControllerResponse.Response(response);
         }
 
@@ -81,7 +73,7 @@ namespace API.Controllers
 
         [HttpDelete("{id}/jobs")]
         [Authorize(Roles = "HR_Manager,HR_Recruiter")]
-        public async Task<IActionResult> RemoveJobsFromCampaign(int id, [FromBody] AddJobsToCampaignRequest request)
+        public async Task<IActionResult> RemoveJobsFromCampaign(int id, [FromBody] RemoveJobsFromCampaignRequest request)
         {
             var response = await _campaignService.RemoveJobsFromCampaignAsync(id, request);
             return ControllerResponse.Response(response);

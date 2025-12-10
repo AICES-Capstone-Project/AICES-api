@@ -31,6 +31,7 @@ namespace DataAccessLayer.IRepositories
         Task<bool> JobTitleExistsInCompanyAsync(string title, int companyId);
         Task<List<string>> GetEmploymentTypesByJobIdAsync(int jobId);
         Task<List<string>> GetSkillsByJobIdAsync(int jobId);
+        Task<List<string>> GetLanguagesByJobIdAsync(int jobId);
         void UpdateJob(Job job);
         void SoftDeleteJob(Job job);
     }
