@@ -38,6 +38,9 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(jet => jet.EmploymentType)
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
+                .Include(j => j.Level)
+                .Include(j => j.JobLanguages!)
+                    .ThenInclude(jl => jl.Language)
                 .Include(j => j.Criteria)
                 .FirstOrDefaultAsync(j => j.IsActive && j.JobId == jobId);
         }
@@ -55,6 +58,9 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(jet => jet.EmploymentType)
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
+                .Include(j => j.Level)
+                .Include(j => j.JobLanguages!)
+                    .ThenInclude(jl => jl.Language)
                 .Include(j => j.Criteria)
                 .FirstOrDefaultAsync(j => j.IsActive && j.JobId == jobId);
         }
@@ -109,6 +115,9 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(jet => jet.EmploymentType)
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
+                .Include(j => j.Level)
+                .Include(j => j.JobLanguages!)
+                    .ThenInclude(jl => jl.Language)
                 .Include(j => j.Criteria)
                 .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Published)
                 .AsQueryable();
@@ -158,6 +167,9 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(jet => jet.EmploymentType)
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
+                .Include(j => j.Level)
+                .Include(j => j.JobLanguages!)
+                    .ThenInclude(jl => jl.Language)
                 .Include(j => j.Criteria)
                 .Where(j => j.IsActive && j.CompanyId == companyId && j.JobStatus == JobStatusEnum.Published)
                 .AsQueryable();
@@ -207,6 +219,9 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(jet => jet.EmploymentType)
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
+                .Include(j => j.Level)
+                .Include(j => j.JobLanguages!)
+                    .ThenInclude(jl => jl.Language)
                 .Include(j => j.Criteria)
                 .Where(j => j.IsActive && j.CompanyId == companyId && j.JobStatus == JobStatusEnum.Pending)
                 .AsQueryable();
@@ -275,6 +290,9 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(jet => jet.EmploymentType)
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
+                .Include(j => j.Level)
+                .Include(j => j.JobLanguages!)
+                    .ThenInclude(jl => jl.Language)
                 .Include(j => j.Criteria)
                 .Where(j => j.CompanyId == companyId && j.IsActive && j.JobStatus == JobStatusEnum.Pending)
                 .FirstOrDefaultAsync(j => j.IsActive && j.JobId == jobId);
@@ -294,6 +312,9 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(jet => jet.EmploymentType)
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
+                .Include(j => j.Level)
+                .Include(j => j.JobLanguages!)
+                    .ThenInclude(jl => jl.Language)
                 .Include(j => j.Criteria)
                 .Where(j => j.CompanyId == companyId && j.IsActive)
                 .FirstOrDefaultAsync(j => j.JobId == jobId);
@@ -313,6 +334,9 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(jet => jet.EmploymentType)
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
+                .Include(j => j.Level)
+                .Include(j => j.JobLanguages!)
+                    .ThenInclude(jl => jl.Language)
                 .Include(j => j.Criteria)
                 .Where(j => j.CompanyId == companyId && j.IsActive)
                 .AsQueryable();
@@ -362,6 +386,9 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(jet => jet.EmploymentType)
                 .Include(j => j.JobSkills!)
                     .ThenInclude(js => js.Skill)
+                .Include(j => j.Level)
+                .Include(j => j.JobLanguages!)
+                    .ThenInclude(jl => jl.Language)
                 .Include(j => j.Criteria)
                 .Where(j => j.ComUserId == comUserId && j.IsActive)
                 .AsQueryable();

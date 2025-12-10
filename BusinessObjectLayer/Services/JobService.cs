@@ -68,6 +68,8 @@ namespace BusinessObjectLayer.Services
                     SpecializationName = job.Specialization?.Name,
                     EmploymentTypes = job.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
                     Skills = job.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
+                    LevelName = job.Level?.Name,
+                    Languages = job.JobLanguages?.Select(jl => jl.Language.Name).ToList() ?? new List<string>(),
                     Criteria = job.Criteria?.Select(c => new CriteriaResponse
                     {
                         CriteriaId = c.CriteriaId,
@@ -120,6 +122,8 @@ namespace BusinessObjectLayer.Services
                     SpecializationName = j.Specialization?.Name,
                     EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
                     Skills = j.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
+                    LevelName = j.Level?.Name,
+                    Languages = j.JobLanguages?.Select(jl => jl.Language.Name).ToList() ?? new List<string>(),
                     Criteria = j.Criteria?.Select(c => new CriteriaResponse
                     {
                         CriteriaId = c.CriteriaId,
@@ -170,6 +174,8 @@ namespace BusinessObjectLayer.Services
                 var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
                 var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 var skillRepo = _uow.GetRepository<ISkillRepository>();
+                var levelRepo = _uow.GetRepository<ILevelRepository>();
+                var languageRepo = _uow.GetRepository<ILanguageRepository>();
                 
                 // Get user email from claims
                 var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
@@ -288,6 +294,37 @@ namespace BusinessObjectLayer.Services
                     }
                 }
 
+                // Validate level if provided
+                if (request.LevelId != null)
+                {
+                    var level = await levelRepo.GetByIdAsync(request.LevelId.Value);
+                    if (level == null)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = $"Level with ID {request.LevelId} does not exist."
+                        };
+                    }
+                }
+
+                // Validate languages if provided
+                if (request.LanguageIds != null && request.LanguageIds.Count > 0)
+                {
+                    foreach (var languageId in request.LanguageIds)
+                    {
+                        var language = await languageRepo.GetByIdAsync(languageId);
+                        if (language == null)
+                        {
+                            return new ServiceResponse
+                            {
+                                Status = SRStatus.Validation,
+                                Message = $"Language with ID {languageId} does not exist."
+                            };
+                        }
+                    }
+                }
+
                 // Validate criteria
                 if (request.Criteria == null)
                 {
@@ -350,7 +387,8 @@ namespace BusinessObjectLayer.Services
                         Slug = GenerateSlug(request.Title ?? string.Empty),
                         Requirements = request.Requirements,
                         JobStatus = jobStatus,
-                        SpecializationId = request.SpecializationId
+                        SpecializationId = request.SpecializationId,
+                        LevelId = request.LevelId
                     };
 
                     // Add job to context
@@ -378,6 +416,18 @@ namespace BusinessObjectLayer.Services
                             SkillId = id
                         }).ToList();
                         await jobSkillRepo.AddRangeAsync(jobSkills);
+                    }
+
+                    // Add job languages if provided
+                    if (request.LanguageIds != null && request.LanguageIds.Count > 0)
+                    {
+                        var jobLanguageRepo = _uow.GetRepository<IJobLanguageRepository>();
+                        var jobLanguages = request.LanguageIds.Select(id => new JobLanguage
+                        {
+                            JobId = job.JobId,
+                            LanguageId = id
+                        }).ToList();
+                        await jobLanguageRepo.AddRangeAsync(jobLanguages);
                     }
 
                     // Add criteria (JobId now exists, no FK constraint error)
@@ -530,6 +580,8 @@ namespace BusinessObjectLayer.Services
                     SpecializationName = j.Specialization?.Name,
                     EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
                     Skills = j.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
+                    LevelName = j.Level?.Name,
+                    Languages = j.JobLanguages?.Select(jl => jl.Language.Name).ToList() ?? new List<string>(),
                     Criteria = j.Criteria?.Select(c => new CriteriaResponse
                     {
                         CriteriaId = c.CriteriaId,
@@ -622,6 +674,8 @@ namespace BusinessObjectLayer.Services
                     SpecializationName = j.Specialization?.Name,
                     EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
                     Skills = j.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
+                    LevelName = j.Level?.Name,
+                    Languages = j.JobLanguages?.Select(jl => jl.Language.Name).ToList() ?? new List<string>(),
                     Criteria = j.Criteria?.Select(c => new CriteriaResponse
                     {
                         CriteriaId = c.CriteriaId,
@@ -730,6 +784,8 @@ namespace BusinessObjectLayer.Services
                     JobStatus = job.JobStatus,
                     EmploymentTypes = job.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
                     Skills = job.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
+                    LevelName = job.Level?.Name,
+                    Languages = job.JobLanguages?.Select(jl => jl.Language.Name).ToList() ?? new List<string>(),
                     Criteria = job.Criteria?.Select(c => new CriteriaResponse
                     {
                         CriteriaId = c.CriteriaId,
@@ -820,6 +876,8 @@ namespace BusinessObjectLayer.Services
                     SpecializationName = job.Specialization?.Name,
                     EmploymentTypes = job.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
                     Skills = job.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
+                    LevelName = job.Level?.Name,
+                    Languages = job.JobLanguages?.Select(jl => jl.Language.Name).ToList() ?? new List<string>(),
                     Criteria = job.Criteria?.Select(c => new CriteriaResponse
                     {
                         CriteriaId = c.CriteriaId,
@@ -906,6 +964,8 @@ namespace BusinessObjectLayer.Services
                     SpecializationName = j.Specialization?.Name,
                     EmploymentTypes = j.JobEmploymentTypes?.Select(jet => jet.EmploymentType?.Name ?? "").ToList() ?? new List<string>(),
                     Skills = j.JobSkills?.Select(s => s.Skill.Name).ToList() ?? new List<string>(),
+                    LevelName = j.Level?.Name,
+                    Languages = j.JobLanguages?.Select(jl => jl.Language.Name).ToList() ?? new List<string>(),
                     Criteria = j.Criteria?.Select(c => new CriteriaResponse
                     {
                         CriteriaId = c.CriteriaId,
@@ -976,6 +1036,8 @@ namespace BusinessObjectLayer.Services
                 var specializationRepo = _uow.GetRepository<ISpecializationRepository>();
                 var skillRepo = _uow.GetRepository<ISkillRepository>();
                 var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
+                var levelRepo = _uow.GetRepository<ILevelRepository>();
+                var languageRepo = _uow.GetRepository<ILanguageRepository>();
                 
                 var emailClaim = Common.ClaimUtils.GetEmailClaim(userClaims);
                 if (string.IsNullOrEmpty(emailClaim))
@@ -1045,6 +1107,37 @@ namespace BusinessObjectLayer.Services
                     }
                 }
 
+                // Validate level if provided
+                if (request.LevelId != null)
+                {
+                    var level = await levelRepo.GetByIdAsync(request.LevelId.Value);
+                    if (level == null)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = $"Level with ID {request.LevelId} does not exist."
+                        };
+                    }
+                }
+
+                // Validate languages if provided
+                if (request.LanguageIds != null && request.LanguageIds.Count > 0)
+                {
+                    foreach (var languageId in request.LanguageIds)
+                    {
+                        var language = await languageRepo.GetByIdAsync(languageId);
+                        if (language == null)
+                        {
+                            return new ServiceResponse
+                            {
+                                Status = SRStatus.Validation,
+                                Message = $"Language with ID {languageId} does not exist."
+                            };
+                        }
+                    }
+                }
+
                 // Validate criteria if provided
                 if (request.Criteria != null)
                 {
@@ -1082,6 +1175,7 @@ namespace BusinessObjectLayer.Services
                     if (request.Description != null) job.Description = request.Description;
                     if (request.Requirements != null) job.Requirements = request.Requirements;
                     if (request.SpecializationId != null) job.SpecializationId = request.SpecializationId;
+                    if (request.LevelId != null) job.LevelId = request.LevelId;
 
                     jobRepo.UpdateJob(job);
 
@@ -1123,6 +1217,22 @@ namespace BusinessObjectLayer.Services
                             EmployTypeId = id
                         }).ToList();
                         await jobEmploymentTypeRepo.AddJobEmploymentTypesAsync(newJets);
+                    }
+
+                    // Replace job languages if provided
+                    if (request.LanguageIds != null)
+                    {
+                        var jobLanguageRepo = _uow.GetRepository<IJobLanguageRepository>();
+                        await jobLanguageRepo.DeleteByJobIdAsync(job.JobId);
+                        if (request.LanguageIds.Count > 0)
+                        {
+                            var newJobLanguages = request.LanguageIds.Select(id => new JobLanguage
+                            {
+                                JobId = job.JobId,
+                                LanguageId = id
+                            }).ToList();
+                            await jobLanguageRepo.AddRangeAsync(newJobLanguages);
+                        }
                     }
 
                     await _uow.CommitTransactionAsync();

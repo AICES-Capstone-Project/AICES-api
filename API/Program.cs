@@ -255,7 +255,9 @@ builder.Services.AddScoped<ICompanySubscriptionRepository, CompanySubscriptionRe
 builder.Services.AddScoped<IBannerConfigRepository, BannerConfigRepository>();
 builder.Services.AddScoped<ISkillRepository, SkillRepository>();
 builder.Services.AddScoped<IJobSkillRepository, JobSkillRepository>();
+builder.Services.AddScoped<IJobLanguageRepository, JobLanguageRepository>();
 builder.Services.AddScoped<ILevelRepository, LevelRepository>();
+builder.Services.AddScoped<ILanguageRepository, LanguageRepository>();
 builder.Services.AddScoped<ICampaignRepository, CampaignRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IResumeRepository, ResumeRepository>();
@@ -277,6 +279,7 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ISpecializationService, SpecializationService>();
 builder.Services.AddScoped<IEmploymentTypeService, EmploymentTypeService>();
 builder.Services.AddScoped<ILevelService, LevelService>();
+builder.Services.AddScoped<ILanguageService, LanguageService>();
 builder.Services.AddScoped<ICampaignService, CampaignService>();
 builder.Services.AddScoped<IJobService, JobService>();
 builder.Services.AddScoped<ISubscriptionService, BusinessObjectLayer.Services.SubscriptionService>();

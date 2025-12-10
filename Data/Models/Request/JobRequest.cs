@@ -42,6 +42,13 @@ namespace Data.Models.Request
         [DefaultValue(new int[] { })]
         public List<int>? SkillIds { get; set; }
 
+        // Optional: Level ID for the job
+        public int? LevelId { get; set; }
+
+        // Optional: Language IDs for the job (many-to-many)
+        [DefaultValue(new int[] { })]
+        public List<int>? LanguageIds { get; set; }
+
         // Criteria are required and must contain between 2 and 19 items
         [Required(ErrorMessage = "Criteria are required")]
         [MinLength(2, ErrorMessage = "At least 2 criteria must be provided.")]
