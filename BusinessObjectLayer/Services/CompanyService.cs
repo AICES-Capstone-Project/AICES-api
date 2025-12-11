@@ -1,4 +1,5 @@
 using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.Services.Auth;
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Data.Entities;
@@ -26,19 +27,22 @@ namespace BusinessObjectLayer.Services
         private readonly Common.CloudinaryHelper _cloudinaryHelper;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly INotificationService _notificationService;
+        private readonly IEmailService _emailService;
 
         public CompanyService(
             IUnitOfWork uow,
             ICompanyDocumentService companyDocumentService,
             Common.CloudinaryHelper cloudinaryHelper,
             IHttpContextAccessor httpContextAccessor,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IEmailService emailService)
         {
             _uow = uow;
             _companyDocumentService = companyDocumentService;
             _cloudinaryHelper = cloudinaryHelper;
             _httpContextAccessor = httpContextAccessor;
             _notificationService = notificationService;
+            _emailService = emailService;
         }
 
         // Get public companies (active and approved only)
@@ -1222,6 +1226,22 @@ namespace BusinessObjectLayer.Services
                                     message: $"Your company has been approved",
                                     detail: $"Congratulations! Your company '{company.Name}' has been approved by the admin."
                                 );
+
+                                // Send email notification
+                                try
+                                {
+                                    var userRepo = _uow.GetRepository<IUserRepository>();
+                                    var creator = await userRepo.GetByIdAsync(creatorUserId.Value);
+                                    if (creator != null && !string.IsNullOrEmpty(creator.Email))
+                                    {
+                                        await _emailService.SendCompanyApprovalEmailAsync(creator.Email, company.Name);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    // Log email error but don't fail the approval
+                                    Console.WriteLine($"Failed to send approval email: {ex.Message}");
+                                }
                             }
 
                             return new ServiceResponse
