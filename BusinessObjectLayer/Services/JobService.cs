@@ -779,6 +779,7 @@ namespace BusinessObjectLayer.Services
                     Description = job.Description,
                     Slug = job.Slug,
                     Requirements = job.Requirements,
+                    CreatedAt = job.CreatedAt,
                     CategoryName = job.Specialization?.Category?.Name,
                     SpecializationName = job.Specialization?.Name,
                     JobStatus = job.JobStatus,
@@ -1280,10 +1281,20 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "You must join a company before deleting a job." };
                 }
 
-                var job = await jobRepo.GetPublishedForUpdateByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
+                // Allow deleting any active job (regardless of status) that belongs to the company
+                var job = await jobRepo.GetForUpdateByIdAndCompanyIdAsync(jobId, companyUser.CompanyId.Value);
                 if (job == null)
                 {
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
+                }
+
+                if (!job.IsActive)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Job is already deleted."
+                    };
                 }
 
                 // Prevent deleting job if there is any resume associated with this job

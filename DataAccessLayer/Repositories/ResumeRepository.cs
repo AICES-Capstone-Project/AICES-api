@@ -58,14 +58,16 @@ namespace DataAccessLayer.Repositories
 
         public async Task<List<Resume>> GetByJobIdAsync(int jobId)
         {
+            // Include resumes and their candidates before projection to avoid Include-after-Select errors
             return await _context.ResumeApplications
                 .AsNoTracking()
                 .Where(ra => ra.JobId == jobId && ra.IsActive)
+                .Include(ra => ra.Resume)
+                    .ThenInclude(r => r.Candidate)
                 .Select(ra => ra.Resume)
-                .Where(r => r.IsActive)
-                .Include(r => r.Candidate)
+                .Where(r => r != null && r.IsActive)
                 .Distinct()
-                .OrderByDescending(r => r.CreatedAt)
+                .OrderByDescending(r => r!.CreatedAt)
                 .ToListAsync();
         }
 

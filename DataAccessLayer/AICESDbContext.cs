@@ -316,13 +316,6 @@ namespace DataAccessLayer
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Job - Candidates
-            modelBuilder.Entity<Job>()
-                .HasMany(j => j.Candidates)
-                .WithOne(c => c.Job)
-                .HasForeignKey(c => c.JobId)
-                .OnDelete(DeleteBehavior.NoAction);
-
             // Resume - ResumeApplications (one-to-many)
             modelBuilder.Entity<Resume>()
                 .HasMany(r => r.ResumeApplications)

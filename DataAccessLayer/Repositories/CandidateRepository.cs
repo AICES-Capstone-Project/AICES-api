@@ -34,30 +34,27 @@ namespace DataAccessLayer.Repositories
 
         public async Task<List<Candidate>> GetCandidatesWithScoresByJobIdAsync(int jobId)
         {
-            // Get candidates for this job
-            var candidates = await _context.Candidates
+            return await _context.Candidates
                 .AsNoTracking()
-                .Where(c => c.JobId == jobId && c.IsActive)
+                .Where(c => c.IsActive && c.Resumes.Any(r =>
+                    r.IsActive &&
+                    r.ResumeApplications.Any(ra => ra.JobId == jobId && ra.IsActive)))
                 .Include(c => c.Resumes.Where(r => r.IsActive))
+                    .ThenInclude(r => r.ResumeApplications.Where(ra => ra.IsActive && ra.JobId == jobId))
                 .ToListAsync();
-
-            // Note: ScoreDetails are now on ResumeApplication, not Resume
-            // Access them through ResumeApplication if needed
-            return candidates;
         }
 
         public async Task<List<Candidate>> GetCandidatesWithFullDetailsByJobIdAsync(int jobId)
         {
-            // Get candidates for this job
-            var candidates = await _context.Candidates
+            return await _context.Candidates
                 .AsNoTracking()
-                .Where(c => c.JobId == jobId && c.IsActive)
+                .Where(c => c.IsActive && c.Resumes.Any(r =>
+                    r.IsActive &&
+                    r.ResumeApplications.Any(ra => ra.JobId == jobId && ra.IsActive)))
                 .Include(c => c.Resumes.Where(r => r.IsActive))
+                    .ThenInclude(r => r.ResumeApplications.Where(ra => ra.IsActive && ra.JobId == jobId))
+                        .ThenInclude(ra => ra.Job)
                 .ToListAsync();
-
-            // Note: ScoreDetails are now on ResumeApplication, not Resume
-            // Access them through ResumeApplication if needed
-            return candidates;
         }
     }
 }

@@ -47,6 +47,13 @@ namespace API.Controllers
             return ControllerResponse.Response(response);
         }
 
+        [HttpGet("{id}/jobs")]
+        public async Task<IActionResult> GetCampaignJobs(int id)
+        {
+            var response = await _campaignService.GetCampaignJobsAsync(id);
+            return ControllerResponse.Response(response);
+        }
+
         [HttpPost]
         [Authorize(Roles = "HR_Manager,HR_Recruiter")]
         public async Task<IActionResult> Create([FromBody] CreateCampaignRequest request)

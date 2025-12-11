@@ -754,7 +754,6 @@ namespace BusinessObjectLayer.Services
                     {
                         candidate = new Candidate
                         {
-                            JobId = resumeApplication.JobId,
                             FullName = fullName,
                             Email = email,
                             PhoneNumber = phone,

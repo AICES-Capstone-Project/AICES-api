@@ -18,6 +18,7 @@ namespace DataAccessLayer.IRepositories
         Task<int> GetTotalByCompanyIdWithFiltersAsync(int companyId, string? search = null, Data.Enum.CampaignStatusEnum? status = null, DateTime? startDate = null, DateTime? endDate = null);
         Task AddAsync(Campaign campaign);
         void Update(Campaign campaign);
+        Task<List<JobCampaign>> GetActiveJobsByCampaignIdAsync(int campaignId);
         
         // Legacy methods for backward compatibility
         Task UpdateAsync(Campaign campaign);

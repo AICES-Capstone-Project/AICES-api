@@ -46,7 +46,6 @@ namespace Data.Entities
         public Level? Level { get; set; }
         public ICollection<JobEmploymentType>? JobEmploymentTypes { get; set; }
         public ICollection<Criteria>? Criteria { get; set; }
-        public ICollection<Candidate>? Candidates { get; set; }
         public ICollection<ResumeApplication>? ResumeApplications { get; set; }
         public ICollection<JobSkill>? JobSkills { get; set; }
         public ICollection<JobLanguage>? JobLanguages { get; set; }

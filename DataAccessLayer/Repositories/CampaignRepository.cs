@@ -213,6 +213,15 @@ namespace DataAccessLayer.Repositories
             return await query.CountAsync();
         }
 
+        public async Task<List<JobCampaign>> GetActiveJobsByCampaignIdAsync(int campaignId)
+        {
+            return await _context.JobCampaigns
+                .AsNoTracking()
+                .Where(jc => jc.CampaignId == campaignId && jc.Job != null && jc.Job.IsActive)
+                .Include(jc => jc.Job)
+                .ToListAsync();
+        }
+
         public async Task AddAsync(Campaign campaign)
         {
             await _context.Campaigns.AddAsync(campaign);

@@ -15,9 +15,6 @@ namespace Data.Entities
         [Key]
         public int CandidateId { get; set; }
 
-        [ForeignKey("Job")]
-        public int JobId { get; set; }
-
         [Required, MaxLength(255)]
         public string FullName { get; set; } = string.Empty;
 
@@ -30,7 +27,6 @@ namespace Data.Entities
         public string? MissingSkills { get; set; }
 
         // Navigation
-        public Job Job { get; set; } = null!;
         public ICollection<Resume> Resumes { get; set; } = new List<Resume>();
     }
 }

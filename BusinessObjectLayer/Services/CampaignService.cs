@@ -262,6 +262,86 @@ namespace BusinessObjectLayer.Services
             }
         }
 
+        public async Task<ServiceResponse> GetCampaignJobsAsync(int campaignId)
+        {
+            try
+            {
+                // Get current user
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+
+                if (companyUser == null || companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company not found for user."
+                    };
+                }
+
+                var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                var campaign = await campaignRepo.GetByIdAsync(campaignId);
+                if (campaign == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Campaign not found."
+                    };
+                }
+
+                // Verify campaign belongs to user's company
+                if (campaign.CompanyId != companyUser.CompanyId.Value)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You do not have permission to view this campaign."
+                    };
+                }
+
+                var jobCampaignRepo = _uow.GetRepository<ICampaignRepository>();
+                var jobCampaigns = await jobCampaignRepo.GetActiveJobsByCampaignIdAsync(campaignId);
+
+                var jobs = jobCampaigns.Select(jc => new JobCampaignInfoResponse
+                {
+                    JobId = jc.JobId,
+                    JobTitle = jc.Job?.Title,
+                    TargetQuantity = jc.TargetQuantity,
+                    CurrentHired = jc.CurrentHired
+                }).ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Campaign jobs retrieved successfully.",
+                    Data = jobs
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get campaign jobs error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving campaign jobs."
+                };
+            }
+        }
+
         public async Task<ServiceResponse> CreateAsync(CreateCampaignRequest request)
         {
             try
