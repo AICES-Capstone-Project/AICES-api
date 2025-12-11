@@ -12,6 +12,7 @@ namespace DataAccessLayer.IRepositories
         Task UpdateAsync(Resume resume);
         Task<List<Resume>> GetByJobIdAsync(int jobId);
         Task<Resume?> GetByJobIdAndResumeIdAsync(int jobId, int resumeId);
+        Task<List<Resume>> GetByCandidateIdAsync(int candidateId);
         Task<List<Resume>> GetPendingBeforeAsync(DateTime cutoff);
         Task<int> CountResumesInLastHoursAsync(int companyId, int hours);
         Task<int> CountResumesInLastHoursInTransactionAsync(int companyId, int hours);

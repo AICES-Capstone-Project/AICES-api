@@ -380,6 +380,14 @@ namespace DataAccessLayer
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // Candidate - ResumeApplications
+            modelBuilder.Entity<Candidate>()
+                .HasMany(c => c.ResumeApplications)
+                .WithOne(ra => ra.Candidate)
+                .HasForeignKey(ra => ra.CandidateId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
             // User - Blogs
             modelBuilder.Entity<User>()
                 .HasMany(u => u.Blogs)

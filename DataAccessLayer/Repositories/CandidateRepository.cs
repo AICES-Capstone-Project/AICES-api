@@ -27,9 +27,62 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync(c => c.IsActive && c.Resumes.Any(r => r.ResumeId == resumeId));
         }
 
-        public async Task UpdateAsync(Candidate candidate)
+        public Task UpdateAsync(Candidate candidate)
         {
             _context.Candidates.Update(candidate);
+            return Task.CompletedTask;
+        }
+
+        public async Task<Candidate?> GetByIdAsync(int id)
+        {
+            return await _context.Candidates
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.IsActive && c.CandidateId == id);
+        }
+
+        public async Task<List<Candidate>> GetPagedAsync(int page, int pageSize, string? search = null)
+        {
+            var query = _context.Candidates
+                .AsNoTracking()
+                .Where(c => c.IsActive);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(c =>
+                    c.FullName.Contains(search) ||
+                    c.Email.Contains(search) ||
+                    (c.PhoneNumber != null && c.PhoneNumber.Contains(search)));
+            }
+
+            return await query
+                .OrderByDescending(c => c.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        public async Task<int> GetTotalAsync(string? search = null)
+        {
+            var query = _context.Candidates
+                .AsNoTracking()
+                .Where(c => c.IsActive);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(c =>
+                    c.FullName.Contains(search) ||
+                    c.Email.Contains(search) ||
+                    (c.PhoneNumber != null && c.PhoneNumber.Contains(search)));
+            }
+
+            return await query.CountAsync();
+        }
+
+        public Task SoftDeleteAsync(Candidate candidate)
+        {
+            candidate.IsActive = false;
+            _context.Candidates.Update(candidate);
+            return Task.CompletedTask;
         }
 
         public async Task<List<Candidate>> GetCandidatesWithScoresByJobIdAsync(int jobId)

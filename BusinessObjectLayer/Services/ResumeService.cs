@@ -746,9 +746,6 @@ namespace BusinessObjectLayer.Services
                     var fullName = request.CandidateInfo?.FullName ?? "Unknown";
                     var email = request.CandidateInfo?.Email ?? "unknown@example.com";
                     var phone = request.CandidateInfo?.PhoneNumber;
-                    var matchSkills = request.CandidateInfo?.MatchSkills;
-                    var missingSkills = request.CandidateInfo?.MissingSkills;
-
                     Candidate candidate;
                     if (existingCandidate == null)
                     {
@@ -756,9 +753,7 @@ namespace BusinessObjectLayer.Services
                         {
                             FullName = fullName,
                             Email = email,
-                            PhoneNumber = phone,
-                            MatchSkills = matchSkills,
-                            MissingSkills = missingSkills
+                            PhoneNumber = phone
                         };
 
                         await candidateRepo.CreateAsync(candidate);
@@ -772,14 +767,13 @@ namespace BusinessObjectLayer.Services
                         existingCandidate.FullName = fullName;
                         existingCandidate.Email = email;
                         existingCandidate.PhoneNumber = phone;
-                        existingCandidate.MatchSkills = matchSkills;
-                        existingCandidate.MissingSkills = missingSkills;
 
                         await candidateRepo.UpdateAsync(existingCandidate);
                         candidate = existingCandidate;
                         
                         // Link resume to candidate
                         resume.CandidateId = candidate.CandidateId;
+                    resumeApplication.CandidateId = candidate.CandidateId;
                     }
 
                     // 5. Save AI Score to ResumeApplication (not Resume)
@@ -788,10 +782,13 @@ namespace BusinessObjectLayer.Services
                         : null;
 
                     // Update ResumeApplication with scores
+                    resumeApplication.CandidateId = candidate.CandidateId;
                     resumeApplication.TotalScore = request.TotalResumeScore.Value;
                     resumeApplication.Status = ApplicationStatusEnum.Reviewed;
                     resumeApplication.AIExplanation = aiExplanationString;
                     resumeApplication.RequiredSkills = request.RequiredSkills;
+                    resumeApplication.MatchSkills = request.CandidateInfo?.MatchSkills;
+                    resumeApplication.MissingSkills = request.CandidateInfo?.MissingSkills;
                     await _resumeApplicationRepo.UpdateAsync(resumeApplication);
 
                     // Update Resume and mark as latest
@@ -1067,12 +1064,12 @@ namespace BusinessObjectLayer.Services
                     ApplicationStatus = resumeApplication?.Status ?? ApplicationStatusEnum.Pending,
                     CampaignId = resumeApplication?.CampaignId,
                     CreatedAt = resume?.CreatedAt,
-                    CandidateId = candidate?.CandidateId ?? 0,
+                    CandidateId = resumeApplication?.CandidateId ?? candidate?.CandidateId ?? 0,
                     FullName = candidate?.FullName ?? "Unknown",
                     Email = candidate?.Email ?? "N/A",
                     PhoneNumber = candidate?.PhoneNumber,
-                    MatchSkills = candidate?.MatchSkills,
-                    MissingSkills = candidate?.MissingSkills,
+                    MatchSkills = resumeApplication?.MatchSkills,
+                    MissingSkills = resumeApplication?.MissingSkills,
                     TotalScore = resumeApplication?.TotalScore,
                     AdjustedScore = resumeApplication?.AdjustedScore,
                     AIExplanation = resumeApplication?.AIExplanation,

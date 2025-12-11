@@ -91,6 +91,15 @@ namespace DataAccessLayer.Repositories
             return application.Resume;
         }
 
+        public async Task<List<Resume>> GetByCandidateIdAsync(int candidateId)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .Where(r => r.IsActive && r.CandidateId == candidateId)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task<List<Resume>> GetPendingBeforeAsync(DateTime cutoff)
         {
             return await _context.Resumes

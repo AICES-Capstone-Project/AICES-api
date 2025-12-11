@@ -21,6 +21,9 @@ namespace Data.Entities
         [ForeignKey("Job")]
         public int JobId { get; set; }
 
+        [ForeignKey("Candidate")]
+        public int? CandidateId { get; set; }
+
         [Column(TypeName = "decimal(5,2)")]
         public decimal? TotalScore { get; set; } // Overall AI score (0-100)
 
@@ -29,12 +32,15 @@ namespace Data.Entities
         [Column(TypeName = "jsonb")]
         public string? AIExplanation { get; set; } // AI explanation of the scoring
         public string? RequiredSkills { get; set; } // Required skills for the job
+        public string? MatchSkills { get; set; }
+        public string? MissingSkills { get; set; }
         public ApplicationStatusEnum Status { get; set; }
 
         // Navigation
         public Resume Resume { get; set; } = null!;
         public Campaign? Campaign { get; set; }
         public Job Job { get; set; } = null!;
+        public Candidate? Candidate { get; set; }
         public ICollection<ScoreDetail> ScoreDetails { get; set; } = new List<ScoreDetail>();
     }
 }

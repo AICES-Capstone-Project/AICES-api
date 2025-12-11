@@ -12,6 +12,8 @@ namespace DataAccessLayer.IRepositories
         Task<List<ResumeApplication>> GetByJobIdResumeIdsAndCampaignAsync(int jobId, List<int> resumeIds, int campaignId);
         Task<List<ResumeApplication>> GetByJobIdAndCampaignWithResumeAsync(int jobId, int campaignId);
         Task<ResumeApplication?> GetByApplicationIdWithDetailsAsync(int applicationId);
+        Task<List<ResumeApplication>> GetByResumeIdWithJobAsync(int resumeId);
+        Task<ResumeApplication?> GetByResumeAndApplicationIdWithDetailsAsync(int resumeId, int applicationId);
         Task UpdateAsync(ResumeApplication resumeApplication);
     }
 }

@@ -23,10 +23,9 @@ namespace Data.Entities
 
         [MaxLength(20)]
         public string? PhoneNumber { get; set; }
-        public string? MatchSkills { get; set; }
-        public string? MissingSkills { get; set; }
 
         // Navigation
         public ICollection<Resume> Resumes { get; set; } = new List<Resume>();
+        public ICollection<ResumeApplication> ResumeApplications { get; set; } = new List<ResumeApplication>();
     }
 }

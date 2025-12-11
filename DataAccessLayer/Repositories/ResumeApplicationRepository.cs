@@ -87,6 +87,30 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<List<ResumeApplication>> GetByResumeIdWithJobAsync(int resumeId)
+        {
+            return await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.ResumeId == resumeId && ra.IsActive)
+                .Include(ra => ra.Job)
+                    .ThenInclude(j => j.Company)
+                .Include(ra => ra.Campaign)
+                .ToListAsync();
+        }
+
+        public async Task<ResumeApplication?> GetByResumeAndApplicationIdWithDetailsAsync(int resumeId, int applicationId)
+        {
+            return await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.ResumeId == resumeId && ra.ApplicationId == applicationId && ra.IsActive)
+                .Include(ra => ra.Job)
+                    .ThenInclude(j => j.Company)
+                .Include(ra => ra.Campaign)
+                .Include(ra => ra.ScoreDetails)
+                    .ThenInclude(sd => sd.Criteria)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task UpdateAsync(ResumeApplication resumeApplication)
         {
             _context.ResumeApplications.Update(resumeApplication);
