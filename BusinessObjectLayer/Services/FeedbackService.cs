@@ -147,5 +147,60 @@ namespace BusinessObjectLayer.Services
                 Data = response
             };
         }
+
+        public async Task<ServiceResponse> GetMyFeedbacksAsync(ClaimsPrincipal userClaims, int page = 1, int pageSize = 10)
+        {
+            var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
+            if (userIdClaim == null)
+                return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
+
+            var userId = int.Parse(userIdClaim);
+
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+
+            if (companyUser == null || companyUser.CompanyId == null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "You must join a company before viewing feedbacks."
+                };
+            }
+
+            var feedbackRepo = _uow.GetRepository<IFeedbackRepository>();
+            var feedbacks = await feedbackRepo.GetFeedbacksByComUserIdAsync(companyUser.ComUserId, page, pageSize);
+            var total = await feedbackRepo.GetTotalFeedbacksByComUserIdAsync(companyUser.ComUserId);
+
+            var responseData = feedbacks.Select(f => new FeedbackDetailResponse
+            {
+                FeedbackId = f.FeedbackId,
+                ComUserId = f.ComUserId,
+                UserName = f.CompanyUser?.User?.Email ?? string.Empty,
+                UserEmail = f.CompanyUser?.User?.Email,
+                UserFullName = f.CompanyUser?.User?.Profile?.FullName,
+                CompanyName = f.CompanyUser?.Company?.Name,
+                CompanyId = f.CompanyUser?.CompanyId,
+                Rating = f.Rating,
+                Comment = f.Comment,
+                CreatedAt = f.CreatedAt
+            }).ToList();
+
+            var result = new
+            {
+                Feedbacks = responseData,
+                TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                CurrentPage = page,
+                PageSize = pageSize,
+                Total = total
+            };
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "Feedbacks retrieved successfully.",
+                Data = result
+            };
+        }
     }
 }

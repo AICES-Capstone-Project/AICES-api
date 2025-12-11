@@ -18,6 +18,17 @@ namespace API.Controllers
         }
 
         /// <summary>
+        /// Get feedbacks created by the current HR user (HR_Recruiter, HR_Manager only)
+        /// </summary>
+        [HttpGet("me")]
+        [Authorize(Roles = "HR_Recruiter,HR_Manager")]
+        public async Task<IActionResult> GetMyFeedbacks([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var response = await _feedbackService.GetMyFeedbacksAsync(User, page, pageSize);
+            return ControllerResponse.Response(response);
+        }
+
+        /// <summary>
         /// Create a new feedback (HR_Recruiter, HR_Manager only)
         /// </summary>
         [HttpPost]
