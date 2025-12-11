@@ -1184,8 +1184,8 @@ namespace BusinessObjectLayer.Services
                 company.CompanyStatus = status;
 
                 // Get company creator (Recruiter)
-                var creator = company.CompanyUsers?.FirstOrDefault();
-                int? creatorUserId = creator?.UserId;
+                var companyCreator = company.CompanyUsers?.FirstOrDefault();
+                int? creatorUserId = companyCreator?.UserId;
 
                 // Handle each status
                 switch (status)
