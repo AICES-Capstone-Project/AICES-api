@@ -110,6 +110,57 @@ namespace BusinessObjectLayer.Services.Auth
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
         }
+
+        public async Task SendCompanyApprovalEmailAsync(string email, string companyName)
+        {
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress("AICES", GetEnvOrThrow("EMAILCONFIG__FROM")));
+            message.To.Add(new MailboxAddress("", email));
+            message.Subject = "Công ty của bạn đã được phê duyệt - Your Company Has Been Approved";
+
+            var builder = new BodyBuilder();
+            builder.HtmlBody = $@"
+                <div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;"">
+                    <h1 style=""color: #118f00;"">Chúc mừng! Công ty của bạn đã được phê duyệt</h1>
+                    <p>Xin chào,</p>
+                    <p>Chúng tôi rất vui mừng thông báo rằng công ty <strong>{companyName}</strong> của bạn đã được phê duyệt thành công.</p>
+                    <div style=""background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;"">
+                        <h2>Thông tin công ty</h2>
+                        <p><strong>Tên công ty:</strong> {companyName}</p>
+                        <p><strong>Trạng thái:</strong> Đã được phê duyệt</p>
+                        <p><strong>Ngày phê duyệt:</strong> {DateTime.UtcNow.AddHours(7):dd/MM/yyyy HH:mm}</p>
+                    </div>
+                    <p>Bây giờ bạn có thể bắt đầu sử dụng các tính năng của hệ thống AICES để quản lý công ty và đăng tin tuyển dụng.</p>
+                    <p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với đội ngũ hỗ trợ của chúng tôi.</p>
+                    <p style=""color: #666; font-size: 12px; margin-top: 30px;"">Trân trọng,<br>Đội ngũ AICES</p>
+                    <hr style=""margin: 30px 0; border: none; border-top: 1px solid #ddd;"">
+                    <h1 style=""color: #118f00;"">Congratulations! Your Company Has Been Approved</h1>
+                    <p>Hello,</p>
+                    <p>We are pleased to inform you that your company <strong>{companyName}</strong> has been successfully approved.</p>
+                    <div style=""background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;"">
+                        <h2>Company Information</h2>
+                        <p><strong>Company Name:</strong> {companyName}</p>
+                        <p><strong>Status:</strong> Approved</p>
+                        <p><strong>Approval Date:</strong> {DateTime.UtcNow.AddHours(7):dd/MM/yyyy HH:mm}</p>
+                    </div>
+                    <p>You can now start using AICES system features to manage your company and post job listings.</p>
+                    <p>If you have any questions, please contact our support team.</p>
+                    <p style=""color: #666; font-size: 12px; margin-top: 30px;"">Best regards,<br>AICES Team</p>
+                </div>";
+
+            message.Body = builder.ToMessageBody();
+
+            using var client = new SmtpClient();
+            await client.ConnectAsync(
+                GetEnvOrThrow("EMAILCONFIG__SMTPSERVER"),
+                int.Parse(GetEnvOrThrow("EMAILCONFIG__SMTPPORT")),
+                SecureSocketOptions.StartTls);
+            await client.AuthenticateAsync(
+                GetEnvOrThrow("EMAILCONFIG__USERNAME"),
+                GetEnvOrThrow("EMAILCONFIG__PASSWORD"));
+            await client.SendAsync(message);
+            await client.DisconnectAsync(true);
+        }
     }
 }
 
