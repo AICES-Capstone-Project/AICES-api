@@ -124,6 +124,14 @@ namespace API.Controllers
             var serviceResponse = await _dashboardService.GetSubscriptionPlanBreakdownAsync(range);
             return ControllerResponse.Response(serviceResponse);
         }
+
+        [HttpGet("resume-effectiveness")]
+        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+        public async Task<IActionResult> GetResumeEffectiveness()
+        {
+            var serviceResponse = await _dashboardService.GetResumeEffectivenessAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 }
 

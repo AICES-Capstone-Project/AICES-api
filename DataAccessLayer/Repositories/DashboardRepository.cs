@@ -376,6 +376,22 @@ namespace DataAccessLayer.Repositories
                 .CountAsync();
         }
 
+        public async Task<int> GetResumeCountByStatusAsync(ResumeStatusEnum status)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .Where(r => r.IsActive && r.Status == status)
+                .CountAsync();
+        }
+
+        public async Task<int> GetResumeCountByStatusesAsync(IEnumerable<ResumeStatusEnum> statuses)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .Where(r => r.IsActive && statuses.Contains(r.Status))
+                .CountAsync();
+        }
+
         public async Task<int> GetAppliedResumesThisMonthAsync()
         {
             var now = DateTime.UtcNow;

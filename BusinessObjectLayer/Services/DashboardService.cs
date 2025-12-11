@@ -650,6 +650,63 @@ namespace BusinessObjectLayer.Services
             }
         }
 
+        public async Task<ServiceResponse> GetResumeEffectivenessAsync()
+        {
+            try
+            {
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+
+                // Processing metrics
+                var totalResumes = await dashboardRepo.GetTotalResumesAsync();
+                var processedResumes = await dashboardRepo.GetResumeCountByStatusAsync(ResumeStatusEnum.Completed);
+
+                var failedStatuses = new[]
+                {
+                    ResumeStatusEnum.Failed,
+                    ResumeStatusEnum.Timeout,
+                    ResumeStatusEnum.CorruptedFile,
+                    ResumeStatusEnum.InvalidResumeData,
+                    ResumeStatusEnum.ServerError,
+                    ResumeStatusEnum.InvalidJobData
+                };
+                var failedResumes = await dashboardRepo.GetResumeCountByStatusesAsync(failedStatuses);
+                var pendingResumes = await dashboardRepo.GetResumeCountByStatusAsync(ResumeStatusEnum.Pending);
+
+                var successRate = totalResumes > 0
+                    ? Math.Round((decimal)processedResumes / totalResumes * 100, 2)
+                    : 0m;
+
+                var response = new ResumeEffectivenessResponse
+                {
+                    Processing = new ProcessingMetrics
+                    {
+                        TotalResumes = totalResumes,
+                        ProcessedResumes = processedResumes,
+                        ProcessingSuccessRate = successRate,
+                        FailedResumes = failedResumes,
+                        PendingResumes = pendingResumes
+                    }
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Resume effectiveness metrics retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get resume effectiveness error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving resume effectiveness metrics."
+                };
+            }
+        }
+
         public async Task<ServiceResponse> GetSubscriptionPlanBreakdownAsync(string range = "month")
         {
             try
