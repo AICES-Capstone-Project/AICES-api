@@ -53,6 +53,8 @@ namespace DataAccessLayer.Repositories
 
             return await query
                 .Include(c => c.Company)
+                .Include(c => c.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(c => c.JobCampaigns)
                     .ThenInclude(jc => jc.Job)
                 .OrderByDescending(c => c.CreatedAt)
@@ -102,6 +104,8 @@ namespace DataAccessLayer.Repositories
             return await _context.Campaigns
                 .AsNoTracking()
                 .Include(c => c.Company)
+                .Include(c => c.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(c => c.JobCampaigns)
                     .ThenInclude(jc => jc.Job)
                 .FirstOrDefaultAsync(c => c.IsActive && c.CampaignId == id);
@@ -130,6 +134,8 @@ namespace DataAccessLayer.Repositories
                 .AsNoTracking()
                 .Where(c => c.IsActive && c.CompanyId == companyId)
                 .Include(c => c.Company)
+                .Include(c => c.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(c => c.JobCampaigns)
                     .ThenInclude(jc => jc.Job)
                 .OrderByDescending(c => c.CreatedAt)
@@ -170,6 +176,8 @@ namespace DataAccessLayer.Repositories
 
             return await query
                 .Include(c => c.Company)
+                .Include(c => c.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(c => c.JobCampaigns)
                     .ThenInclude(jc => jc.Job)
                 .OrderByDescending(c => c.CreatedAt)

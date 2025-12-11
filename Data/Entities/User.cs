@@ -37,5 +37,7 @@ namespace Data.Entities
         public ICollection<Blog>? Blogs { get; set; }
         public ICollection<Invitation>? SentInvitations { get; set; }
         public ICollection<Invitation>? ReceivedInvitations { get; set; }
+        public ICollection<Job>? CreatedJobs { get; set; }
+        public ICollection<Campaign>? CreatedCampaigns { get; set; }
     }
 }

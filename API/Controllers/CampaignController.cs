@@ -40,13 +40,6 @@ namespace API.Controllers
             return ControllerResponse.Response(response);
         }
 
-        [HttpGet("me")]
-        public async Task<IActionResult> GetMyCampaigns()
-        {
-            var response = await _campaignService.GetMyCampaignsAsync();
-            return ControllerResponse.Response(response);
-        }
-
         [HttpGet("{id}/jobs")]
         public async Task<IActionResult> GetCampaignJobs(int id)
         {
@@ -93,6 +86,13 @@ namespace API.Controllers
             var response = await _campaignService.SoftDeleteAsync(id);
             return ControllerResponse.Response(response);
         }
+
+        // [HttpGet("me")]
+        // public async Task<IActionResult> GetMyCampaigns()
+        // {
+        //     var response = await _campaignService.GetMyCampaignsAsync();
+        //     return ControllerResponse.Response(response);
+        // }
     }
 }
 

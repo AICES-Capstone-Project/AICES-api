@@ -22,6 +22,10 @@ namespace Data.Entities
         [ForeignKey("Company")]
         public int CompanyId { get; set; }
 
+        // Track who created the job
+        [ForeignKey("Creator")]
+        public int? CreatedBy { get; set; }
+
         [Required, MaxLength(255)]
         public string Title { get; set; } = string.Empty;
 
@@ -42,6 +46,7 @@ namespace Data.Entities
         // Navigation
         public CompanyUser CompanyUser { get; set; } = null!;
         public Company Company { get; set; } = null!;
+        public User? Creator { get; set; }
         public Specialization? Specialization { get; set; }
         public Level? Level { get; set; }
         public ICollection<JobEmploymentType>? JobEmploymentTypes { get; set; }

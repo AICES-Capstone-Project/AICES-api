@@ -29,6 +29,8 @@ namespace DataAccessLayer.Repositories
             return await _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Company)
+                .Include(j => j.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Profile)
@@ -49,6 +51,8 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Jobs
                 .Include(j => j.Company)
+                .Include(j => j.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Profile)
@@ -69,6 +73,8 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Jobs
                 .Include(j => j.Company)
+                .Include(j => j.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Profile)
@@ -90,6 +96,8 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.Jobs
                 .Include(j => j.Company)
+                .Include(j => j.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Profile)
@@ -112,6 +120,8 @@ namespace DataAccessLayer.Repositories
             var query = _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Company)
+                .Include(j => j.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Profile)
@@ -164,6 +174,8 @@ namespace DataAccessLayer.Repositories
             var query = _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Company)
+                .Include(j => j.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Profile)
@@ -216,6 +228,8 @@ namespace DataAccessLayer.Repositories
             var query = _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Company)
+                .Include(j => j.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Profile)
@@ -268,6 +282,8 @@ namespace DataAccessLayer.Repositories
             return await _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Company)
+                .Include(j => j.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Profile)
@@ -290,6 +306,8 @@ namespace DataAccessLayer.Repositories
             return await _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Company)
+                .Include(j => j.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Profile)
@@ -312,6 +330,8 @@ namespace DataAccessLayer.Repositories
             return await _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Company)
+                .Include(j => j.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Profile)
@@ -334,6 +354,8 @@ namespace DataAccessLayer.Repositories
             var query = _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Company)
+                .Include(j => j.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Profile)
@@ -386,6 +408,8 @@ namespace DataAccessLayer.Repositories
             var query = _context.Jobs
                 .AsNoTracking()
                 .Include(j => j.Company)
+                .Include(j => j.Creator)
+                    .ThenInclude(u => u.Profile)
                 .Include(j => j.CompanyUser)
                     .ThenInclude(cu => cu.User)
                         .ThenInclude(u => u.Profile)

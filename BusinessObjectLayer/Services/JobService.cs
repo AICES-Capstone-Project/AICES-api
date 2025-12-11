@@ -76,7 +76,8 @@ namespace BusinessObjectLayer.Services
                         Name = c.Name,
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
-                    FullName = job.CompanyUser?.User?.Profile?.FullName
+                    FullName = job.CompanyUser?.User?.Profile?.FullName,
+                    CreatorName = job.Creator?.Profile?.FullName ?? job.Creator?.Email
                 };
 
                 return new ServiceResponse
@@ -130,7 +131,8 @@ namespace BusinessObjectLayer.Services
                         Name = c.Name,
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
-                    FullName = j.CompanyUser?.User?.Profile?.FullName
+                    FullName = j.CompanyUser?.User?.Profile?.FullName,
+                    CreatorName = j.Creator?.Profile?.FullName ?? j.Creator?.Email
                 }).ToList();
 
                 return new ServiceResponse
@@ -382,6 +384,7 @@ namespace BusinessObjectLayer.Services
                     {
                         ComUserId = companyUser.ComUserId,
                         CompanyId = companyUser.CompanyId.Value,
+                        CreatedBy = user.UserId,
                         Title = request.Title ?? string.Empty,
                         Description = request.Description,
                         Slug = GenerateSlug(request.Title ?? string.Empty),
@@ -588,7 +591,8 @@ namespace BusinessObjectLayer.Services
                         Name = c.Name,
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
-                    FullName = j.CompanyUser?.User?.Profile?.FullName
+                    FullName = j.CompanyUser?.User?.Profile?.FullName,
+                    CreatorName = j.Creator?.Profile?.FullName ?? j.Creator?.Email
                 }).ToList();
 
                 return new ServiceResponse
@@ -682,7 +686,8 @@ namespace BusinessObjectLayer.Services
                         Name = c.Name,
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
-                    FullName = j.CompanyUser?.User?.Profile?.FullName
+                    FullName = j.CompanyUser?.User?.Profile?.FullName,
+                    CreatorName = j.Creator?.Profile?.FullName ?? j.Creator?.Email
                 }).ToList();
 
                 return new ServiceResponse
@@ -793,7 +798,8 @@ namespace BusinessObjectLayer.Services
                         Name = c.Name,
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
-                    FullName = job.CompanyUser?.User?.Profile?.FullName
+                    FullName = job.CompanyUser?.User?.Profile?.FullName,
+                    CreatorName = job.Creator?.Profile?.FullName ?? job.Creator?.Email
                 };
 
                 return new ServiceResponse
@@ -885,7 +891,8 @@ namespace BusinessObjectLayer.Services
                         Name = c.Name,
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
-                    FullName = job.CompanyUser?.User?.Profile?.FullName
+                    FullName = job.CompanyUser?.User?.Profile?.FullName,
+                    CreatorName = job.Creator?.Profile?.FullName ?? job.Creator?.Email
                 };
 
                 return new ServiceResponse
@@ -973,6 +980,7 @@ namespace BusinessObjectLayer.Services
                         Name = c.Name,
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
+                    CreatorName = j.Creator?.Profile?.FullName ?? j.Creator?.Email
                 }).ToList();
 
                 return new ServiceResponse

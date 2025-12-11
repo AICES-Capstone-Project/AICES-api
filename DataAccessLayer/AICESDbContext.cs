@@ -365,6 +365,21 @@ namespace DataAccessLayer
                 .HasForeignKey(n => n.UserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // User - Created Jobs/Campaigns
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.CreatedJobs)
+                .WithOne(j => j.Creator)
+                .HasForeignKey(j => j.CreatedBy)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.CreatedCampaigns)
+                .WithOne(ca => ca.Creator)
+                .HasForeignKey(ca => ca.CreatedBy)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
             // User - Blogs
             modelBuilder.Entity<User>()
                 .HasMany(u => u.Blogs)

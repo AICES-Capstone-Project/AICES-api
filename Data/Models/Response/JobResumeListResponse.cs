@@ -8,7 +8,6 @@ namespace Data.Models.Response
         public int ApplicationId { get; set; }
         public ResumeStatusEnum Status { get; set; }
         public ApplicationStatusEnum ApplicationStatus { get; set; } = ApplicationStatusEnum.Pending;
-        public int? CampaignId { get; set; }
 
         public string FullName { get; set; } = "Unknown";
 

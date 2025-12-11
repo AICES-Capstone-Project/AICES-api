@@ -19,6 +19,10 @@ namespace Data.Entities
         [ForeignKey("Company")]
         public int CompanyId { get; set; }
 
+        // Track who created the campaign
+        [ForeignKey("Creator")]
+        public int? CreatedBy { get; set; }
+
         [Required, MaxLength(255)]
         public string Title { get; set; } = string.Empty;
 
@@ -32,6 +36,7 @@ namespace Data.Entities
 
         // Navigation
         public Company Company { get; set; } = null!;
+        public User? Creator { get; set; }
         public ICollection<JobCampaign> JobCampaigns { get; set; } = new List<JobCampaign>();
         public ICollection<ResumeApplication> ResumeApplications { get; set; } = new List<ResumeApplication>();
     }

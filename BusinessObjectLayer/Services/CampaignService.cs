@@ -66,6 +66,7 @@ namespace BusinessObjectLayer.Services
                     CampaignId = c.CampaignId,
                     CompanyId = c.CompanyId,
                     CompanyName = c.Company?.Name ?? "",
+                    CreatorName = c.Creator?.Profile?.FullName ?? c.Creator?.Email,
                     Title = c.Title,
                     Description = c.Description,
                     StartDate = c.StartDate,
@@ -165,6 +166,7 @@ namespace BusinessObjectLayer.Services
                         CampaignId = campaign.CampaignId,
                         CompanyId = campaign.CompanyId,
                         CompanyName = campaign.Company?.Name ?? "",
+                        CreatorName = campaign.Creator?.Profile?.FullName ?? campaign.Creator?.Email,
                         Title = campaign.Title,
                         Description = campaign.Description,
                         StartDate = campaign.StartDate,
@@ -229,6 +231,7 @@ namespace BusinessObjectLayer.Services
                     CampaignId = c.CampaignId,
                     CompanyId = c.CompanyId,
                     CompanyName = c.Company?.Name ?? "",
+                    CreatorName = c.Creator?.Profile?.FullName ?? c.Creator?.Email,
                     Title = c.Title,
                     Description = c.Description,
                     StartDate = c.StartDate,
@@ -388,6 +391,7 @@ namespace BusinessObjectLayer.Services
                     var campaign = new Campaign
                     {
                         CompanyId = companyUser.CompanyId.Value,
+                        CreatedBy = userId,
                         Title = request.Title,
                         Description = request.Description,
                         StartDate = request.StartDate,
