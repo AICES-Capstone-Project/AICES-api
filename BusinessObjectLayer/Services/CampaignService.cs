@@ -58,6 +58,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                await MarkExpiredCampaignsAsync(campaignRepo, companyUser.CompanyId.Value);
                 var campaigns = await campaignRepo.GetByCompanyIdWithFiltersAsync(companyUser.CompanyId.Value, page, pageSize, search, status, startDate, endDate);
                 var total = await campaignRepo.GetTotalByCompanyIdWithFiltersAsync(companyUser.CompanyId.Value, search, status, startDate, endDate);
 
@@ -137,6 +138,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                await MarkExpiredCampaignsAsync(campaignRepo, companyUser.CompanyId.Value);
                 var campaign = await campaignRepo.GetByIdAsync(id);
                 if (campaign == null)
                 {
@@ -225,6 +227,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                await MarkExpiredCampaignsAsync(campaignRepo, companyUser.CompanyId.Value);
                 var campaigns = await campaignRepo.GetByCompanyIdAsync(companyUser.CompanyId.Value);
                 var result = campaigns.Select(c => new CampaignResponse
                 {
@@ -296,6 +299,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                await MarkExpiredCampaignsAsync(campaignRepo, companyUser.CompanyId.Value);
                 var campaign = await campaignRepo.GetByIdAsync(campaignId);
                 if (campaign == null)
                 {
@@ -350,8 +354,8 @@ namespace BusinessObjectLayer.Services
             try
             {
                 // Get current user
-                var user = _httpContextAccessor.HttpContext?.User;
-                var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
+                var userClaims = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = userClaims != null ? ClaimUtils.GetUserIdClaim(userClaims) : null;
 
                 if (string.IsNullOrEmpty(userIdClaim))
                 {
@@ -363,6 +367,28 @@ namespace BusinessObjectLayer.Services
                 }
 
                 int userId = int.Parse(userIdClaim);
+                
+                // Get user to check roleId
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                var emailClaim = userClaims != null ? ClaimUtils.GetEmailClaim(userClaims) : null;
+                if (string.IsNullOrEmpty(emailClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "Email claim not found in token."
+                    };
+                }
+                var user = await authRepo.GetByEmailAsync(emailClaim);
+                if (user == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not found."
+                    };
+                }
+
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
 
@@ -385,6 +411,15 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Determine CampaignStatus based on user roleId
+                // roleId = 5 (HR_Recruiter) → Pending
+                // roleId = 4 (HR_Manager) → Published
+                var campaignStatus = user.RoleId == 5 
+                    ? CampaignStatusEnum.Pending 
+                    : (user.RoleId == 4 
+                        ? CampaignStatusEnum.Published 
+                        : request.Status);
+
                 await _uow.BeginTransactionAsync();
                 try
                 {
@@ -396,7 +431,7 @@ namespace BusinessObjectLayer.Services
                         Description = request.Description,
                         StartDate = request.StartDate,
                         EndDate = request.EndDate,
-                        Status = request.Status
+                        Status = campaignStatus
                     };
 
                     var campaignRepo = _uow.GetRepository<ICampaignRepository>();
@@ -481,6 +516,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                await MarkExpiredCampaignsAsync(campaignRepo, companyUser.CompanyId.Value);
                 var campaign = await campaignRepo.GetForUpdateAsync(id);
                 if (campaign == null)
                 {
@@ -661,6 +697,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                await MarkExpiredCampaignsAsync(campaignRepo, companyUser.CompanyId.Value);
                 var campaign = await campaignRepo.GetForUpdateAsync(campaignId);
                 if (campaign == null)
                 {
@@ -803,6 +840,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                await MarkExpiredCampaignsAsync(campaignRepo, companyUser.CompanyId.Value);
                 var campaign = await campaignRepo.GetForUpdateAsync(campaignId);
                 if (campaign == null)
                 {
@@ -924,6 +962,7 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                await MarkExpiredCampaignsAsync(campaignRepo, companyUser.CompanyId.Value);
                 var campaign = await campaignRepo.GetForUpdateAsync(id);
                 if (campaign == null)
                 {
@@ -972,6 +1011,319 @@ namespace BusinessObjectLayer.Services
                     Message = "An error occurred while deleting the campaign."
                 };
             }
+        }
+
+        public async Task<ServiceResponse> GetPendingCampaignsAsync(int page = 1, int pageSize = 10, string? search = null)
+        {
+            try
+            {
+                // Get current user
+                var userClaims = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = userClaims != null ? ClaimUtils.GetUserIdClaim(userClaims) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+                
+                // Check if user is HR_Manager (roleId = 4)
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                var emailClaim = userClaims != null ? ClaimUtils.GetEmailClaim(userClaims) : null;
+                if (string.IsNullOrEmpty(emailClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "Email claim not found in token."
+                    };
+                }
+                var userEntity = await authRepo.GetByEmailAsync(emailClaim);
+                if (userEntity == null || userEntity.RoleId != 4)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Only HR_Manager can view pending campaigns."
+                    };
+                }
+
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+
+                if (companyUser == null || companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company not found for user."
+                    };
+                }
+
+                var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                var campaigns = await campaignRepo.GetPendingByCompanyIdAsync(companyUser.CompanyId.Value, page, pageSize, search);
+                var total = await campaignRepo.GetTotalPendingByCompanyIdAsync(companyUser.CompanyId.Value, search);
+
+                var result = campaigns.Select(c => new CampaignResponse
+                {
+                    CampaignId = c.CampaignId,
+                    CompanyId = c.CompanyId,
+                    CompanyName = c.Company?.Name ?? "",
+                    CreatorName = c.Creator?.Profile?.FullName ?? c.Creator?.Email,
+                    Title = c.Title,
+                    Description = c.Description,
+                    StartDate = c.StartDate,
+                    EndDate = c.EndDate,
+                    Status = c.Status,
+                    CreatedAt = c.CreatedAt,
+                    Jobs = c.JobCampaigns?.Select(jc => new JobCampaignInfoResponse
+                    {
+                        JobId = jc.JobId,
+                        JobTitle = jc.Job?.Title,
+                        TargetQuantity = jc.TargetQuantity,
+                        CurrentHired = jc.CurrentHired
+                    }).ToList() ?? new List<JobCampaignInfoResponse>()
+                }).ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Pending campaigns retrieved successfully.",
+                    Data = new PaginatedCampaignResponse
+                    {
+                        Campaigns = result,
+                        TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                        CurrentPage = page,
+                        PageSize = pageSize
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get pending campaigns error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving pending campaigns."
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> GetPendingCampaignByIdAsync(int id)
+        {
+            try
+            {
+                // Get current user
+                var userClaims = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = userClaims != null ? ClaimUtils.GetUserIdClaim(userClaims) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+                
+                // Check if user is HR_Manager (roleId = 4)
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                var emailClaim = userClaims != null ? ClaimUtils.GetEmailClaim(userClaims) : null;
+                if (string.IsNullOrEmpty(emailClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "Email claim not found in token."
+                    };
+                }
+                var userEntity = await authRepo.GetByEmailAsync(emailClaim);
+                if (userEntity == null || userEntity.RoleId != 4)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Only HR_Manager can view pending campaigns."
+                    };
+                }
+
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+
+                if (companyUser == null || companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company not found for user."
+                    };
+                }
+
+                var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                var campaign = await campaignRepo.GetPendingByIdAndCompanyIdAsync(id, companyUser.CompanyId.Value);
+                
+                if (campaign == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Pending campaign not found."
+                    };
+                }
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Pending campaign retrieved successfully.",
+                    Data = new CampaignResponse
+                    {
+                        CampaignId = campaign.CampaignId,
+                        CompanyId = campaign.CompanyId,
+                        CompanyName = campaign.Company?.Name ?? "",
+                        CreatorName = campaign.Creator?.Profile?.FullName ?? campaign.Creator?.Email,
+                        Title = campaign.Title,
+                        Description = campaign.Description,
+                        StartDate = campaign.StartDate,
+                        EndDate = campaign.EndDate,
+                        Status = campaign.Status,
+                        CreatedAt = campaign.CreatedAt,
+                        Jobs = campaign.JobCampaigns?.Select(jc => new JobCampaignInfoResponse
+                        {
+                            JobId = jc.JobId,
+                            JobTitle = jc.Job?.Title,
+                            TargetQuantity = jc.TargetQuantity,
+                            CurrentHired = jc.CurrentHired
+                        }).ToList() ?? new List<JobCampaignInfoResponse>()
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get pending campaign error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving the pending campaign."
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> UpdateStatusAsync(int id, UpdateCampaignStatusRequest? request = null)
+        {
+            try
+            {
+                // Get current user
+                var userClaims = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = userClaims != null ? ClaimUtils.GetUserIdClaim(userClaims) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+                
+                // Check if user is HR_Manager (roleId = 4)
+                var authRepo = _uow.GetRepository<IAuthRepository>();
+                var emailClaim = userClaims != null ? ClaimUtils.GetEmailClaim(userClaims) : null;
+                if (string.IsNullOrEmpty(emailClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "Email claim not found in token."
+                    };
+                }
+                var userEntity = await authRepo.GetByEmailAsync(emailClaim);
+                if (userEntity == null || userEntity.RoleId != 4)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Only HR_Manager can update campaign status."
+                    };
+                }
+
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+
+                if (companyUser == null || companyUser.CompanyId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Company not found for user."
+                    };
+                }
+
+                var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                var campaign = await campaignRepo.GetForUpdateWithAllStatusesAsync(id);
+                
+                if (campaign == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Campaign not found."
+                    };
+                }
+
+                // Verify campaign belongs to user's company
+                if (campaign.CompanyId != companyUser.CompanyId.Value)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You do not have permission to update this campaign."
+                    };
+                }
+
+                // Only allow HR_Manager to change from Pending to Published
+                if (campaign.Status != CampaignStatusEnum.Pending)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Can only change status from Pending to Published."
+                    };
+                }
+
+                // Auto-set to Published; request payload is optional/ignored.
+                campaign.Status = CampaignStatusEnum.Published;
+                campaignRepo.Update(campaign);
+                await _uow.SaveChangesAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Campaign status updated successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Update campaign status error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while updating the campaign status."
+                };
+            }
+        }
+
+        private async Task MarkExpiredCampaignsAsync(ICampaignRepository campaignRepo, int companyId)
+        {
+            await campaignRepo.MarkExpiredCampaignsAsync(DateTime.UtcNow, companyId);
         }
     }
 }

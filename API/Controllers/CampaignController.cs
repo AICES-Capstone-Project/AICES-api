@@ -21,6 +21,7 @@ namespace API.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = "HR_Manager,HR_Recruiter")]
         public async Task<IActionResult> GetAll(
             [FromQuery] int page = 1, 
             [FromQuery] int pageSize = 10,
@@ -34,6 +35,7 @@ namespace API.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize(Roles = "HR_Manager,HR_Recruiter")]
         public async Task<IActionResult> GetById(int id)
         {
             var response = await _campaignService.GetByIdAsync(id);
@@ -41,6 +43,7 @@ namespace API.Controllers
         }
 
         [HttpGet("{id}/jobs")]
+        [Authorize(Roles = "HR_Manager,HR_Recruiter")]
         public async Task<IActionResult> GetCampaignJobs(int id)
         {
             var response = await _campaignService.GetCampaignJobsAsync(id);
@@ -84,6 +87,33 @@ namespace API.Controllers
         public async Task<IActionResult> SoftDelete(int id)
         {
             var response = await _campaignService.SoftDeleteAsync(id);
+            return ControllerResponse.Response(response);
+        }
+
+        [HttpGet("pending")]
+        [Authorize(Roles = "HR_Manager")]
+        public async Task<IActionResult> GetPending(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? search = null)
+        {
+            var response = await _campaignService.GetPendingCampaignsAsync(page, pageSize, search);
+            return ControllerResponse.Response(response);
+        }
+
+        [HttpGet("{id}/pending")]
+        [Authorize(Roles = "HR_Manager")]
+        public async Task<IActionResult> GetPendingById(int id)
+        {
+            var response = await _campaignService.GetPendingCampaignByIdAsync(id);
+            return ControllerResponse.Response(response);
+        }
+
+        [HttpPatch("{id}/status")]
+        [Authorize(Roles = "HR_Manager")]
+        public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateCampaignStatusRequest request)
+        {
+            var response = await _campaignService.UpdateStatusAsync(id, request);
             return ControllerResponse.Response(response);
         }
 

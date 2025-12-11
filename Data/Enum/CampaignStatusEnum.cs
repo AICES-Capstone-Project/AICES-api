@@ -8,8 +8,8 @@ namespace Data.Enum
 {
     public enum CampaignStatusEnum
     {
+        Pending,
         Published,
-        Private,
         Expired,
     }
 }

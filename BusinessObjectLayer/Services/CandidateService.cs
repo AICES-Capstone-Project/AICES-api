@@ -11,6 +11,8 @@ using ServiceResponse = Data.Models.Response.ServiceResponse;
 using SRStatus = Data.Enum.SRStatus;
 using DataAccessLayer.IRepositories;
 using DataAccessLayer.UnitOfWork;
+using Microsoft.AspNetCore.Http;
+using BusinessObjectLayer.Common;
 
 namespace BusinessObjectLayer.Services
 {
@@ -19,12 +21,62 @@ namespace BusinessObjectLayer.Services
         private readonly IUnitOfWork _uow;
         private readonly IResumeApplicationRepository _resumeApplicationRepo;
         private readonly IResumeRepository _resumeRepo;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public CandidateService(IUnitOfWork uow)
+        public CandidateService(IUnitOfWork uow, IHttpContextAccessor httpContextAccessor)
         {
             _uow = uow;
             _resumeApplicationRepo = _uow.GetRepository<IResumeApplicationRepository>();
             _resumeRepo = _uow.GetRepository<IResumeRepository>();
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        private async Task<(ServiceResponse? errorResponse, int? companyId)> GetCurrentUserCompanyIdAsync()
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
+
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return (new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "User not authenticated."
+                }, null);
+            }
+
+            int userId = int.Parse(userIdClaim);
+
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+            if (companyUser == null)
+            {
+                return (new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "Company user not found."
+                }, null);
+            }
+
+            if (companyUser.CompanyId == null)
+            {
+                return (new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "You are not associated with any company."
+                }, null);
+            }
+
+            if (companyUser.JoinStatus != JoinStatusEnum.Approved)
+            {
+                return (new ServiceResponse
+                {
+                    Status = SRStatus.Forbidden,
+                    Message = "You must be approved to access company data."
+                }, null);
+            }
+
+            return (null, companyUser.CompanyId.Value);
         }
 
         public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null)
@@ -40,9 +92,17 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Get company ID from current user
+                var companyIdResult = await GetCurrentUserCompanyIdAsync();
+                if (companyIdResult.errorResponse != null)
+                {
+                    return companyIdResult.errorResponse;
+                }
+                int companyId = companyIdResult.companyId!.Value;
+
                 var repo = _uow.GetRepository<ICandidateRepository>();
-                var candidates = await repo.GetPagedAsync(page, pageSize, search);
-                var total = await repo.GetTotalAsync(search);
+                var candidates = await repo.GetPagedByCompanyIdAsync(companyId, page, pageSize, search);
+                var total = await repo.GetTotalByCompanyIdAsync(companyId, search);
 
                 var data = candidates.Select(c => new CandidateResponse
                 {
@@ -81,6 +141,14 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
+                // Get company ID from current user
+                var companyIdResult = await GetCurrentUserCompanyIdAsync();
+                if (companyIdResult.errorResponse != null)
+                {
+                    return companyIdResult.errorResponse;
+                }
+                int companyId = companyIdResult.companyId!.Value;
+
                 var repo = _uow.GetRepository<ICandidateRepository>();
                 var candidate = await repo.GetByIdAsync(id);
 
@@ -89,6 +157,18 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse
                     {
                         Status = SRStatus.NotFound,
+                        Message = "Candidate not found."
+                    };
+                }
+
+                // Check if candidate belongs to this company (has resume in company OR application for company job)
+                var hasAccess = await repo.HasResumeOrApplicationInCompanyAsync(id, companyId);
+
+                if (!hasAccess)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
                         Message = "Candidate not found."
                     };
                 }
@@ -250,6 +330,14 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
+                // Get company ID from current user
+                var companyIdResult = await GetCurrentUserCompanyIdAsync();
+                if (companyIdResult.errorResponse != null)
+                {
+                    return companyIdResult.errorResponse;
+                }
+                int companyId = companyIdResult.companyId!.Value;
+
                 var resume = await _resumeRepo.GetByIdAsync(resumeId);
                 if (resume == null || !resume.IsActive)
                 {
@@ -260,26 +348,36 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var applications = await _resumeApplicationRepo.GetByResumeIdWithJobAsync(resumeId);
+                // Check if resume belongs to this company
+                if (resume.CompanyId != companyId)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Resume not found."
+                    };
+                }
+
+                var applications = await _resumeApplicationRepo.GetByResumeIdWithJobAndCompanyAsync(resumeId, companyId);
 
                 var response = applications.Select(a => new CandidateApplicationResponse
-                {
-                    ApplicationId = a.ApplicationId,
-                    ResumeId = a.ResumeId,
-                    CandidateId = a.CandidateId,
-                    JobId = a.JobId,
-                    JobTitle = a.Job?.Title ?? string.Empty,
-                    CompanyId = a.Job?.CompanyId ?? 0,
-                    CompanyName = a.Job?.Company?.Name ?? string.Empty,
-                    CampaignId = a.CampaignId,
-                    CampaignTitle = a.Campaign?.Title,
-                    Status = a.Status,
-                    TotalScore = a.TotalScore,
-                    AdjustedScore = a.AdjustedScore,
-                    MatchSkills = a.MatchSkills,
-                    MissingSkills = a.MissingSkills,
-                    CreatedAt = a.CreatedAt
-                }).ToList();
+                    {
+                        ApplicationId = a.ApplicationId,
+                        ResumeId = a.ResumeId,
+                        CandidateId = a.CandidateId,
+                        JobId = a.JobId,
+                        JobTitle = a.Job?.Title ?? string.Empty,
+                        CompanyId = a.Job?.CompanyId ?? 0,
+                        CompanyName = a.Job?.Company?.Name ?? string.Empty,
+                        CampaignId = a.CampaignId,
+                        CampaignTitle = a.Campaign?.Title,
+                        Status = a.Status,
+                        TotalScore = a.TotalScore,
+                        AdjustedScore = a.AdjustedScore,
+                        MatchSkills = a.MatchSkills,
+                        MissingSkills = a.MissingSkills,
+                        CreatedAt = a.CreatedAt
+                    }).ToList();
 
                 return new ServiceResponse
                 {
@@ -303,6 +401,14 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
+                // Get company ID from current user
+                var companyIdResult = await GetCurrentUserCompanyIdAsync();
+                if (companyIdResult.errorResponse != null)
+                {
+                    return companyIdResult.errorResponse;
+                }
+                int companyId = companyIdResult.companyId!.Value;
+
                 var resume = await _resumeRepo.GetByIdAsync(resumeId);
                 if (resume == null || !resume.IsActive)
                 {
@@ -313,7 +419,17 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var application = await _resumeApplicationRepo.GetByResumeAndApplicationIdWithDetailsAsync(resumeId, applicationId);
+                // Check if resume belongs to this company
+                if (resume.CompanyId != companyId)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Resume not found."
+                    };
+                }
+
+                var application = await _resumeApplicationRepo.GetByResumeAndApplicationIdWithDetailsAndCompanyAsync(resumeId, applicationId, companyId);
                 if (application == null)
                 {
                     return new ServiceResponse
@@ -374,6 +490,14 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
+                // Get company ID from current user
+                var companyIdResult = await GetCurrentUserCompanyIdAsync();
+                if (companyIdResult.errorResponse != null)
+                {
+                    return companyIdResult.errorResponse;
+                }
+                int companyId = companyIdResult.companyId!.Value;
+
                 var candidateRepo = _uow.GetRepository<ICandidateRepository>();
                 var candidate = await candidateRepo.GetByIdAsync(candidateId);
                 if (candidate == null || !candidate.IsActive)
@@ -385,7 +509,21 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var resumes = await _resumeRepo.GetByCandidateIdAsync(candidateId);
+                // Check if candidate has resume or application for this company
+                var hasAccess = await candidateRepo.HasResumeOrApplicationInCompanyAsync(candidateId, companyId);
+
+                if (!hasAccess)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Candidate's resumes not found."
+                    };
+                }
+
+                // Get only resumes for this company
+                var resumes = await _resumeRepo.GetByCandidateIdAndCompanyIdAsync(candidateId, companyId);
+
                 var response = resumes.Select(r => new CandidateResumeResponse
                 {
                     ResumeId = r.ResumeId,

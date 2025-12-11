@@ -13,5 +13,8 @@ namespace DataAccessLayer.IRepositories
         Task SoftDeleteAsync(Candidate candidate);
         Task<List<Candidate>> GetCandidatesWithScoresByJobIdAsync(int jobId);
         Task<List<Candidate>> GetCandidatesWithFullDetailsByJobIdAsync(int jobId);
+        Task<List<Candidate>> GetPagedByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null);
+        Task<int> GetTotalByCompanyIdAsync(int companyId, string? search = null);
+        Task<bool> HasResumeOrApplicationInCompanyAsync(int candidateId, int companyId);
     }
 }

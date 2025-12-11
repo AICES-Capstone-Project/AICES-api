@@ -10,8 +10,8 @@ namespace Data.Models.Request
 {
     public class UpdateCampaignStatusRequest
     {
-        [Required(ErrorMessage = "Status is required.")]
-        public CampaignStatusEnum Status { get; set; }
+        // Optional: kept for backward compatibility; ignored by service logic.
+        public CampaignStatusEnum? Status { get; set; }
     }
 }
 

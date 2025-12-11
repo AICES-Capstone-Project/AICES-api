@@ -19,6 +19,9 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> AddJobsToCampaignAsync(int campaignId, AddJobsToCampaignRequest request);
         Task<ServiceResponse> RemoveJobsFromCampaignAsync(int campaignId, RemoveJobsFromCampaignRequest request);
         Task<ServiceResponse> SoftDeleteAsync(int id);
+        Task<ServiceResponse> GetPendingCampaignsAsync(int page = 1, int pageSize = 10, string? search = null);
+        Task<ServiceResponse> GetPendingCampaignByIdAsync(int id);
+        Task<ServiceResponse> UpdateStatusAsync(int id, UpdateCampaignStatusRequest? request = null);
     }
 }
 

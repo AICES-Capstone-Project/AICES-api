@@ -16,9 +16,14 @@ namespace DataAccessLayer.IRepositories
         Task<IEnumerable<Campaign>> GetByCompanyIdAsync(int companyId);
         Task<List<Campaign>> GetByCompanyIdWithFiltersAsync(int companyId, int page = 1, int pageSize = 10, string? search = null, Data.Enum.CampaignStatusEnum? status = null, DateTime? startDate = null, DateTime? endDate = null);
         Task<int> GetTotalByCompanyIdWithFiltersAsync(int companyId, string? search = null, Data.Enum.CampaignStatusEnum? status = null, DateTime? startDate = null, DateTime? endDate = null);
+        Task<int> MarkExpiredCampaignsAsync(DateTime currentDate, int? companyId = null);
         Task AddAsync(Campaign campaign);
         void Update(Campaign campaign);
         Task<List<JobCampaign>> GetActiveJobsByCampaignIdAsync(int campaignId);
+        Task<List<Campaign>> GetPendingByCompanyIdAsync(int companyId, int page = 1, int pageSize = 10, string? search = null);
+        Task<int> GetTotalPendingByCompanyIdAsync(int companyId, string? search = null);
+        Task<Campaign?> GetPendingByIdAndCompanyIdAsync(int campaignId, int companyId);
+        Task<Campaign?> GetForUpdateWithAllStatusesAsync(int id);
         
         // Legacy methods for backward compatibility
         Task UpdateAsync(Campaign campaign);

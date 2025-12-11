@@ -16,6 +16,8 @@ namespace DataAccessLayer.IRepositories
         Task<ResumeApplication?> GetByResumeAndApplicationIdWithDetailsAsync(int resumeId, int applicationId);
         Task UpdateAsync(ResumeApplication resumeApplication);
         Task<bool> IsDuplicateResumeAsync(int jobId, int campaignId, string fileHash);
+        Task<List<ResumeApplication>> GetByResumeIdWithJobAndCompanyAsync(int resumeId, int companyId);
+        Task<ResumeApplication?> GetByResumeAndApplicationIdWithDetailsAndCompanyAsync(int resumeId, int applicationId, int companyId);
     }
 }
 

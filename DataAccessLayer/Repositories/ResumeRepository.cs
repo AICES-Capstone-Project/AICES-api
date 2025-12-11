@@ -160,5 +160,21 @@ namespace DataAccessLayer.Repositories
                     && r.CreatedAt.Value >= effectiveStartDate)
                 .CountAsync();
         }
+
+        public async Task<List<Resume>> GetByCandidateIdAndCompanyIdAsync(int candidateId, int companyId)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .Where(r => r.IsActive && r.CandidateId == candidateId && r.CompanyId == companyId)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<bool> HasResumeInCompanyAsync(int candidateId, int companyId)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .AnyAsync(r => r.IsActive && r.CompanyId == companyId && r.CandidateId == candidateId);
+        }
     }
 }
