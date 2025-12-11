@@ -115,6 +115,20 @@ namespace DataAccessLayer.Repositories
         {
             _context.ResumeApplications.Update(resumeApplication);
         }
+
+        public async Task<bool> IsDuplicateResumeAsync(int jobId, int campaignId, string fileHash)
+        {
+            return await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.JobId == jobId
+                    && ra.CampaignId == campaignId
+                    && ra.Resume.FileHash == fileHash
+                    && (ra.Resume.Status == Data.Enum.ResumeStatusEnum.Completed || ra.Resume.Status == Data.Enum.ResumeStatusEnum.Pending)
+                    && ra.Resume.IsActive == true
+                    && ra.IsActive == true)
+                .Include(ra => ra.Resume)
+                .AnyAsync();
+        }
     }
 }
 

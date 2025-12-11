@@ -214,6 +214,18 @@ namespace BusinessObjectLayer.Services
                 // Compute file hash
                 var fileHash = HashUtils.ComputeFileHash(file);
 
+                // Check for duplicate resume: same fileHash, jobId, campaignId, and status = Completed
+                var isDuplicate = await _resumeApplicationRepo.IsDuplicateResumeAsync(jobId, campaignId, fileHash);
+
+                if (isDuplicate)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "This resume has already been uploaded and processed for this job and campaign."
+                    };
+                }
+
                 // Generate queue job ID
                 var queueJobId = Guid.NewGuid().ToString();
 

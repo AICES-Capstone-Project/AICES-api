@@ -116,6 +116,7 @@ namespace DataAccessLayer.Repositories
             return await _context.Resumes
                 .AsNoTracking()
                 .Where(r => r.CompanyId == companyId
+                    && (r.Status == ResumeStatusEnum.Completed || r.Status == ResumeStatusEnum.Pending)
                     && r.CreatedAt.HasValue
                     && r.CreatedAt.Value >= hoursAgo)
                 .CountAsync();
@@ -127,6 +128,7 @@ namespace DataAccessLayer.Repositories
             // No AsNoTracking() to see records created in current transaction
             return await _context.Resumes
                 .Where(r => r.CompanyId == companyId
+                    && (r.Status == ResumeStatusEnum.Completed || r.Status == ResumeStatusEnum.Pending)
                     && r.CreatedAt.HasValue
                     && r.CreatedAt.Value >= hoursAgo)
                 .CountAsync();
@@ -153,6 +155,7 @@ namespace DataAccessLayer.Repositories
             // No AsNoTracking() to see records created in current transaction
             return await _context.Resumes
                 .Where(r => r.CompanyId == companyId
+                    && (r.Status == ResumeStatusEnum.Completed || r.Status == ResumeStatusEnum.Pending)
                     && r.CreatedAt.HasValue
                     && r.CreatedAt.Value >= effectiveStartDate)
                 .CountAsync();
