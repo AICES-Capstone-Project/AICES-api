@@ -6,7 +6,7 @@ namespace BusinessObjectLayer.IServices
 {
     public interface IResumeService
     {
-        Task<ServiceResponse> UploadResumeAsync(int jobId, IFormFile file);
+        Task<ServiceResponse> UploadResumeAsync(int campaignId, int jobId, IFormFile file);
         Task<ServiceResponse> ProcessAIResultAsync(AIResultRequest request);
         Task<ServiceResponse> GetJobResumesAsync(int jobId);
         Task<ServiceResponse> GetJobResumeDetailAsync(int jobId, int resumeId);

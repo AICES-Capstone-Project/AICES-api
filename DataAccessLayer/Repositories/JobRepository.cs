@@ -461,6 +461,16 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<string>> GetLanguagesByJobIdAsync(int jobId)
+        {
+            return await _context.JobLanguages
+                .AsNoTracking()
+                .Where(jl => jl.JobId == jobId)
+                .Include(jl => jl.Language)
+                .Select(jl => jl.Language.Name)
+                .ToListAsync();
+        }
+
         public void UpdateJob(Job job)
         {
             _context.Jobs.Update(job);

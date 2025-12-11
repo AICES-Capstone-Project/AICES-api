@@ -1,6 +1,8 @@
 using API.Common;
 using BusinessObjectLayer.IServices;
 using Data.Models.Request;
+using Data.Models.Response;
+using Data.Enum;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,14 +19,30 @@ namespace API.Controllers
             _resumeService = resumeService;
         }
 
-        /// <summary>
-        /// Upload a resume file (PDF/DOCX) for a job
-        /// </summary>
         [HttpPost("upload")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> UploadResume([FromForm] ResumeUploadRequest request) 
         {
-            var serviceResponse = await _resumeService.UploadResumeAsync(request.JobId, request.File);
+            // Optional guard to ensure route jobId matches request payload
+            if (request == null)
+            {
+                return ControllerResponse.Response(new ServiceResponse
+                {
+                    Status = SRStatus.Validation,
+                    Message = "Request is required."
+                });
+            }
+
+            if (request.File == null || request.File.Length == 0)
+            {
+                return ControllerResponse.Response(new ServiceResponse
+                {
+                    Status = SRStatus.Validation,
+                    Message = "File is required."
+                });
+            }
+
+            var serviceResponse = await _resumeService.UploadResumeAsync(request.CampaignId, request.JobId, request.File);
             return ControllerResponse.Response(serviceResponse);
         }
 

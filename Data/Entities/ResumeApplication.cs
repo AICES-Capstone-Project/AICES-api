@@ -26,7 +26,9 @@ namespace Data.Entities
 
         [Column(TypeName = "decimal(5,2)")]
         public decimal? AdjustedScore { get; set; } // HR adjusted score when not satisfied with AI score
-
+        [Column(TypeName = "jsonb")]
+        public string? AIExplanation { get; set; } // AI explanation of the scoring
+        public string? RequiredSkills { get; set; } // Required skills for the job
         public ApplicationStatusEnum Status { get; set; }
 
         // Navigation

@@ -25,16 +25,17 @@ namespace Data.Entities
         public string? QueueJobId { get; set; }
 
         public string? FileUrl { get; set; } // URL to the uploaded resume file
+        public string? FileHash { get; set; } // Hash of the uploaded resume file
 
         [Column(TypeName = "jsonb")]
         public string? Data { get; set; } // Raw parsed JSON data from resume parser
 
-        [Column(TypeName = "jsonb")]
-        public string? AIExplanation { get; set; } // AI explanation of the scoring
-
-        public bool IsLatest { get; set; } // Check if this is the latest resume
+        public bool? IsLatest { get; set; } // Check if this is the latest resume
 
         public ResumeStatusEnum Status { get; set; } // Status of the resume parsing
+        
+        public string? ErrorMessage { get; set; } // Error message if parsing failed
+
 
         // Navigation
         public Company Company { get; set; } = null!;

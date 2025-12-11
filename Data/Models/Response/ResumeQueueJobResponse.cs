@@ -7,10 +7,14 @@ namespace Data.Models.Response
     {
         public int resumeId { get; set; }
         public string queueJobId { get; set; } = string.Empty;
+        public int campaignId { get; set; }
         public int jobId { get; set; }
+        public string? jobTitle { get; set; }
         public string fileUrl { get; set; } = string.Empty;
         public string? requirements { get; set; }
         public string? skills { get; set; }
+        public string? level { get; set; }
+        public string? languages { get; set; }
         public string? category { get; set; }
         public string? specialization { get; set; }
         public string? employmentType { get; set; }
