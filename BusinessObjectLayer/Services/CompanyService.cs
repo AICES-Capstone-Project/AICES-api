@@ -1231,10 +1231,10 @@ namespace BusinessObjectLayer.Services
                                 try
                                 {
                                     var userRepo = _uow.GetRepository<IUserRepository>();
-                                    var creator = await userRepo.GetByIdAsync(creatorUserId.Value);
-                                    if (creator != null && !string.IsNullOrEmpty(creator.Email))
+                                    var creatorUser = await userRepo.GetByIdAsync(creatorUserId.Value);
+                                    if (creatorUser != null && !string.IsNullOrEmpty(creatorUser.Email))
                                     {
-                                        await _emailService.SendCompanyApprovalEmailAsync(creator.Email, company.Name);
+                                        await _emailService.SendCompanyApprovalEmailAsync(creatorUser.Email, company.Name);
                                     }
                                 }
                                 catch (Exception ex)

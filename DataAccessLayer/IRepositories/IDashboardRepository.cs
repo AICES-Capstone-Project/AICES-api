@@ -40,6 +40,8 @@ namespace DataAccessLayer.IRepositories
         Task<int> GetNewResumesThisMonthAsync();
         Task<int> GetAppliedResumesThisMonthAsync();
         Task<List<(int SubscriptionId, string SubscriptionName, int ActiveCount, decimal MonthlyRevenue)>> GetSubscriptionPlanBreakdownAsync(DateTime fromDate, DateTime toDate);
+        Task<int> GetResumeCountByStatusAsync(Data.Enum.ResumeStatusEnum status);
+        Task<int> GetResumeCountByStatusesAsync(IEnumerable<Data.Enum.ResumeStatusEnum> statuses);
     }
 }
 
