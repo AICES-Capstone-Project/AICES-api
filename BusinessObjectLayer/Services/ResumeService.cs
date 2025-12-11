@@ -647,23 +647,11 @@ namespace BusinessObjectLayer.Services
 
                         resume.Status = errorStatus;
                         resume.ErrorMessage = errorMessage;
+                        resume.Data = null; // keep Data null on error
                         
                         // Update ResumeApplication status to Failed for resume errors
                         resumeApplication.Status = ApplicationStatusEnum.Failed;
                         await _resumeApplicationRepo.UpdateAsync(resumeApplication);
-
-                        // Store error info in Data field as well for reference
-                        resume.Data = JsonSerializer.Serialize(
-                            new 
-                            { 
-                                error = request.Error,
-                                reason = request.Reason
-                            },
-                            new JsonSerializerOptions
-                            {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                                WriteIndented = false
-                            });
 
                         await resumeRepo.UpdateAsync(resume);
                         await _uow.CommitTransactionAsync();
@@ -746,13 +734,7 @@ namespace BusinessObjectLayer.Services
 
                     if (request.RawJson != null)
                     {
-                        resume.Data = request.RawJson is string rawJsonString
-                            ? rawJsonString
-                            : JsonSerializer.Serialize(request.RawJson, new JsonSerializerOptions
-                            {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                                WriteIndented = false
-                            });
+                        resume.Data = JsonUtils.SerializeRawJsonSafe(request.RawJson);
                     }
 
                     await resumeRepo.UpdateAsync(resume);
@@ -802,13 +784,9 @@ namespace BusinessObjectLayer.Services
                     }
 
                     // 5. Save AI Score to ResumeApplication (not Resume)
-                    string? aiExplanationString = request.AIExplanation switch
-                    {
-                        string s => s,
-                        System.Text.Json.JsonElement je => je.GetString() ?? je.GetRawText(),
-                        null => null,
-                        _ => request.AIExplanation.ToString()
-                    };
+                    string? aiExplanationString = request.AIExplanation != null
+                        ? JsonUtils.SerializeRawJsonSafe(request.AIExplanation)
+                        : null;
 
                     // Update ResumeApplication with scores
                     resumeApplication.TotalScore = request.TotalResumeScore.Value;
@@ -817,8 +795,7 @@ namespace BusinessObjectLayer.Services
                     resumeApplication.RequiredSkills = request.RequiredSkills;
                     await _resumeApplicationRepo.UpdateAsync(resumeApplication);
 
-                    // Update Resume with AIExplanation and mark as latest
-                    //resume.AIExplanation = aiExplanationString;
+                    // Update Resume and mark as latest
                     resume.IsLatest = true; // Mark as latest resume
                     
                     await resumeRepo.UpdateAsync(resume);
@@ -914,7 +891,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> GetJobResumesAsync(int jobId)
+        public async Task<ServiceResponse> GetJobResumesAsync(int jobId, int campaignId)
         {
             try
             {
@@ -967,25 +944,21 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Get all resumes for this job (through ResumeApplication)
-                var resumes = await resumeRepo.GetByJobIdAsync(jobId);
+                // Get ResumeApplications filtered by job and campaign with Resume & Candidate included
+                var resumeApplications = await _resumeApplicationRepo.GetByJobIdAndCampaignWithResumeAsync(jobId, campaignId);
 
-                // Get ResumeApplications for these resumes to get scores
-                var resumeIds = resumes.Select(r => r.ResumeId).ToList();
-                var resumeApplications = await _resumeApplicationRepo.GetByJobIdAndResumeIdsAsync(jobId, resumeIds);
-
-                var resumeList = resumes.Select(resume => 
-                {
-                    var application = resumeApplications.FirstOrDefault(ra => ra.ResumeId == resume.ResumeId);
-                    return new JobResumeListResponse
+                var resumeList = resumeApplications
+                    .Select(application => new JobResumeListResponse
                     {
-                        ResumeId = resume.ResumeId,
-                        Status = resume.Status,
-                        FullName = resume.Candidate?.FullName ?? "Unknown",
-                        TotalScore = application?.TotalScore,
-                        AdjustedScore = application?.AdjustedScore
-                    };
-                }).ToList();
+                        ResumeId = application.ResumeId,
+                        ApplicationId = application.ApplicationId,
+                        Status = application.Resume?.Status ?? ResumeStatusEnum.Pending,
+                        ApplicationStatus = application.Status,
+                        FullName = application.Resume?.Candidate?.FullName ?? "Unknown",
+                        TotalScore = application.TotalScore,
+                        AdjustedScore = application.AdjustedScore
+                    })
+                    .ToList();
 
                 return new ServiceResponse
                 {
@@ -1006,7 +979,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> GetJobResumeDetailAsync(int jobId, int resumeId)
+        public async Task<ServiceResponse> GetJobResumeDetailAsync(int jobId, int applicationId, int campaignId)
         {
             try
             {
@@ -1059,22 +1032,21 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Get resume with full details
-                var resume = await resumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
-                if (resume == null)
+                // Get ResumeApplication with details
+                var resumeApplication = await _resumeApplicationRepo.GetByApplicationIdWithDetailsAsync(applicationId);
+
+                if (resumeApplication == null || resumeApplication.JobId != jobId || resumeApplication.CampaignId != campaignId)
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.NotFound,
-                        Message = "Resume not found."
+                        Message = "Resume application not found for this job and campaign."
                     };
                 }
 
-                var candidate = resume.Candidate;
+                var resume = resumeApplication.Resume;
+                var candidate = resume?.Candidate;
                 
-                // Get ResumeApplication for scores
-                var resumeApplication = await _resumeApplicationRepo.GetByResumeIdAndJobIdWithDetailsAsync(resumeId, jobId);
-
                 // Get score details from ResumeApplication
                 var scoreDetailsResponse = resumeApplication?.ScoreDetails?
                     .Select(detail => new ResumeScoreDetailResponse
@@ -1088,11 +1060,14 @@ namespace BusinessObjectLayer.Services
 
                 var response = new JobResumeDetailResponse
                 {
-                    ResumeId = resume.ResumeId,
-                    QueueJobId = resume.QueueJobId ?? string.Empty,
-                    FileUrl = resume.FileUrl ?? string.Empty,
-                    Status = resume.Status,
-                    CreatedAt = resume.CreatedAt,
+                    ResumeId = resume?.ResumeId,
+                    ApplicationId = resumeApplication?.ApplicationId,
+                    QueueJobId = resume?.QueueJobId ?? string.Empty,
+                    FileUrl = resume?.FileUrl ?? string.Empty,
+                    Status = resume?.Status ?? ResumeStatusEnum.Pending,
+                    ApplicationStatus = resumeApplication?.Status ?? ApplicationStatusEnum.Pending,
+                    CampaignId = resumeApplication?.CampaignId,
+                    CreatedAt = resume?.CreatedAt,
                     CandidateId = candidate?.CandidateId ?? 0,
                     FullName = candidate?.FullName ?? "Unknown",
                     Email = candidate?.Email ?? "N/A",
@@ -1101,7 +1076,8 @@ namespace BusinessObjectLayer.Services
                     MissingSkills = candidate?.MissingSkills,
                     TotalScore = resumeApplication?.TotalScore,
                     AdjustedScore = resumeApplication?.AdjustedScore,
-                    //AIExplanation = resume.AIExplanation,
+                    AIExplanation = resumeApplication?.AIExplanation,
+                    ErrorMessage = resume?.ErrorMessage,
                     ScoreDetails = scoreDetailsResponse
                 };
 

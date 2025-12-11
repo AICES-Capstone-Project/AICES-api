@@ -4,10 +4,13 @@ namespace Data.Models.Response
 {
     public class JobResumeDetailResponse
     {
-        public int ResumeId { get; set; }
+        public int? ResumeId { get; set; }
+        public int? ApplicationId { get; set; }
         public string QueueJobId { get; set; } = string.Empty;
         public string FileUrl { get; set; } = string.Empty;
         public ResumeStatusEnum Status { get; set; }
+        public ApplicationStatusEnum ApplicationStatus { get; set; } = ApplicationStatusEnum.Pending;
+        public int? CampaignId { get; set; }
         public DateTime? CreatedAt { get; set; }
 
         public int CandidateId { get; set; }
@@ -20,6 +23,7 @@ namespace Data.Models.Response
         public decimal? TotalScore { get; set; }
         public decimal? AdjustedScore { get; set; }
         public string? AIExplanation { get; set; }
+        public string? ErrorMessage { get; set; }
         public List<ResumeScoreDetailResponse> ScoreDetails { get; set; } = new();
     }
 

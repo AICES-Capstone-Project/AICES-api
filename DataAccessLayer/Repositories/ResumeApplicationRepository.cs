@@ -52,6 +52,41 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<ResumeApplication>> GetByJobIdResumeIdsAndCampaignAsync(int jobId, List<int> resumeIds, int campaignId)
+        {
+            return await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.JobId == jobId
+                             && ra.CampaignId == campaignId
+                             && resumeIds.Contains(ra.ResumeId)
+                             && ra.IsActive)
+                .ToListAsync();
+        }
+
+        public async Task<List<ResumeApplication>> GetByJobIdAndCampaignWithResumeAsync(int jobId, int campaignId)
+        {
+            return await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.JobId == jobId
+                             && ra.CampaignId == campaignId
+                             && ra.IsActive)
+                .Include(ra => ra.Resume)
+                    .ThenInclude(r => r.Candidate)
+                .ToListAsync();
+        }
+
+        public async Task<ResumeApplication?> GetByApplicationIdWithDetailsAsync(int applicationId)
+        {
+            return await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.ApplicationId == applicationId && ra.IsActive)
+                .Include(ra => ra.ScoreDetails)
+                    .ThenInclude(sd => sd.Criteria)
+                .Include(ra => ra.Resume)
+                    .ThenInclude(r => r.Candidate)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task UpdateAsync(ResumeApplication resumeApplication)
         {
             _context.ResumeApplications.Update(resumeApplication);

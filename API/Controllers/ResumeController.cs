@@ -70,28 +70,28 @@ namespace API.Controllers
         }
         
         /// <summary>
-        /// GET /api/resume/jobs/{jobId}
-        /// Get list of resumes for a specific job (company self)
+        /// GET /api/campaigns/{campaignId}/jobs/{jobId}/resumes
+        /// Get list of resumes for a specific job in a campaign
         /// Returns: resumeId, status, fullName, totalResumeScore
         /// </summary>
-        [HttpGet("/api/jobs/{jobId}/resumes")]
+        [HttpGet("/api/campaigns/{campaignId}/jobs/{jobId}/resumes")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")] 
-        public async Task<IActionResult> GetJobResumes(int jobId)
+        public async Task<IActionResult> GetJobResumes(int campaignId, int jobId)
         {
-            var serviceResponse = await _resumeService.GetJobResumesAsync(jobId);
+            var serviceResponse = await _resumeService.GetJobResumesAsync(jobId, campaignId);
             return ControllerResponse.Response(serviceResponse);
         }
 
         /// <summary>
-        /// GET /api/resume/jobs/{jobId}/{resumeId}
-        /// Get detailed information about a specific resume
+        /// GET /api/campaigns/{campaignId}/jobs/{jobId}/resumes/{applicationId}
+        /// Get detailed information about a specific resume application in a campaign
         /// Returns: resume details, candidate info, AI scores, and score details
         /// </summary>
-        [HttpGet("/api/jobs/{jobId}/resumes/{resumeId}")]
+        [HttpGet("/api/campaigns/{campaignId}/jobs/{jobId}/resumes/{applicationId}")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> GetJobResumeDetail(int jobId, int resumeId)
+        public async Task<IActionResult> GetJobResumeDetail(int campaignId, int jobId, int applicationId)
         {
-            var serviceResponse = await _resumeService.GetJobResumeDetailAsync(jobId, resumeId);
+            var serviceResponse = await _resumeService.GetJobResumeDetailAsync(jobId, applicationId, campaignId);
             return ControllerResponse.Response(serviceResponse);
         }
 
