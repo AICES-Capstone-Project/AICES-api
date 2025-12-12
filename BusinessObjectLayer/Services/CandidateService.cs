@@ -198,6 +198,87 @@ namespace BusinessObjectLayer.Services
             }
         }
 
+        public async Task<ServiceResponse> GetByIdWithResumesAsync(int id)
+        {
+            try
+            {
+                // Get company ID from current user
+                var companyIdResult = await GetCurrentUserCompanyIdAsync();
+                if (companyIdResult.errorResponse != null)
+                {
+                    return companyIdResult.errorResponse;
+                }
+                int companyId = companyIdResult.companyId!.Value;
+
+                var candidateRepo = _uow.GetRepository<ICandidateRepository>();
+                var candidate = await candidateRepo.GetByIdAsync(id);
+
+                if (candidate == null || !candidate.IsActive)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Candidate not found."
+                    };
+                }
+
+                // Check if candidate has resume or application for this company
+                var hasAccess = await candidateRepo.HasResumeOrApplicationInCompanyAsync(id, companyId);
+
+                if (!hasAccess)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Candidate not found."
+                    };
+                }
+
+                // Get only resumes for this company
+                var resumes = await _resumeRepo.GetByCandidateIdAndCompanyIdAsync(id, companyId);
+
+                var candidateResponse = new CandidateResponse
+                {
+                    CandidateId = candidate.CandidateId,
+                    FullName = candidate.FullName,
+                    Email = candidate.Email,
+                    PhoneNumber = candidate.PhoneNumber,
+                    CreatedAt = candidate.CreatedAt
+                };
+
+                var resumesResponse = resumes.Select(r => new CandidateResumeResponse
+                {
+                    ResumeId = r.ResumeId,
+                    CompanyId = r.CompanyId,
+                    FileUrl = r.FileUrl,
+                    QueueJobId = r.QueueJobId,
+                    Status = r.Status,
+                    IsLatest = r.IsLatest,
+                    CreatedAt = r.CreatedAt
+                }).ToList();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Candidate with resumes retrieved successfully.",
+                    Data = new CandidateWithResumesResponse
+                    {
+                        Candidate = candidateResponse,
+                        Resumes = resumesResponse
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Get candidate with resumes error: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving the candidate with resumes."
+                };
+            }
+        }
+
         public async Task<ServiceResponse> CreateAsync(CandidateCreateRequest request)
         {
             try
@@ -254,6 +335,14 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Get company ID from current user
+                var companyIdResult = await GetCurrentUserCompanyIdAsync();
+                if (companyIdResult.errorResponse != null)
+                {
+                    return companyIdResult.errorResponse;
+                }
+                int companyId = companyIdResult.companyId!.Value;
+
                 var repo = _uow.GetRepository<ICandidateRepository>();
                 var candidate = await repo.GetByIdAsync(id);
 
@@ -263,6 +352,18 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.NotFound,
                         Message = "Candidate not found."
+                    };
+                }
+
+                // Check if candidate belongs to this company (has resume in company OR application for company job)
+                var hasAccess = await repo.HasResumeOrApplicationInCompanyAsync(id, companyId);
+
+                if (!hasAccess)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You do not have permission to update this candidate."
                     };
                 }
 
@@ -294,6 +395,14 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
+                // Get company ID from current user
+                var companyIdResult = await GetCurrentUserCompanyIdAsync();
+                if (companyIdResult.errorResponse != null)
+                {
+                    return companyIdResult.errorResponse;
+                }
+                int companyId = companyIdResult.companyId!.Value;
+
                 var repo = _uow.GetRepository<ICandidateRepository>();
                 var candidate = await repo.GetByIdAsync(id);
 
@@ -303,6 +412,18 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.NotFound,
                         Message = "Candidate not found."
+                    };
+                }
+
+                // Check if candidate belongs to this company (has resume in company OR application for company job)
+                var hasAccess = await repo.HasResumeOrApplicationInCompanyAsync(id, companyId);
+
+                if (!hasAccess)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You do not have permission to delete this candidate."
                     };
                 }
 

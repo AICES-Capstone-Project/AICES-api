@@ -25,20 +25,21 @@ namespace API.Controllers
             return ControllerResponse.Response(response);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id}/resumes")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> GetById(int id)
         {
-            var response = await _candidateService.GetByIdAsync(id);
+            var response = await _candidateService.GetByIdWithResumesAsync(id);
             return ControllerResponse.Response(response);
         }
 
-        [HttpPost]
-        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> Create([FromBody] CandidateCreateRequest request)
-        {
-            var response = await _candidateService.CreateAsync(request);
-            return ControllerResponse.Response(response);
-        }
+        // [HttpPost]
+        // [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        // public async Task<IActionResult> Create([FromBody] CandidateCreateRequest request)
+        // {
+        //     var response = await _candidateService.CreateAsync(request);
+        //     return ControllerResponse.Response(response);
+        // }
 
         [HttpPatch("{id}")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
@@ -53,14 +54,6 @@ namespace API.Controllers
         public async Task<IActionResult> Delete(int id)
         {
             var response = await _candidateService.DeleteAsync(id);
-            return ControllerResponse.Response(response);
-        }
-
-        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        [HttpGet("{candidateId}/resumes")]
-        public async Task<IActionResult> GetCandidateResumes(int candidateId)
-        {
-            var response = await _candidateService.GetResumesByCandidateAsync(candidateId);
             return ControllerResponse.Response(response);
         }
 
