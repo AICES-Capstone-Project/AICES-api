@@ -417,8 +417,8 @@ namespace BusinessObjectLayer.Services
                 var campaignStatus = user.RoleId == 5 
                     ? CampaignStatusEnum.Pending 
                     : (user.RoleId == 4 
-                        ? CampaignStatusEnum.Published 
-                        : request.Status);
+                        ? CampaignStatusEnum.Published
+                        : CampaignStatusEnum.Pending);
 
                 await _uow.BeginTransactionAsync();
                 try

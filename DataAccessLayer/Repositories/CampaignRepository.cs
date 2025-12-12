@@ -431,6 +431,14 @@ namespace DataAccessLayer.Repositories
             
             return campaign;
         }
+
+        public async Task<JobCampaign?> GetJobCampaignByJobIdAndCampaignIdAsync(int jobId, int campaignId)
+        {
+            return await _context.JobCampaigns
+                .AsNoTracking()
+                .Where(jc => jc.JobId == jobId && jc.CampaignId == campaignId)
+                .FirstOrDefaultAsync();
+        }
     }
 }
 

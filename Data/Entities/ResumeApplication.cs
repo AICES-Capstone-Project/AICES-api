@@ -24,6 +24,8 @@ namespace Data.Entities
         [ForeignKey("Candidate")]
         public int? CandidateId { get; set; }
 
+        public string? QueueJobId { get; set; }
+
         [Column(TypeName = "decimal(5,2)")]
         public decimal? TotalScore { get; set; } // Overall AI score (0-100)
 

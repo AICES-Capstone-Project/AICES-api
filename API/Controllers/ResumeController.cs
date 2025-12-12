@@ -109,14 +109,14 @@ namespace API.Controllers
         }
 
         /// <summary>
-        /// DELETE /api/resume/{resumeId}
-        /// Soft delete a resume by setting IsActive = false
+        /// DELETE /api/resume/{applicationId}
+        /// Soft delete a resume application by setting IsActive = false
         /// </summary>
-        [HttpDelete("{resumeId}")]
+        [HttpDelete("{applicationId}")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> SoftDeleteResume(int resumeId)
+        public async Task<IActionResult> SoftDeleteResume(int applicationId)
         {
-            var serviceResponse = await _resumeService.SoftDeleteResumeAsync(resumeId);
+            var serviceResponse = await _resumeService.SoftDeleteResumeAsync(applicationId);
             return ControllerResponse.Response(serviceResponse);
         }
     }

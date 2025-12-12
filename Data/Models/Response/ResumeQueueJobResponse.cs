@@ -6,6 +6,7 @@ namespace Data.Models.Response
     public class ResumeQueueJobResponse
     {
         public int resumeId { get; set; }
+        public int applicationId { get; set; }
         public string queueJobId { get; set; } = string.Empty;
         public int campaignId { get; set; }
         public int jobId { get; set; }
@@ -26,7 +27,7 @@ namespace Data.Models.Response
         public string mode { get; set; } = "parse";
         
         /// <summary>
-        /// Parsed resume data (JSON) - only used when mode = "rescore"
+        /// Parsed resume data (JSON) - only used when mode = "score"
         /// </summary>
         public object? parsedData { get; set; }
     }

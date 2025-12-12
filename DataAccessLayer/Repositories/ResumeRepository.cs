@@ -20,12 +20,6 @@ namespace DataAccessLayer.Repositories
             return resume;
         }
 
-        public async Task<Resume?> GetByQueueJobIdAsync(string queueJobId)
-        {
-            return await _context.Resumes
-                .FirstOrDefaultAsync(r => r.QueueJobId == queueJobId);
-        }
-
         public async Task<Resume?> GetByIdAsync(int resumeId)
         {
             return await _context.Resumes
@@ -49,6 +43,17 @@ namespace DataAccessLayer.Repositories
             // Note: ScoreDetails are now on ResumeApplication, not Resume
             // Access them through ResumeApplication if needed
             return resume;
+        }
+
+        public async Task<Resume?> GetByFileHashAndCompanyIdAsync(int companyId, string fileHash)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .Where(r => r.CompanyId == companyId
+                            && r.FileHash == fileHash
+                            && r.IsActive)
+                .OrderByDescending(r => r.CreatedAt)
+                .FirstOrDefaultAsync();
         }
 
         public async Task UpdateAsync(Resume resume)

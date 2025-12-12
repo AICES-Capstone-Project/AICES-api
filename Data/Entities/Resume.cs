@@ -22,8 +22,6 @@ namespace Data.Entities
         [ForeignKey("Candidate")]
         public int? CandidateId { get; set; }
 
-        public string? QueueJobId { get; set; }
-
         public string? FileUrl { get; set; } // URL to the uploaded resume file
         public string? FileHash { get; set; } // Hash of the uploaded resume file
 

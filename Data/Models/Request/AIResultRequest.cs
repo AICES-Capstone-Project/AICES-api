@@ -13,6 +13,9 @@ namespace Data.Models.Request
         [JsonPropertyName("resumeId")]
         public int ResumeId { get; set; }
 
+        [JsonPropertyName("applicationId")]
+        public int? ApplicationId { get; set; }
+
         [JsonPropertyName("jobId")]
         public int? JobId { get; set; }
 

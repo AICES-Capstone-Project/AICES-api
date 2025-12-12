@@ -5,10 +5,10 @@ namespace DataAccessLayer.IRepositories
     public interface IResumeRepository
     {
         Task<Resume> CreateAsync(Resume resume);
-        Task<Resume?> GetByQueueJobIdAsync(string queueJobId);
         Task<Resume?> GetByIdAsync(int resumeId);
         Task<Resume?> GetForUpdateAsync(int resumeId);
         Task<Resume?> GetByIdWithDetailsAsync(int resumeId);
+        Task<Resume?> GetByFileHashAndCompanyIdAsync(int companyId, string fileHash);
         Task UpdateAsync(Resume resume);
         Task<List<Resume>> GetByJobIdAsync(int jobId);
         Task<Resume?> GetByJobIdAndResumeIdAsync(int jobId, int resumeId);

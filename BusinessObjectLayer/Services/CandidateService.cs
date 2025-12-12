@@ -246,16 +246,21 @@ namespace BusinessObjectLayer.Services
                     CreatedAt = candidate.CreatedAt
                 };
 
-                var resumesResponse = resumes.Select(r => new CandidateResumeResponse
+                var resumesResponse = new List<CandidateResumeResponse>();
+                foreach (var resume in resumes)
                 {
-                    ResumeId = r.ResumeId,
-                    CompanyId = r.CompanyId,
-                    FileUrl = r.FileUrl,
-                    QueueJobId = r.QueueJobId,
-                    Status = r.Status,
-                    IsLatest = r.IsLatest,
-                    CreatedAt = r.CreatedAt
-                }).ToList();
+                    var latestApplication = await _resumeApplicationRepo.GetByResumeIdAsync(resume.ResumeId);
+                    resumesResponse.Add(new CandidateResumeResponse
+                    {
+                        ResumeId = resume.ResumeId,
+                        CompanyId = resume.CompanyId,
+                        FileUrl = resume.FileUrl,
+                        QueueJobId = latestApplication?.QueueJobId,
+                        Status = resume.Status,
+                        IsLatest = resume.IsLatest,
+                        CreatedAt = resume.CreatedAt
+                    });
+                }
 
                 return new ServiceResponse
                 {
@@ -645,16 +650,21 @@ namespace BusinessObjectLayer.Services
                 // Get only resumes for this company
                 var resumes = await _resumeRepo.GetByCandidateIdAndCompanyIdAsync(candidateId, companyId);
 
-                var response = resumes.Select(r => new CandidateResumeResponse
+                var response = new List<CandidateResumeResponse>();
+                foreach (var resume in resumes)
                 {
-                    ResumeId = r.ResumeId,
-                    CompanyId = r.CompanyId,
-                    FileUrl = r.FileUrl,
-                    QueueJobId = r.QueueJobId,
-                    Status = r.Status,
-                    IsLatest = r.IsLatest,
-                    CreatedAt = r.CreatedAt
-                }).ToList();
+                    var latestApplication = await _resumeApplicationRepo.GetByResumeIdAsync(resume.ResumeId);
+                    response.Add(new CandidateResumeResponse
+                    {
+                        ResumeId = resume.ResumeId,
+                        CompanyId = resume.CompanyId,
+                        FileUrl = resume.FileUrl,
+                        QueueJobId = latestApplication?.QueueJobId,
+                        Status = resume.Status,
+                        IsLatest = resume.IsLatest,
+                        CreatedAt = resume.CreatedAt
+                    });
+                }
 
                 return new ServiceResponse
                 {

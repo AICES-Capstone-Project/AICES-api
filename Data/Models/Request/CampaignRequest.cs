@@ -41,8 +41,6 @@ namespace Data.Models.Request
         [Required(ErrorMessage = "End date is required.")]
         public DateTime EndDate { get; set; }
 
-        public CampaignStatusEnum Status { get; set; } = CampaignStatusEnum.Published;
-
         public List<JobWithTargetRequest>? Jobs { get; set; }
     }
 
