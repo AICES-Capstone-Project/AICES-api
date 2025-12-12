@@ -44,6 +44,7 @@ namespace Data.Entities
         public Job Job { get; set; } = null!;
         public Candidate? Candidate { get; set; }
         public ICollection<ScoreDetail> ScoreDetails { get; set; } = new List<ScoreDetail>();
+        public ICollection<ApplicationComparison> ApplicationComparisons { get; set; } = new List<ApplicationComparison>();
     }
 }
 

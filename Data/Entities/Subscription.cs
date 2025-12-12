@@ -31,6 +31,10 @@ namespace Data.Entities
         public int ResumeLimit { get; set; } 
         
         public int HoursLimit { get; set; }
+        
+        public int? CompareLimit { get; set; } 
+        
+        public int? CompareHoursLimit { get; set; }
 
         // Navigation
         public ICollection<CompanySubscription>? CompanySubscriptions { get; set; }

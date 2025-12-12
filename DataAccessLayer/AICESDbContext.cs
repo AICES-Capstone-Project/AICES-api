@@ -49,6 +49,8 @@ namespace DataAccessLayer
         public virtual DbSet<ResumeApplication> ResumeApplications { get; set; }
         public virtual DbSet<Candidate> Candidates { get; set; }
         public virtual DbSet<ScoreDetail> ScoreDetails { get; set; }
+        public virtual DbSet<Comparison> Comparisons { get; set; }
+        public virtual DbSet<ApplicationComparison> ApplicationComparisons { get; set; }
         
         // Communication & Reporting
         public virtual DbSet<Notification> Notifications { get; set; }
@@ -355,6 +357,24 @@ namespace DataAccessLayer
             // Configure composite key for ScoreDetail
             modelBuilder.Entity<ScoreDetail>()
                 .HasKey(sd => new { sd.CriteriaId, sd.ApplicationId });
+
+            // ResumeApplication - ApplicationComparisons (one-to-many)
+            modelBuilder.Entity<ResumeApplication>()
+                .HasMany(ra => ra.ApplicationComparisons)
+                .WithOne(ac => ac.ResumeApplication)
+                .HasForeignKey(ac => ac.ApplicationId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Comparison - ApplicationComparisons (one-to-many)
+            modelBuilder.Entity<Comparison>()
+                .HasMany(c => c.ApplicationComparisons)
+                .WithOne(ac => ac.Comparison)
+                .HasForeignKey(ac => ac.ComparisonId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure composite key for ApplicationComparison
+            modelBuilder.Entity<ApplicationComparison>()
+                .HasKey(ac => new { ac.ApplicationId, ac.ComparisonId });
 
             // ===== COMMUNICATION & REPORTING RELATIONSHIPS =====
             
