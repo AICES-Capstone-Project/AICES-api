@@ -51,13 +51,13 @@ namespace API.Controllers
         /// Resend a completed resume for AI re-scoring (advanced analysis)
         /// Uses existing parsed data, does not re-parse the resume
         /// </summary>
-        [HttpPost("/api/jobs/{jobId}/resumes/{resumeId}/resend")]
-        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> ResendResume(int jobId, int resumeId)
-        {
-            var serviceResponse = await _resumeService.ResendResumeAsync(jobId, resumeId);
-            return ControllerResponse.Response(serviceResponse);
-        }
+        // [HttpPost("/api/jobs/{jobId}/resumes/{resumeId}/resend")]
+        // [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        // public async Task<IActionResult> ResendResume(int jobId, int resumeId)
+        // {
+        //     var serviceResponse = await _resumeService.ResendResumeAsync(jobId, resumeId);
+        //     return ControllerResponse.Response(serviceResponse);
+        // }
 
         /// <summary>
         /// Receive AI processing result callback from Python service
@@ -100,13 +100,13 @@ namespace API.Controllers
         /// Retry a failed resume by re-pushing it to the Redis queue
         /// Flow: Check status = Failed -> Re-push to Redis with new queueJobId -> Update status = Pending
         /// </summary>
-        [HttpPost("{resumeId}/retry")]
-        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> RetryFailedResume(int resumeId)
-        {
-            var serviceResponse = await _resumeService.RetryFailedResumeAsync(resumeId);
-            return ControllerResponse.Response(serviceResponse);
-        }
+        // [HttpPost("{resumeId}/retry")]
+        // [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        // public async Task<IActionResult> RetryFailedResume(int resumeId)
+        // {
+        //     var serviceResponse = await _resumeService.RetryFailedResumeAsync(resumeId);
+        //     return ControllerResponse.Response(serviceResponse);
+        // }
 
         /// <summary>
         /// DELETE /api/resume/{applicationId}

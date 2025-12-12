@@ -299,6 +299,7 @@ builder.Services.AddScoped<IBlogService, BlogService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<ICandidateService, CandidateService>();
+builder.Services.AddScoped<IResumeApplicationService, ResumeApplicationService>();
 //builder.Services.AddScoped<IReportService, ReportService>();
 
 

@@ -168,6 +168,20 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(sd => sd.Criteria)
                 .FirstOrDefaultAsync();
         }
+
+        public async Task<ResumeApplication?> GetApplicationByIdAndCompanyAsync(int applicationId, int companyId)
+        {
+            return await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.ApplicationId == applicationId && ra.IsActive && ra.Job.CompanyId == companyId)
+                .Include(ra => ra.Resume)
+                    .ThenInclude(r => r.Candidate)
+                .Include(ra => ra.Job)
+                .Include(ra => ra.Campaign)
+                .Include(ra => ra.ScoreDetails)
+                    .ThenInclude(sd => sd.Criteria)
+                .FirstOrDefaultAsync();
+        }
     }
 }
 
