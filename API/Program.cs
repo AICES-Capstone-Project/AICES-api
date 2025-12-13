@@ -108,18 +108,13 @@ builder.Services.AddDbContext<AICESDbContext>(options =>
 {
     options.UseNpgsql(connectionString, npgsqlOptions =>
     {
-        // Enable retry on transient failures (connection issues, timeouts, deadlocks)
-        npgsqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 3,
-            maxRetryDelay: TimeSpan.FromSeconds(5),
-            errorCodesToAdd: null
-        );
-        
-        // Set command timeout (default is 30 seconds)
+        // Set command timeout to 60 seconds (default is 30 seconds)
+        // This gives more time for complex operations without timing out
         npgsqlOptions.CommandTimeout(60);
         
         // Connection pooling is enabled by default in Npgsql
-        // But we can configure it via connection string if needed
+        // Note: EnableRetryOnFailure is NOT used here because it's incompatible 
+        // with manual transaction management (BeginTransactionAsync/CommitTransactionAsync)
     });
     
     // Enable detailed errors in development
