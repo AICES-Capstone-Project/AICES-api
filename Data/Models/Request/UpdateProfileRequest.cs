@@ -12,8 +12,8 @@ namespace Data.Models.Request
 {
     public class UpdateProfileRequest
     {
-        [MaxLength(255, ErrorMessage = "Full name cannot exceed 255 characters.")]
-        [RegularExpression(@"^[a-zA-ZÀ-ỹ\s'.-]+$", ErrorMessage = "Full name can only contain letters, spaces, and basic punctuation.")]
+        [RegularExpression(@"^[a-zA-ZÀ-ỹ0-9\s'.-]+$", 
+        ErrorMessage = "Full name can only contain letters, numbers, spaces, and basic punctuation.")]
         [DefaultValue("John Doe")]
         public string? FullName { get; set; }
 

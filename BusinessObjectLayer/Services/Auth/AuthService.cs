@@ -489,10 +489,30 @@ namespace BusinessObjectLayer.Services.Auth
                 // 3️⃣ Get email if not returned
                 if (string.IsNullOrEmpty(githubUser.Email))
                 {
-                    var emailResponse = await userHttpClient.GetAsync("https://api.github.com/user/emails");
-                    var emailJson = await emailResponse.Content.ReadAsStringAsync();
-                    var emails = JsonSerializer.Deserialize<List<GitHubEmail>>(emailJson);
-                    githubUser.Email = emails?.FirstOrDefault(e => e.Primary && e.Verified)?.Email ?? "";
+                    try
+                    {
+                        var emailResponse = await userHttpClient.GetAsync("https://api.github.com/user/emails");
+                        
+                        if (emailResponse.IsSuccessStatusCode)
+                        {
+                            var emailJson = await emailResponse.Content.ReadAsStringAsync();
+                            var emails = JsonSerializer.Deserialize<List<GitHubEmail>>(emailJson);
+                            
+                            // Try primary and verified first, then any verified email
+                            githubUser.Email = emails?.FirstOrDefault(e => e.Primary && e.Verified)?.Email
+                                            ?? emails?.FirstOrDefault(e => e.Verified)?.Email
+                                            ?? "";
+                        }
+                        else
+                        {
+                            var errorBody = await emailResponse.Content.ReadAsStringAsync();
+                            Console.WriteLine($"GitHub email API failed ({emailResponse.StatusCode}): {errorBody}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error fetching GitHub emails: {ex.Message}");
+                    }
                 }
 
                 if (string.IsNullOrEmpty(githubUser.Email))
@@ -500,7 +520,7 @@ namespace BusinessObjectLayer.Services.Auth
                     return new ServiceResponse
                     {
                         Status = SRStatus.Error,
-                        Message = "GitHub account has no verified email."
+                        Message = "GitHub account has no verified email. Please verify your email address in GitHub settings and try again."
                     };
                 }
 
