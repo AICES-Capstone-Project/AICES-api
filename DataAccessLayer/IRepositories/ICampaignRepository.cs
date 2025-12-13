@@ -29,6 +29,7 @@ namespace DataAccessLayer.IRepositories
         // Legacy methods for backward compatibility
         Task UpdateAsync(Campaign campaign);
         Task SoftDeleteAsync(Campaign campaign);
+        Task<bool> ExistsByTitleAndCompanyIdAsync(string title, int companyId, int? excludeCampaignId = null);
     }
 }
 

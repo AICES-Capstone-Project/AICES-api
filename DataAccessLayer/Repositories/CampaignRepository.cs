@@ -439,6 +439,20 @@ namespace DataAccessLayer.Repositories
                 .Where(jc => jc.JobId == jobId && jc.CampaignId == campaignId)
                 .FirstOrDefaultAsync();
         }
+
+        public async Task<bool> ExistsByTitleAndCompanyIdAsync(string title, int companyId, int? excludeCampaignId = null)
+        {
+            var query = _context.Campaigns
+                .AsNoTracking()
+                .Where(c => c.IsActive && c.CompanyId == companyId && c.Title == title && (c.Status == CampaignStatusEnum.Published || c.Status == CampaignStatusEnum.Pending));
+
+            if (excludeCampaignId.HasValue)
+            {
+                query = query.Where(c => c.CampaignId != excludeCampaignId.Value);
+            }
+
+            return await query.AnyAsync();
+        }
     }
 }
 

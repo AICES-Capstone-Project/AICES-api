@@ -411,6 +411,18 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Check if title already exists in company
+                var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                var titleExists = await campaignRepo.ExistsByTitleAndCompanyIdAsync(request.Title, companyUser.CompanyId.Value);
+                if (titleExists)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Duplicated,
+                        Message = "A campaign with this title already exists in your company."
+                    };
+                }
+
                 // Determine CampaignStatus based on user roleId
                 // roleId = 5 (HR_Recruiter) → Pending
                 // roleId = 4 (HR_Manager) → Published
@@ -434,7 +446,6 @@ namespace BusinessObjectLayer.Services
                         Status = campaignStatus
                     };
 
-                    var campaignRepo = _uow.GetRepository<ICampaignRepository>();
                     await campaignRepo.AddAsync(campaign);
                     await _uow.SaveChangesAsync(); // Get CampaignId
 
@@ -535,6 +546,20 @@ namespace BusinessObjectLayer.Services
                         Status = SRStatus.Forbidden,
                         Message = "You do not have permission to update this campaign."
                     };
+                }
+
+                // Check if title already exists in company (excluding current campaign)
+                if (request.Title != null && request.Title != campaign.Title)
+                {
+                    var titleExists = await campaignRepo.ExistsByTitleAndCompanyIdAsync(request.Title, companyUser.CompanyId.Value, id);
+                    if (titleExists)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Duplicated,
+                            Message = "A campaign with this title already exists in your company."
+                        };
+                    }
                 }
 
                 // Validate dates only if both are provided
