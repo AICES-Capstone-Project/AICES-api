@@ -105,7 +105,30 @@ if (string.IsNullOrEmpty(connectionString))
     Console.WriteLine("?? Database connection string not found in .env");
 }
 builder.Services.AddDbContext<AICESDbContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        // Enable retry on transient failures (connection issues, timeouts, deadlocks)
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null
+        );
+        
+        // Set command timeout (default is 30 seconds)
+        npgsqlOptions.CommandTimeout(60);
+        
+        // Connection pooling is enabled by default in Npgsql
+        // But we can configure it via connection string if needed
+    });
+    
+    // Enable detailed errors in development
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableSensitiveDataLogging();
+        options.EnableDetailedErrors();
+    }
+});
 
 // ------------------------
 // ?? UNIT OF WORK CONFIGURATION

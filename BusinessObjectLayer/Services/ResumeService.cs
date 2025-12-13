@@ -25,7 +25,6 @@ namespace BusinessObjectLayer.Services
     public class ResumeService : IResumeService
     {
         private readonly IUnitOfWork _uow;
-        private readonly AICESDbContext _context;
         private readonly GoogleCloudStorageHelper _storageHelper;
         private readonly RedisHelper _redisHelper;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -38,7 +37,6 @@ namespace BusinessObjectLayer.Services
 
         public ResumeService(
             IUnitOfWork uow,
-            AICESDbContext context,
             GoogleCloudStorageHelper storageHelper,
             RedisHelper redisHelper,
             IHttpContextAccessor httpContextAccessor,
@@ -47,7 +45,6 @@ namespace BusinessObjectLayer.Services
             IResumeApplicationRepository resumeApplicationRepo)
         {
             _uow = uow;
-            _context = context;
             _storageHelper = storageHelper;
             _redisHelper = redisHelper;
             _httpContextAccessor = httpContextAccessor;
@@ -210,6 +207,39 @@ namespace BusinessObjectLayer.Services
                 string? resumeFileUrl = null;
                 bool reuseExistingResume = existingResume != null && existingResume.Status == ResumeStatusEnum.Completed && existingResume.Data != null;
 
+                // Upload file to Google Cloud Storage BEFORE starting transaction (if not reusing)
+                string? uploadedFileUrl = null;
+                if (!reuseExistingResume)
+                {
+                    var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                    string publicId = $"resumes/{companyId}/{jobId}/{userId}_{DateTime.UtcNow.Ticks}{extension}";
+
+                    var uploadResult = await _storageHelper.UploadFileAsync(file, "resumes", publicId);
+                    if (uploadResult.Status != SRStatus.Success)
+                    {
+                        return uploadResult;
+                    }
+
+                    if (uploadResult.Data != null)
+                    {
+                        var dataType = uploadResult.Data.GetType();
+                        var urlProp = dataType.GetProperty("Url");
+                        if (urlProp != null)
+                        {
+                            uploadedFileUrl = urlProp.GetValue(uploadResult.Data) as string;
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(uploadedFileUrl))
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Error,
+                            Message = "Failed to get URL from upload result."
+                        };
+                    }
+                }
+
                 // Get or create semaphore for this company to prevent concurrent uploads
                 var semaphore = _companyLocks.GetOrAdd(companyId, _ => new SemaphoreSlim(1, 1));
                 
@@ -229,7 +259,7 @@ namespace BusinessObjectLayer.Services
                             return limitCheckInTransaction;
                         }
 
-                        // If resume already exists in this company, reuse it; otherwise upload and create new resume
+                        // If resume already exists in this company, reuse it; otherwise create new resume
                         Resume resume;
                         if (reuseExistingResume && existingResume != null)
                         {
@@ -238,43 +268,11 @@ namespace BusinessObjectLayer.Services
                         }
                         else
                         {
-                            // Upload file to Google Cloud Storage
-                            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-                            string publicId = $"resumes/{companyId}/{jobId}/{userId}_{DateTime.UtcNow.Ticks}{extension}";
-
-                            var uploadResult = await _storageHelper.UploadFileAsync(file, "resumes", publicId);
-                            if (uploadResult.Status != SRStatus.Success)
-                            {
-                                await _uow.RollbackTransactionAsync();
-                                return uploadResult;
-                            }
-
-                            string? fileUrl = null;
-                            if (uploadResult.Data != null)
-                            {
-                                var dataType = uploadResult.Data.GetType();
-                                var urlProp = dataType.GetProperty("Url");
-                                if (urlProp != null)
-                                {
-                                    fileUrl = urlProp.GetValue(uploadResult.Data) as string;
-                                }
-                            }
-
-                            if (string.IsNullOrEmpty(fileUrl))
-                            {
-                                await _uow.RollbackTransactionAsync();
-                                return new ServiceResponse
-                                {
-                                    Status = SRStatus.Error,
-                                    Message = "Failed to get URL from upload result."
-                                };
-                            }
-
-                            // Create new resume record
+                            // Create new resume record with uploaded file URL
                             resume = new Resume
                             {
                                 CompanyId = companyUser.CompanyId.Value,
-                                FileUrl = fileUrl,
+                                FileUrl = uploadedFileUrl!,
                                 FileHash = fileHash,
                                 Status = ResumeStatusEnum.Pending
                             };
@@ -376,15 +374,23 @@ namespace BusinessObjectLayer.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Error uploading resume: {ex.Message}");
+                Console.WriteLine($"❌ Error uploading resume for JobId: {jobId}, CampaignId: {campaignId}");
                 Console.WriteLine($"📋 Exception Type: {ex.GetType().Name}");
+                Console.WriteLine($"🔴 Exception Message: {ex.Message}");
                 Console.WriteLine($"🔍 Stack trace: {ex.StackTrace}");
                 
                 // Log inner exception if exists
                 if (ex.InnerException != null)
                 {
-                    Console.WriteLine($"💥 Inner Exception: {ex.InnerException.Message}");
+                    Console.WriteLine($"💥 Inner Exception Type: {ex.InnerException.GetType().Name}");
+                    Console.WriteLine($"💥 Inner Exception Message: {ex.InnerException.Message}");
                     Console.WriteLine($"🔍 Inner Stack trace: {ex.InnerException.StackTrace}");
+                    
+                    // Check for PostgreSQL specific errors
+                    if (ex.InnerException.InnerException != null)
+                    {
+                        Console.WriteLine($"🔥 Deepest Exception: {ex.InnerException.InnerException.Message}");
+                    }
                 }
 
                 return new ServiceResponse
