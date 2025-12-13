@@ -55,18 +55,18 @@ namespace API.Controllers
 
         [HttpPatch("{id}")]
         [Authorize(Roles = "System_Admin,System_Manager")]
-            public async Task<IActionResult> Update(int id, [FromBody] SubscriptionRequest request)
-            {
-                var response = await _subscriptionService.UpdateAsync(id, request);
-                return ControllerResponse.Response(response);
-            }
+        public async Task<IActionResult> Update(int id, [FromBody] SubscriptionRequest request)
+        {
+            var response = await _subscriptionService.UpdateAsync(id, request);
+            return ControllerResponse.Response(response);
+        }
 
-            [HttpDelete("{id}")]
-            [Authorize(Roles = "System_Admin,System_Manager")]
-            public async Task<IActionResult> SoftDelete(int id)
-            {
-                var response = await _subscriptionService.SoftDeleteAsync(id);
-                return ControllerResponse.Response(response);
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> SoftDelete(int id)
+        {
+            var response = await _subscriptionService.SoftDeleteAsync(id);
+            return ControllerResponse.Response(response);
         }
     }
 }

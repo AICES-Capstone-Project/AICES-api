@@ -18,6 +18,7 @@ namespace DataAccessLayer.IRepositories
         Task UpdateAsync(CompanySubscription companySubscription);
         Task SoftDeleteAsync(CompanySubscription companySubscription);
         Task<CompanySubscription?> GetByStripeSubscriptionIdAsync(string stripeSubscriptionId);
+        Task<bool> HasAnyBySubscriptionIdAsync(int subscriptionId);
 
     }
 }

@@ -157,6 +157,13 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<bool> HasAnyBySubscriptionIdAsync(int subscriptionId)
+        {
+            return await _context.CompanySubscriptions
+                .AsNoTracking()
+                .AnyAsync(cs => cs.IsActive && cs.SubscriptionId == subscriptionId);
+        }
+
     }
 }
 

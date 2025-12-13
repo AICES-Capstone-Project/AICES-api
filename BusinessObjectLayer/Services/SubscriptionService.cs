@@ -1,4 +1,4 @@
-﻿using BusinessObjectLayer.IServices;
+using BusinessObjectLayer.IServices;
 using Data.Entities;
 using Data.Enum;
 using Data.Models.Request;
@@ -184,6 +184,18 @@ namespace BusinessObjectLayer.Services
                 {
                     Status = SRStatus.NotFound,
                     Message = "Subscription not found."
+                };
+            }
+
+            // Check if subscription has any associated CompanySubscriptions
+            var companySubscriptionRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            var hasCompanySubscriptions = await companySubscriptionRepo.HasAnyBySubscriptionIdAsync(id);
+            if (hasCompanySubscriptions)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "Cannot delete subscription that has associated company subscriptions."
                 };
             }
 
