@@ -37,6 +37,7 @@ namespace Data.Entities
         public string? MatchSkills { get; set; }
         public string? MissingSkills { get; set; }
         public ApplicationStatusEnum Status { get; set; }
+        public string? ErrorMessage { get; set; } // Error message if parsing failed
 
         // Navigation
         public Resume Resume { get; set; } = null!;

@@ -31,9 +31,6 @@ namespace Data.Entities
         public bool? IsLatest { get; set; } // Check if this is the latest resume
 
         public ResumeStatusEnum Status { get; set; } // Status of the resume parsing
-        
-        public string? ErrorMessage { get; set; } // Error message if parsing failed
-
 
         // Navigation
         public Company Company { get; set; } = null!;
