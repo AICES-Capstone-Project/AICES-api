@@ -22,10 +22,10 @@ namespace BusinessObjectLayer.Services
             _uow = uow;
         }
 
-        public async Task<ServiceResponse> GetAllAsync()
+        public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null)
         {
             var employmentTypeRepo = _uow.GetRepository<IEmploymentTypeRepository>();
-            var list = await employmentTypeRepo.GetAllAsync();
+            var (list, total) = await employmentTypeRepo.GetPagedAsync(page, pageSize, search);
 
             var data = list
                 .OrderBy(e => e.EmployTypeId)
@@ -40,7 +40,14 @@ namespace BusinessObjectLayer.Services
             {
                 Status = SRStatus.Success,
                 Message = "Employment types retrieved successfully.",
-                Data = data
+                Data = new Data.Models.Response.Pagination.PaginatedEmploymentTypeResponse
+                {
+                    EmploymentTypes = data,
+                    TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                    CurrentPage = page,
+                    PageSize = pageSize,
+                    TotalCount = total
+                }
             };
         }
 

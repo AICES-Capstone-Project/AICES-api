@@ -144,7 +144,8 @@ namespace BusinessObjectLayer.Services
                         Jobs = jobResponses,
                         TotalPages = (int)Math.Ceiling(total / (double)pageSize),
                         CurrentPage = page,
-                        PageSize = pageSize
+                        PageSize = pageSize,
+                        TotalCount = total
                     }
                 };
             }
@@ -604,7 +605,8 @@ namespace BusinessObjectLayer.Services
                         Jobs = jobResponses,
                         TotalPages = (int)Math.Ceiling(total / (double)pageSize),
                         CurrentPage = page,
-                        PageSize = pageSize
+                        PageSize = pageSize,
+                        TotalCount = total
                     }
                 };
             }
@@ -699,7 +701,8 @@ namespace BusinessObjectLayer.Services
                         Jobs = jobResponses,
                         TotalPages = (int)Math.Ceiling(total / (double)pageSize),
                         CurrentPage = page,
-                        PageSize = pageSize
+                        PageSize = pageSize,
+                        TotalCount = total
                     }
                 };
             }
@@ -992,7 +995,8 @@ namespace BusinessObjectLayer.Services
                         Jobs = jobResponses,
                         TotalPages = (int)Math.Ceiling(total / (double)pageSize),
                         CurrentPage = page,
-                        PageSize = pageSize
+                        PageSize = pageSize,
+                        TotalCount = total
                     }
                 };
             }

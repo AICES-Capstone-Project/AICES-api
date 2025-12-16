@@ -10,7 +10,7 @@ namespace BusinessObjectLayer.IServices
 {
     public interface ISkillService
     {
-        Task<ServiceResponse> GetAllAsync();
+        Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null);
         Task<ServiceResponse> GetByIdAsync(int id);
         Task<ServiceResponse> CreateAsync(SkillRequest request);
         Task<ServiceResponse> UpdateAsync(int id, SkillRequest request);
