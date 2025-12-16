@@ -207,5 +207,62 @@ namespace DataAccessLayer.Repositories
 
             return hasApplicationForCompany;
         }
+
+        public async Task<Candidate?> FindDuplicateCandidateInCompanyAsync(int companyId, string? email, string? fullName, string? phoneNumber)
+        {
+            // Get all candidate IDs that belong to this company
+            var candidateIdsFromResumes = await _context.Resumes
+                .AsNoTracking()
+                .Where(r => r.IsActive && r.CompanyId == companyId && r.CandidateId != null)
+                .Select(r => r.CandidateId!.Value)
+                .Distinct()
+                .ToListAsync();
+
+            var candidateIdsFromApplications = await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.IsActive && ra.Job.CompanyId == companyId && ra.CandidateId != null)
+                .Select(ra => ra.CandidateId!.Value)
+                .Distinct()
+                .ToListAsync();
+
+            var allCandidateIds = candidateIdsFromResumes.Union(candidateIdsFromApplications).Distinct().ToList();
+
+            if (!allCandidateIds.Any())
+            {
+                return null;
+            }
+
+            // Normalize input values for comparison
+            var normalizedEmail = email?.Trim().ToLowerInvariant();
+            var normalizedFullName = fullName?.Trim().ToLowerInvariant();
+            var normalizedPhone = phoneNumber?.Trim();
+
+            // Check if at least one search criteria is provided
+            if (string.IsNullOrWhiteSpace(normalizedEmail) && 
+                string.IsNullOrWhiteSpace(normalizedFullName) && 
+                string.IsNullOrWhiteSpace(normalizedPhone))
+            {
+                return null; // No search criteria provided
+            }
+
+            // Find duplicate candidate by email OR fullName (case-insensitive) OR phone
+            var query = _context.Candidates
+                .AsNoTracking()
+                .Where(c => c.IsActive && allCandidateIds.Contains(c.CandidateId));
+
+            // Build OR condition for matching any of the provided fields
+            query = query.Where(c => 
+                (!string.IsNullOrWhiteSpace(normalizedEmail) && c.Email.ToLower() == normalizedEmail) ||
+                (!string.IsNullOrWhiteSpace(normalizedFullName) && c.FullName.ToLower() == normalizedFullName) ||
+                (!string.IsNullOrWhiteSpace(normalizedPhone) && c.PhoneNumber == normalizedPhone)
+            );
+
+            // Return the first match (prioritize by email if multiple matches)
+            return await query
+                .OrderByDescending(c => !string.IsNullOrWhiteSpace(normalizedEmail) && c.Email.ToLower() == normalizedEmail)
+                .ThenByDescending(c => !string.IsNullOrWhiteSpace(normalizedFullName) && c.FullName.ToLower() == normalizedFullName)
+                .ThenByDescending(c => !string.IsNullOrWhiteSpace(normalizedPhone) && c.PhoneNumber == normalizedPhone)
+                .FirstOrDefaultAsync();
+        }
     }
 }

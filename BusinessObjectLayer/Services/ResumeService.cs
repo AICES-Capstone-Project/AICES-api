@@ -800,46 +800,81 @@ namespace BusinessObjectLayer.Services
                     await _uow.SaveChangesAsync();
 
                     // 4. Create/Update Candidate first
-                    // Check if candidate is already loaded from includes to avoid tracking conflicts
-                    var existingCandidate = resume.Candidate;
-                    
-                    // If not loaded, query it
-                    if (existingCandidate == null && resume.CandidateId.HasValue)
-                    {
-                        existingCandidate = await candidateRepo.GetByResumeIdAsync(resume.ResumeId);
-                    }
-
                     var fullName = request.CandidateInfo?.FullName;
                     var email = request.CandidateInfo?.Email;
                     var phone = request.CandidateInfo?.PhoneNumber;
-                    Candidate candidate;
-                    if (existingCandidate == null)
+                    
+                    // Get CompanyId from Job
+                    var companyId = resumeApplication.Job?.CompanyId;
+                    if (!companyId.HasValue)
                     {
-                        candidate = new Candidate
+                        return new ServiceResponse
                         {
-                            FullName = fullName,
-                            Email = email,
-                            PhoneNumber = phone
+                            Status = SRStatus.Validation,
+                            Message = "Company ID not found for the job."
                         };
+                    }
 
-                        await candidateRepo.CreateAsync(candidate);
-                        await _uow.SaveChangesAsync(); // Get CandidateId
+                    // Check for duplicate candidate in the company by email, fullName (case-insensitive), or phone
+                    var duplicateCandidate = await candidateRepo.FindDuplicateCandidateInCompanyAsync(
+                        companyId.Value,
+                        email,
+                        fullName,
+                        phone
+                    );
+
+                    Candidate candidate;
+                    
+                    // If duplicate found, use that candidate
+                    if (duplicateCandidate != null)
+                    {
+                        candidate = duplicateCandidate;
                         
-                        // Link resume to candidate
+                        // Link resume to existing candidate
                         resume.CandidateId = candidate.CandidateId;
+                        resumeApplication.CandidateId = candidate.CandidateId;
                     }
                     else
                     {
-                        existingCandidate.FullName = fullName;
-                        existingCandidate.Email = email;
-                        existingCandidate.PhoneNumber = phone;
-
-                        await candidateRepo.UpdateAsync(existingCandidate);
-                        candidate = existingCandidate;
+                        // Check if candidate is already loaded from includes to avoid tracking conflicts
+                        var existingCandidate = resume.Candidate;
                         
-                        // Link resume to candidate
-                        resume.CandidateId = candidate.CandidateId;
-                        resumeApplication.CandidateId = candidate.CandidateId;
+                        // If not loaded, query it
+                        if (existingCandidate == null && resume.CandidateId.HasValue)
+                        {
+                            existingCandidate = await candidateRepo.GetByResumeIdAsync(resume.ResumeId);
+                        }
+
+                        if (existingCandidate == null)
+                        {
+                            // Create new candidate
+                            candidate = new Candidate
+                            {
+                                FullName = fullName,
+                                Email = email,
+                                PhoneNumber = phone
+                            };
+
+                            await candidateRepo.CreateAsync(candidate);
+                            await _uow.SaveChangesAsync(); // Get CandidateId
+                            
+                            // Link resume to candidate
+                            resume.CandidateId = candidate.CandidateId;
+                        }
+                        else
+                        {
+                            // Update existing candidate
+                            existingCandidate.FullName = fullName;
+                            existingCandidate.Email = email;
+                            existingCandidate.PhoneNumber = phone;
+
+                            await candidateRepo.UpdateAsync(existingCandidate);
+                            candidate = existingCandidate;
+                            
+                            // Link resume to candidate
+                            resume.CandidateId = candidate.CandidateId;
+                            resumeApplication.CandidateId = candidate.CandidateId;
+                        }
                     }
 
                     // 5. Save AI Score to ResumeApplication (not Resume)

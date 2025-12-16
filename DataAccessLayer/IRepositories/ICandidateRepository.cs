@@ -16,5 +16,6 @@ namespace DataAccessLayer.IRepositories
         Task<List<Candidate>> GetPagedByCompanyIdAsync(int companyId, int page, int pageSize, string? search = null);
         Task<int> GetTotalByCompanyIdAsync(int companyId, string? search = null);
         Task<bool> HasResumeOrApplicationInCompanyAsync(int candidateId, int companyId);
+        Task<Candidate?> FindDuplicateCandidateInCompanyAsync(int companyId, string? email, string? fullName, string? phoneNumber);
     }
 }
