@@ -40,7 +40,8 @@ namespace BusinessObjectLayer.Services
                 Categories = pagedData,
                 TotalPages = (int)Math.Ceiling(total / (double)pageSize),
                 CurrentPage = page,
-                PageSize = pageSize
+                PageSize = pageSize,
+                TotalCount = total
             };
 
             return new ServiceResponse

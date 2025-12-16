@@ -53,7 +53,8 @@ namespace BusinessObjectLayer.Services
                     BannerConfigs = bannerConfigResponses,
                     TotalPages = (int)Math.Ceiling(total / (double)pageSize),
                     CurrentPage = page,
-                    PageSize = pageSize
+                    PageSize = pageSize,
+                    TotalCount = total
                 }
             };
         }
