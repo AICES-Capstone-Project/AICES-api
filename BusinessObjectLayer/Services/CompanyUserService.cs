@@ -79,6 +79,7 @@ namespace BusinessObjectLayer.Services
                     FullName = m.User?.Profile?.FullName ?? string.Empty,
                     AvatarUrl = m.User?.Profile?.AvatarUrl,
                     PhoneNumber = m.User?.Profile?.PhoneNumber,
+                    Address = m.User?.Profile?.Address,
                     JoinStatus = m.JoinStatus,
                     CreatedAt = m.CreatedAt
                 }).ToList();
@@ -231,6 +232,7 @@ namespace BusinessObjectLayer.Services
                     FullName = m.User?.Profile?.FullName ?? string.Empty,
                     AvatarUrl = m.User?.Profile?.AvatarUrl,
                     PhoneNumber = m.User?.Profile?.PhoneNumber,
+                    Address = m.User?.Profile?.Address,
                     JoinStatus = m.JoinStatus,
                     CreatedAt = m.CreatedAt
                 }).ToList();
@@ -314,6 +316,7 @@ namespace BusinessObjectLayer.Services
                     FullName = m.User?.Profile?.FullName ?? string.Empty,
                     AvatarUrl = m.User?.Profile?.AvatarUrl,
                     PhoneNumber = m.User?.Profile?.PhoneNumber,
+                    Address = m.User?.Profile?.Address,
                     JoinStatus = m.JoinStatus,
                     CreatedAt = m.CreatedAt
                 }).ToList();
