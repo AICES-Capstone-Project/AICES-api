@@ -189,6 +189,36 @@ namespace BusinessObjectLayer.Services
                 // Check if this file already exists in the company (reuse resume)
                 var existingResume = await resumeRepo.GetByFileHashAndCompanyIdAsync(companyId, fileHash);
 
+                // Flow logic:
+                // 1. If resume exists + same job → check for existing application
+                //    - If application exists and Reviewed → Clone result, no Redis
+                // 2. If resume exists + different job → Reuse resume, send Redis mode=score
+                // 3. If resume not exists → Create new, send Redis mode=parse
+                
+                ResumeApplication? existingApplication = null;
+                bool shouldCloneResult = false;
+
+                if (existingResume != null)
+                {
+                    // Check if there's already an application for this resume + job combination
+                    existingApplication = await _resumeApplicationRepo.GetByResumeIdAndJobIdWithDetailsAsync(existingResume.ResumeId, jobId);
+                    
+                    if (existingApplication != null && existingApplication.Status == ApplicationStatusEnum.Reviewed)
+                    {
+                        // Flow 2: Same resume + same job + already scored → Clone result, no Redis
+                        shouldCloneResult = true;
+                    }
+                    else if (existingResume.Status != ResumeStatusEnum.Completed || existingResume.Data == null)
+                    {
+                        // Resume exists but not completed or no data → reject
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = "This file has already been uploaded for this company but could not be fully processed. Please upload a different resume file."
+                        };
+                    }
+                }
+
                 // Generate queue job ID
                 var queueJobId = Guid.NewGuid().ToString();
 
@@ -205,7 +235,12 @@ namespace BusinessObjectLayer.Services
                 var employmentTypesList = await jobRepo.GetEmploymentTypesByJobIdAsync(jobId);
                 var languagesList = await jobRepo.GetLanguagesByJobIdAsync(jobId);
                 string? resumeFileUrl = null;
-                bool reuseExistingResume = existingResume != null && existingResume.Status == ResumeStatusEnum.Completed && existingResume.Data != null;
+                
+                // Determine reuse mode (only if not cloning)
+                bool reuseExistingResume = !shouldCloneResult 
+                    && existingResume != null
+                    && existingResume.Status == ResumeStatusEnum.Completed
+                    && existingResume.Data != null;
 
                 // Upload file to Google Cloud Storage BEFORE starting transaction (if not reusing)
                 string? uploadedFileUrl = null;
@@ -251,52 +286,122 @@ namespace BusinessObjectLayer.Services
                     await _uow.BeginTransactionAsync();
                     try
                     {
-                        // Check resume limit before creating record to fail fast
-                        var limitCheckInTransaction = await _resumeLimitService.CheckResumeLimitInTransactionAsync(companyId);
-                        if (limitCheckInTransaction.Status != SRStatus.Success)
+                        // Check resume limit before creating record to fail fast (skip if cloning)
+                        if (!shouldCloneResult)
                         {
-                            await _uow.RollbackTransactionAsync();
-                            return limitCheckInTransaction;
+                            var limitCheckInTransaction = await _resumeLimitService.CheckResumeLimitInTransactionAsync(companyId);
+                            if (limitCheckInTransaction.Status != SRStatus.Success)
+                            {
+                                await _uow.RollbackTransactionAsync();
+                                return limitCheckInTransaction;
+                            }
                         }
 
-                        // If resume already exists in this company, reuse it; otherwise create new resume
-                        Resume resume;
-                        if (reuseExistingResume && existingResume != null)
+                        if (shouldCloneResult && existingApplication != null && existingResume != null)
                         {
-                            // Reuse existing resume record
-                            resume = existingResume;
+                            // Flow 2: Clone result from existing application (same resume + same job)
+                            var clonedApplication = new ResumeApplication
+                            {
+                                ResumeId = existingResume.ResumeId,
+                                JobId = jobId,
+                                CampaignId = campaignId,
+                                QueueJobId = queueJobId,
+                                Status = ApplicationStatusEnum.Reviewed, // Already scored
+                                CandidateId = existingApplication.CandidateId,
+                                TotalScore = existingApplication.TotalScore,
+                                AdjustedScore = existingApplication.AdjustedScore,
+                                AIExplanation = existingApplication.AIExplanation,
+                                MatchSkills = existingApplication.MatchSkills,
+                                MissingSkills = existingApplication.MissingSkills,
+                                RequiredSkills = existingApplication.RequiredSkills,
+                                // Tracking fields for logging
+                                ProcessingMode = ProcessingModeEnum.Clone,
+                                ClonedFromApplicationId = existingApplication.ApplicationId,
+                                ProcessedAt = DateTime.UtcNow,
+                                ProcessingTimeMs = 0 // Instant clone, no AI processing
+                            };
+
+                            await _resumeApplicationRepo.CreateAsync(clonedApplication);
+                            await _uow.SaveChangesAsync();
+                            
+                            // Update resume reuse statistics
+                            existingResume.ReuseCount++;
+                            existingResume.LastReusedAt = DateTime.UtcNow;
+                            await resumeRepo.UpdateAsync(existingResume);
+                            await _uow.SaveChangesAsync();
+
+                            // Clone ScoreDetails
+                            var scoreDetailRepo = _uow.GetRepository<IScoreDetailRepository>();
+                            var clonedScoreDetails = existingApplication.ScoreDetails?.Select(sd => new ScoreDetail
+                            {
+                                ApplicationId = clonedApplication.ApplicationId,
+                                CriteriaId = sd.CriteriaId,
+                                Matched = sd.Matched,
+                                Score = sd.Score,
+                                AINote = sd.AINote
+                            }).ToList() ?? new List<ScoreDetail>();
+
+                            if (clonedScoreDetails.Any())
+                            {
+                                await scoreDetailRepo.CreateRangeAsync(clonedScoreDetails);
+                                await _uow.SaveChangesAsync();
+                            }
+
+                            resumeId = existingResume.ResumeId;
+                            applicationId = clonedApplication.ApplicationId;
+                            resumeFileUrl = existingResume.FileUrl ?? string.Empty;
                         }
                         else
                         {
-                            // Create new resume record with uploaded file URL
-                            resume = new Resume
+                            // Flow 1 or 3: Create/reuse resume + create application
+                            Resume resume;
+                            bool isReusingResume = reuseExistingResume && existingResume != null;
+                            
+                            if (isReusingResume)
                             {
-                                CompanyId = companyUser.CompanyId.Value,
-                                FileUrl = uploadedFileUrl!,
-                                FileHash = fileHash,
-                                Status = ResumeStatusEnum.Pending
+                                // Flow 3: Reuse existing resume record (different job)
+                                resume = existingResume!;
+                                
+                                // Update resume reuse statistics
+                                resume.ReuseCount++;
+                                resume.LastReusedAt = DateTime.UtcNow;
+                                await resumeRepo.UpdateAsync(resume);
+                                await _uow.SaveChangesAsync();
+                            }
+                            else
+                            {
+                                // Flow 1: Create new resume record with uploaded file URL
+                                resume = new Resume
+                                {
+                                    CompanyId = companyUser.CompanyId.Value,
+                                    FileUrl = uploadedFileUrl!,
+                                    FileHash = fileHash,
+                                    Status = ResumeStatusEnum.Pending,
+                                    ReuseCount = 0
+                                };
+
+                                await resumeRepo.CreateAsync(resume);
+                                await _uow.SaveChangesAsync(); // Get ResumeId
+                            }
+
+                            resumeFileUrl = resume.FileUrl ?? string.Empty;
+
+                            // Create ResumeApplication to link Resume to Job and Campaign
+                            var resumeApplication = new ResumeApplication
+                            {
+                                ResumeId = resume.ResumeId,
+                                JobId = jobId,
+                                CampaignId = campaignId,
+                                QueueJobId = queueJobId,
+                                Status = ApplicationStatusEnum.Pending,
+                                ProcessingMode = isReusingResume ? ProcessingModeEnum.Score : ProcessingModeEnum.Parse
                             };
+                            await _resumeApplicationRepo.CreateAsync(resumeApplication);
+                            await _uow.SaveChangesAsync();
 
-                            await resumeRepo.CreateAsync(resume);
-                            await _uow.SaveChangesAsync(); // Get ResumeId
+                            resumeId = resume.ResumeId;
+                            applicationId = resumeApplication.ApplicationId;
                         }
-
-                        resumeFileUrl = resume.FileUrl ?? string.Empty;
-
-                        // Create ResumeApplication to link Resume to Job and Campaign
-                        var resumeApplication = new ResumeApplication
-                        {
-                            ResumeId = resume.ResumeId,
-                            JobId = jobId,
-                            CampaignId = campaignId,
-                            QueueJobId = queueJobId,
-                            Status = ApplicationStatusEnum.Pending
-                        };
-                        await _resumeApplicationRepo.CreateAsync(resumeApplication);
-                        await _uow.SaveChangesAsync();
-
-                        resumeId = resume.ResumeId;
-                        applicationId = resumeApplication.ApplicationId;
 
                         // Commit transaction immediately after DB operations
                         await _uow.CommitTransactionAsync();
@@ -313,66 +418,79 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Push job to Redis queue (outside transaction and semaphore for better performance)
-                var jobData = new ResumeQueueJobResponse
+                // Skip Redis if cloning result (Flow 2: same resume + same job)
+                if (!shouldCloneResult)
                 {
-                    resumeId = resumeId,
-                    applicationId = applicationId,
-                    queueJobId = queueJobId,
-                    campaignId = campaignId,
-                    jobId = jobId,
-                    jobTitle = job.Title,
-                    fileUrl = reuseExistingResume ? string.Empty : resumeFileUrl,
-                    requirements = job.Requirements,
-                    skills = skillsList.Any() ? string.Join(", ", skillsList) : null,
-                    languages = languagesList.Any() ? string.Join(", ", languagesList) : null,
-                    specialization = job.Specialization?.Name,
-                    employmentType = employmentTypesList.Any() ? string.Join(", ", employmentTypesList) : null,
+                    var jobData = new ResumeQueueJobResponse
+                    {
+                        companyId = companyId,
+                        resumeId = resumeId,
+                        applicationId = applicationId,
+                        queueJobId = queueJobId,
+                        campaignId = campaignId,
+                        jobId = jobId,
+                        jobTitle = job.Title,
+                        fileUrl = reuseExistingResume ? string.Empty : resumeFileUrl,
+                        requirements = job.Requirements,
+                        skills = skillsList.Any() ? string.Join(", ", skillsList) : null,
+                        languages = languagesList.Any() ? string.Join(", ", languagesList) : null,
+                        specialization = job.Specialization?.Name,
+                        employmentType = employmentTypesList.Any() ? string.Join(", ", employmentTypesList) : null,
                     criteria = criteriaData,
                     level = job.Level?.Name,
-                    mode = reuseExistingResume ? "score" : "parse",
+                    // Keep Redis mode string in sync with ProcessingModeEnum
+                    mode = (reuseExistingResume ? ProcessingModeEnum.Score : ProcessingModeEnum.Parse)
+                        .ToString().ToLowerInvariant(),
                     parsedData = reuseExistingResume ? existingResume!.Data : null // only used when mode = score
-                };
+                    };
 
-                // Push to Redis asynchronously without blocking
-                _ = Task.Run(async () =>
-                {
-                    try
+                    // Push to Redis asynchronously without blocking
+                    _ = Task.Run(async () =>
                     {
-                        var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
-                        if (!pushed)
+                        try
                         {
-                            Console.WriteLine($"Warning: Failed to push job to Redis queue for resumeId: {resumeId}");
+                            var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
+                            if (!pushed)
+                            {
+                                Console.WriteLine($"Warning: Failed to push job to Redis queue for resumeId: {resumeId}");
+                            }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error pushing to Redis queue for resumeId {resumeId}: {ex.Message}");
-                    }
-                });
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error pushing to Redis queue for resumeId {resumeId}: {ex.Message}");
+                        }
+                    });
+                }
 
                 // Reload resume for SignalR (outside semaphore)
                 var uploadedResume = await resumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
                 
+                // Load application for SignalR (especially important for cloned results to show score)
+                var uploadedApplication = await _resumeApplicationRepo.GetByApplicationIdWithDetailsAsync(applicationId);
+                
                 // Capture data for SignalR BEFORE background task
                 var jobIdForSignalR = jobId;
                 var resumeIdForSignalR = resumeId;
+                var eventTypeForSignalR = shouldCloneResult ? "cloned" : "uploaded";
                 
                 // Send real-time SignalR update
                 _ = Task.Run(async () => 
                 {
                     await Task.Delay(200);
-                    await SendResumeUpdateAsync(jobIdForSignalR, resumeIdForSignalR, "uploaded", null, uploadedResume, null);
+                    await SendResumeUpdateAsync(jobIdForSignalR, resumeIdForSignalR, eventTypeForSignalR, null, uploadedResume, uploadedApplication);
                 });
 
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
-                    Message = "Resume uploaded successfully.",
+                    Message = shouldCloneResult 
+                        ? "Resume uploaded successfully. Using existing analysis result."
+                        : "Resume uploaded successfully.",
                     Data = new ResumeUploadResponse
                     {
                         ResumeId = resumeId,
                         QueueJobId = queueJobId,
-                        Status = ResumeStatusEnum.Pending
+                        Status = shouldCloneResult ? ResumeStatusEnum.Completed : ResumeStatusEnum.Pending
                     }
                 };
             }
@@ -538,6 +656,7 @@ namespace BusinessObjectLayer.Services
                 // Push job to Redis queue with mode = "rescore" and parsedData
                 var jobData = new ResumeQueueJobResponse
                 {
+                    companyId = job.CompanyId,
                     resumeId = resume.ResumeId,
                     applicationId = resumeApplication.ApplicationId,
                     queueJobId = newQueueJobId,
@@ -551,7 +670,8 @@ namespace BusinessObjectLayer.Services
                     specialization = job.Specialization?.Name,
                     employmentType = employmentTypesList.Any() ? string.Join(", ", employmentTypesList) : null,
                     criteria = criteriaData,
-                    mode = "rescore",
+                    // Keep Redis mode string in sync with ProcessingModeEnum
+                    mode = ProcessingModeEnum.Rescore.ToString().ToLowerInvariant(),
                     parsedData = parsedData
                 };
 
@@ -576,6 +696,9 @@ namespace BusinessObjectLayer.Services
                     // Update application/resume: new queueJobId and status = Pending
                     resumeApplication.QueueJobId = newQueueJobId;
                     resumeApplication.Status = ApplicationStatusEnum.Pending;
+                    resumeApplication.ProcessingMode = ProcessingModeEnum.Rescore;
+                    resumeApplication.ProcessedAt = null; // Reset, will be set when AI finishes
+                    resumeApplication.ProcessingTimeMs = null;
                     resume.Status = ResumeStatusEnum.Pending;
                     await _resumeApplicationRepo.UpdateAsync(resumeApplication);
                     await resumeRepo.UpdateAsync(resume);
@@ -825,12 +948,14 @@ namespace BusinessObjectLayer.Services
 
                     Candidate candidate;
                     
-                    // If duplicate found, use that candidate
+                    // If duplicate found, use that candidate (DO NOT update info to preserve original)
                     if (duplicateCandidate != null)
                     {
                         candidate = duplicateCandidate;
                         
-                        // Link resume to existing candidate
+                        // ✅ Link resume to existing candidate WITHOUT updating candidate info
+                        // This preserves the original candidate's information and prevents 
+                        // overwriting when multiple resumes share the same email/phone
                         resume.CandidateId = candidate.CandidateId;
                         resumeApplication.CandidateId = candidate.CandidateId;
                     }
@@ -863,15 +988,11 @@ namespace BusinessObjectLayer.Services
                         }
                         else
                         {
-                            // Update existing candidate
-                            existingCandidate.FullName = fullName;
-                            existingCandidate.Email = email;
-                            existingCandidate.PhoneNumber = phone;
-
-                            await candidateRepo.UpdateAsync(existingCandidate);
+                            // ✅ Use existing candidate WITHOUT updating info
+                            // Resume already has a candidate, keep the original candidate data
                             candidate = existingCandidate;
                             
-                            // Link resume to candidate
+                            // Link resume to candidate (should already be linked)
                             resume.CandidateId = candidate.CandidateId;
                             resumeApplication.CandidateId = candidate.CandidateId;
                         }
@@ -882,6 +1003,11 @@ namespace BusinessObjectLayer.Services
                         ? JsonUtils.SerializeRawJsonSafe(request.AIExplanation)
                         : null;
 
+                    // Calculate processing time (from creation to now)
+                    var processingTimeMs = resumeApplication.CreatedAt.HasValue
+                        ? (int)(DateTime.UtcNow - resumeApplication.CreatedAt.Value).TotalMilliseconds
+                        : (int?)null;
+
                     // Update ResumeApplication with scores
                     resumeApplication.CandidateId = candidate.CandidateId;
                     resumeApplication.TotalScore = request.TotalResumeScore.Value;
@@ -890,6 +1016,8 @@ namespace BusinessObjectLayer.Services
                     resumeApplication.RequiredSkills = request.RequiredSkills;
                     resumeApplication.MatchSkills = request.CandidateInfo?.MatchSkills;
                     resumeApplication.MissingSkills = request.CandidateInfo?.MissingSkills;
+                    resumeApplication.ProcessedAt = DateTime.UtcNow;
+                    resumeApplication.ProcessingTimeMs = processingTimeMs;
                     await _resumeApplicationRepo.UpdateAsync(resumeApplication);
 
                     // Update Resume and mark as latest
@@ -1324,6 +1452,7 @@ namespace BusinessObjectLayer.Services
                 // Push job to Redis queue with requirements and criteria
                 var jobData = new ResumeQueueJobResponse
                 {
+                    companyId = job.CompanyId,
                     resumeId = resume.ResumeId,
                     applicationId = resumeApplication.ApplicationId,
                     queueJobId = newQueueJobId,
@@ -1337,7 +1466,8 @@ namespace BusinessObjectLayer.Services
                     specialization = job.Specialization?.Name,
                     employmentType = employmentTypesList.Any() ? string.Join(", ", employmentTypesList) : null,
                     criteria = criteriaData,
-                    mode = "parse"
+                    // Keep Redis mode string in sync with ProcessingModeEnum
+                    mode = ProcessingModeEnum.Parse.ToString().ToLowerInvariant()
                 };
 
                 var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
@@ -1361,6 +1491,9 @@ namespace BusinessObjectLayer.Services
                     // Update application/resume: new queueJobId and status = Pending
                     resumeApplication.QueueJobId = newQueueJobId;
                     resumeApplication.Status = ApplicationStatusEnum.Pending;
+                    resumeApplication.ProcessingMode = ProcessingModeEnum.Parse; // Retry = parse again
+                    resumeApplication.ProcessedAt = null; // Reset, will be set when AI finishes
+                    resumeApplication.ProcessingTimeMs = null;
                     resume.Status = ResumeStatusEnum.Pending;
                     await _resumeApplicationRepo.UpdateAsync(resumeApplication);
                     await resumeRepo.UpdateAsync(resume);
@@ -1522,6 +1655,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
+
         /// <summary>
         /// Send real-time SignalR update to clients watching a job's resumes
         /// Note: All data should be loaded BEFORE calling this in a background task to avoid DbContext disposal issues
@@ -1538,7 +1672,7 @@ namespace BusinessObjectLayer.Services
 
                 var updateData = new
                 {
-                    eventType, // "uploaded", "status_changed", "deleted", "retried"
+                    eventType, // "uploaded", "cloned", "status_changed", "deleted", "retried"
                     jobId,
                     resumeId,
                     status = resume.Status.ToString(),

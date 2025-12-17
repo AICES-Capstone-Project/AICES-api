@@ -63,6 +63,17 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<ResumeApplication>> GetByJobIdAndApplicationIdsAndCampaignAsync(int jobId, List<int> applicationIds, int campaignId)
+        {
+            return await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.JobId == jobId
+                             && ra.CampaignId == campaignId
+                             && applicationIds.Contains(ra.ApplicationId)
+                             && ra.IsActive)
+                .ToListAsync();
+        }
+
         public async Task<List<ResumeApplication>> GetByJobIdAndCampaignWithResumeAsync(int jobId, int campaignId)
         {
             return await _context.ResumeApplications

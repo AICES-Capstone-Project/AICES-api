@@ -237,32 +237,29 @@ namespace DataAccessLayer.Repositories
             var normalizedFullName = fullName?.Trim().ToLowerInvariant();
             var normalizedPhone = phoneNumber?.Trim();
 
-            // Check if at least one search criteria is provided
-            if (string.IsNullOrWhiteSpace(normalizedEmail) && 
-                string.IsNullOrWhiteSpace(normalizedFullName) && 
+            // ✅ Require ALL 3 fields to be provided for duplicate detection
+            // This prevents false positives (e.g., different people with same email)
+            if (string.IsNullOrWhiteSpace(normalizedEmail) || 
+                string.IsNullOrWhiteSpace(normalizedFullName) || 
                 string.IsNullOrWhiteSpace(normalizedPhone))
             {
-                return null; // No search criteria provided
+                return null; // Not enough data to determine duplicate - treat as new candidate
             }
 
-            // Find duplicate candidate by email OR fullName (case-insensitive) OR phone
+            // ✅ Find duplicate candidate ONLY when ALL 3 fields match (AND condition)
             var query = _context.Candidates
                 .AsNoTracking()
                 .Where(c => c.IsActive && allCandidateIds.Contains(c.CandidateId));
 
-            // Build OR condition for matching any of the provided fields
+            // Build AND condition - all fields must match
             query = query.Where(c => 
-                (!string.IsNullOrWhiteSpace(normalizedEmail) && c.Email.ToLower() == normalizedEmail) ||
-                (!string.IsNullOrWhiteSpace(normalizedFullName) && c.FullName.ToLower() == normalizedFullName) ||
-                (!string.IsNullOrWhiteSpace(normalizedPhone) && c.PhoneNumber == normalizedPhone)
+                c.Email.ToLower() == normalizedEmail &&
+                c.FullName.ToLower() == normalizedFullName &&
+                c.PhoneNumber == normalizedPhone
             );
 
-            // Return the first match (prioritize by email if multiple matches)
-            return await query
-                .OrderByDescending(c => !string.IsNullOrWhiteSpace(normalizedEmail) && c.Email.ToLower() == normalizedEmail)
-                .ThenByDescending(c => !string.IsNullOrWhiteSpace(normalizedFullName) && c.FullName.ToLower() == normalizedFullName)
-                .ThenByDescending(c => !string.IsNullOrWhiteSpace(normalizedPhone) && c.PhoneNumber == normalizedPhone)
-                .FirstOrDefaultAsync();
+            // Return the first match (should be unique since all 3 fields match)
+            return await query.FirstOrDefaultAsync();
         }
     }
 }

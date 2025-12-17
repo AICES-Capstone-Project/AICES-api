@@ -32,6 +32,10 @@ namespace Data.Entities
 
         public ResumeStatusEnum Status { get; set; } // Status of the resume parsing
 
+        // Usage statistics for analytics
+        public int ReuseCount { get; set; } = 0; // Number of times this resume was reused
+        public DateTime? LastReusedAt { get; set; } // Last time this resume was reused
+
         // Navigation
         public Company Company { get; set; } = null!;
         public Candidate? Candidate { get; set; }

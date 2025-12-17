@@ -13,10 +13,12 @@ namespace API.Controllers
     public class ResumeController : ControllerBase
     {
         private readonly IResumeService _resumeService;
+        private readonly IComparisonService _comparisonService;
 
-        public ResumeController(IResumeService resumeService)
+        public ResumeController(IResumeService resumeService, IComparisonService comparisonService)
         {
             _resumeService = resumeService;
+            _comparisonService = comparisonService;
         }
 
         [HttpPost("upload")]
@@ -117,6 +119,57 @@ namespace API.Controllers
         public async Task<IActionResult> SoftDeleteResume(int applicationId)
         {
             var serviceResponse = await _resumeService.SoftDeleteResumeAsync(applicationId);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        /// <summary>
+        /// POST /api/resumes/compare
+        /// Compare 2-5 candidates for a job/campaign
+        /// Request: { jobId, campaignId, applicationIds: [101, 102, 103] }
+        /// Returns: { comparisonId, queueJobId, applicationIds }
+        /// </summary>
+        [HttpPost("compare")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> CompareApplications([FromBody] CompareApplicationsRequest request)
+        {
+            var serviceResponse = await _comparisonService.CompareApplicationsAsync(request);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        /// <summary>
+        /// POST /api/resumes/result/ai/comparison
+        /// Receive AI comparison result callback from Python service
+        /// </summary>
+        [HttpPost("result/ai/comparison")]
+        public async Task<IActionResult> ProcessComparisonAIResult([FromBody] ComparisonAIResultRequest request)
+        {
+            var serviceResponse = await _comparisonService.ProcessComparisonAIResultAsync(request);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        /// <summary>
+        /// GET /api/resumes/comparisons/{comparisonId}
+        /// Get comparison result by ID
+        /// Returns: comparison details including status, result JSON, and metadata
+        /// </summary>
+        [HttpGet("comparisons/{comparisonId}")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> GetComparisonResult(int comparisonId)
+        {
+            var serviceResponse = await _comparisonService.GetComparisonResultAsync(comparisonId);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        /// <summary>
+        /// GET /api/resumes/comparisons/job/{jobId}/campaign/{campaignId}
+        /// Get all comparisons for a specific job and campaign
+        /// Returns: list of comparisons with their status and metadata
+        /// </summary>
+        [HttpGet("comparisons/job/{jobId}/campaign/{campaignId}")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> GetComparisonsByJobAndCampaign(int jobId, int campaignId)
+        {
+            var serviceResponse = await _comparisonService.GetComparisonsByJobAndCampaignAsync(jobId, campaignId);
             return ControllerResponse.Response(serviceResponse);
         }
     }

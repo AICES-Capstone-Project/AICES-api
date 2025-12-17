@@ -55,5 +55,6 @@ namespace Data.Entities
         public ICollection<JobSkill>? JobSkills { get; set; }
         public ICollection<JobLanguage>? JobLanguages { get; set; }
         public ICollection<JobCampaign>? JobCampaigns { get; set; }
+        public ICollection<Comparison>? Comparisons { get; set; }
     }
 }

@@ -39,5 +39,6 @@ namespace Data.Entities
         public User? Creator { get; set; }
         public ICollection<JobCampaign> JobCampaigns { get; set; } = new List<JobCampaign>();
         public ICollection<ResumeApplication> ResumeApplications { get; set; } = new List<ResumeApplication>();
+        public ICollection<Comparison> Comparisons { get; set; } = new List<Comparison>();
     }
 }

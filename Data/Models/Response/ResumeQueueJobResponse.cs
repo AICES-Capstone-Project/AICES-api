@@ -5,6 +5,7 @@ namespace Data.Models.Response
     /// </summary>
     public class ResumeQueueJobResponse
     {
+        public int companyId { get; set; }
         public int resumeId { get; set; }
         public int applicationId { get; set; }
         public string queueJobId { get; set; } = string.Empty;

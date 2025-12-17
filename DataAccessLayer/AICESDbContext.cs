@@ -301,6 +301,28 @@ namespace DataAccessLayer
                 .HasForeignKey(c => c.JobId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // Company - Comparisons
+            modelBuilder.Entity<Company>()
+                .HasMany(c => c.Comparisons)
+                .WithOne(cmp => cmp.Company)
+                .HasForeignKey(cmp => cmp.CompanyId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Job - Comparisons
+            modelBuilder.Entity<Job>()
+                .HasMany(j => j.Comparisons)
+                .WithOne(cmp => cmp.Job)
+                .HasForeignKey(cmp => cmp.JobId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Campaign - Comparisons
+            modelBuilder.Entity<Campaign>()
+                .HasMany(ca => ca.Comparisons)
+                .WithOne(cmp => cmp.Campaign)
+                .HasForeignKey(cmp => cmp.CampaignId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
             // ===== RESUME SCREENING RELATIONSHIPS =====
             
             // Company - Resumes
@@ -521,6 +543,12 @@ namespace DataAccessLayer
             // Configure enum conversion for InvitationStatus
             modelBuilder.Entity<Invitation>()
                 .Property(i => i.InvitationStatus)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            // Configure enum conversion for ComparisonStatus
+            modelBuilder.Entity<Comparison>()
+                .Property(c => c.Status)
                 .HasConversion<string>()
                 .HasMaxLength(50);
 

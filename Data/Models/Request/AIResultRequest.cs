@@ -22,6 +22,9 @@ namespace Data.Models.Request
         [JsonPropertyName("campaignId")]
         public int? CampaignId { get; set; }
 
+        [JsonPropertyName("companyId")]
+        public int? CompanyId { get; set; }
+
         [JsonPropertyName("totalResumeScore")]
         public decimal? TotalResumeScore { get; set; }
 

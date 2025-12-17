@@ -39,6 +39,13 @@ namespace Data.Entities
         public ApplicationStatusEnum Status { get; set; }
         public string? ErrorMessage { get; set; } // Error message if parsing failed
 
+        // Tracking and logging fields
+        [ForeignKey("ClonedFromApplication")]
+        public int? ClonedFromApplicationId { get; set; } // FK to original application if cloned
+        public ProcessingModeEnum? ProcessingMode { get; set; } // Processing mode: Parse, Score, Clone, Rescore
+        public DateTime? ProcessedAt { get; set; } // When AI finished processing (or when cloned)
+        public int? ProcessingTimeMs { get; set; } // AI processing time in milliseconds
+
         // Navigation
         public Resume Resume { get; set; } = null!;
         public Campaign? Campaign { get; set; }

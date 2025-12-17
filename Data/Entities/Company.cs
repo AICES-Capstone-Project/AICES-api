@@ -51,5 +51,6 @@ namespace Data.Entities
         public ICollection<CompanyDocument>? CompanyDocuments { get; set; }
         public ICollection<Invitation>? Invitations { get; set; }
         public ICollection<Campaign>? Campaigns { get; set; }
+        public ICollection<Comparison>? Comparisons { get; set; }
     }
 }
