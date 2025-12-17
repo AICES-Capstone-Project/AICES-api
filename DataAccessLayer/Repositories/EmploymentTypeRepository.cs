@@ -26,6 +26,28 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
+        public async Task<(IEnumerable<EmploymentType> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? search = null)
+        {
+            var query = _context.EmploymentTypes
+                .AsNoTracking()
+                .Where(et => et.IsActive);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(et => et.Name.Contains(search));
+            }
+
+            var total = await query.CountAsync();
+
+            var items = await query
+                .OrderBy(et => et.EmployTypeId)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, total);
+        }
+
         public async Task<EmploymentType?> GetByIdAsync(int id)
         {
             return await _context.EmploymentTypes

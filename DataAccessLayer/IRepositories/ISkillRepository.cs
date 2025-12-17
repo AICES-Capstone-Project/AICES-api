@@ -10,6 +10,7 @@ namespace DataAccessLayer.IRepositories
     public interface ISkillRepository
     {
         Task<IEnumerable<Skill>> GetAllAsync();
+        Task<(IEnumerable<Skill> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? search = null);
         Task<Skill?> GetByIdAsync(int id);
         Task<Skill?> GetForUpdateAsync(int id);
         Task AddAsync(Skill skill);

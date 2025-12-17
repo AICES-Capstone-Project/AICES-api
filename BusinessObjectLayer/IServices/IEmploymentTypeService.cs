@@ -10,7 +10,7 @@ namespace BusinessObjectLayer.IServices
 {
     public interface IEmploymentTypeService
     {
-        Task<ServiceResponse> GetAllAsync();
+        Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null);
         Task<ServiceResponse> GetByIdAsync(int id);
         Task<ServiceResponse> CreateAsync(EmploymentTypeRequest request);
         Task<ServiceResponse> UpdateAsync(int id, EmploymentTypeRequest request);

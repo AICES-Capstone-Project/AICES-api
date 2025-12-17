@@ -101,7 +101,7 @@ namespace BusinessObjectLayer.Services
                 TotalPages = (int)Math.Ceiling(total / (double)pageSize),
                 CurrentPage = page,
                 PageSize = pageSize,
-                Total = total
+                TotalCount = total
             };
 
             return new ServiceResponse
@@ -192,7 +192,8 @@ namespace BusinessObjectLayer.Services
                 TotalPages = (int)Math.Ceiling(total / (double)pageSize),
                 CurrentPage = page,
                 PageSize = pageSize,
-                Total = total
+                Total = total,
+                TotalCount = total
             };
 
             return new ServiceResponse

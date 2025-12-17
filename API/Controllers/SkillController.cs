@@ -19,9 +19,9 @@ namespace API.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
         {
-            var response = await _skillService.GetAllAsync();
+            var response = await _skillService.GetAllAsync(page, pageSize, search);
             return ControllerResponse.Response(response);
         }
 

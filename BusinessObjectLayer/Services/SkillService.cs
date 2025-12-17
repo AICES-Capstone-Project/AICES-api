@@ -22,10 +22,11 @@ namespace BusinessObjectLayer.Services
             _uow = uow;
         }
 
-        public async Task<ServiceResponse> GetAllAsync()
+        public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null)
         {
             var skillRepo = _uow.GetRepository<ISkillRepository>();
-            var skills = await skillRepo.GetAllAsync();
+            var (skills, total) = await skillRepo.GetPagedAsync(page, pageSize, search);
+
             var result = skills.Select(s => new SkillResponse
             {
                 SkillId = s.SkillId,
@@ -37,7 +38,14 @@ namespace BusinessObjectLayer.Services
             {
                 Status = SRStatus.Success,
                 Message = "Skills retrieved successfully.",
-                Data = result
+                Data = new Data.Models.Response.Pagination.PaginatedSkillResponse
+                {
+                    Skills = result,
+                    TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                    CurrentPage = page,
+                    PageSize = pageSize,
+                    TotalCount = total
+                }
             };
         }
 

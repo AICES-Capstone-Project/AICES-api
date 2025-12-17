@@ -188,8 +188,8 @@ namespace BusinessObjectLayer.Services
                     Data = new
                     {
                         Blogs = blogResponses,
-                        Total = total,
-                        Page = page,
+                    TotalCount = total,
+                    Page = page,
                         PageSize = pageSize,
                         TotalPages = (int)Math.Ceiling(total / (double)pageSize)
                     }
@@ -238,8 +238,9 @@ namespace BusinessObjectLayer.Services
                     Data = new
                     {
                         Blogs = blogResponses,
-                        Total = total,
-                        Page = page,
+                    Total = total,
+                    TotalCount = total,
+                    Page = page,
                         PageSize = pageSize,
                         TotalPages = (int)Math.Ceiling(total / (double)pageSize)
                     }
