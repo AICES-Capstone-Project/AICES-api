@@ -35,6 +35,9 @@ namespace Data.Entities
         public Company Company { get; set; } = null!;
         public Subscription Subscription { get; set; } = null!;
         public ICollection<Payment>? Payments { get; set; }
+        
+        // Usage counters tied to this specific subscription period
+        public ICollection<UsageCounter>? UsageCounters { get; set; }
     }
 }
 

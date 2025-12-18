@@ -52,6 +52,9 @@ namespace DataAccessLayer
         public virtual DbSet<Comparison> Comparisons { get; set; }
         public virtual DbSet<ApplicationComparison> ApplicationComparisons { get; set; }
         
+        // Usage Tracking
+        public virtual DbSet<UsageCounter> UsageCounters { get; set; }
+        
         // Communication & Reporting
         public virtual DbSet<Notification> Notifications { get; set; }
         public virtual DbSet<Blog> Blogs { get; set; }
@@ -559,6 +562,51 @@ namespace DataAccessLayer
                 .Property(c => c.Status)
                 .HasConversion<string>()
                 .HasMaxLength(50);
+
+            // Configure enum conversion for ProcessingMode
+            modelBuilder.Entity<ResumeApplication>()
+                .Property(ra => ra.ProcessingMode)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            // ===== USAGE COUNTER RELATIONSHIPS =====
+            
+            // Company - UsageCounters (one-to-many)
+            modelBuilder.Entity<Company>()
+                .HasMany(c => c.UsageCounters!)
+                .WithOne(u => u.Company)
+                .HasForeignKey(u => u.CompanyId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // CompanySubscription - UsageCounters (one-to-many)
+            modelBuilder.Entity<CompanySubscription>()
+                .HasMany(cs => cs.UsageCounters!)
+                .WithOne(u => u.CompanySubscription)
+                .HasForeignKey(u => u.CompanySubscriptionId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure enum conversion for UsageType
+            modelBuilder.Entity<UsageCounter>()
+                .Property(u => u.UsageType)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            // ===== USAGE COUNTER INDEXES =====
+            
+            // Unique constraint: một company chỉ có 1 counter cho mỗi usageType + period
+            // CRITICAL: Index này bắt buộc để atomic check-and-increment hoạt động
+            modelBuilder.Entity<UsageCounter>()
+                .HasIndex(u => new { u.CompanyId, u.UsageType, u.PeriodStartDate, u.PeriodEndDate })
+                .IsUnique()
+                .HasFilter("\"IsActive\" = true")
+                .HasDatabaseName("IX_UsageCounters_CompanyId_UsageType_Period_Unique");
+
+            // Index for fast lookup
+            modelBuilder.Entity<UsageCounter>()
+                .HasIndex(u => new { u.CompanyId, u.UsageType, u.IsActive })
+                .HasFilter("\"IsActive\" = true")
+                .HasDatabaseName("IX_UsageCounters_CompanyId_UsageType_IsActive");
 
             // ===== SEED DATA =====
 
