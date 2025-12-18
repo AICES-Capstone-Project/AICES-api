@@ -17,10 +17,12 @@ namespace BusinessObjectLayer.Services
     public class BlogService : IBlogService
     {
         private readonly IUnitOfWork _uow;
+        private readonly Common.CloudinaryHelper _cloudinaryHelper;
 
-        public BlogService(IUnitOfWork uow)
+        public BlogService(IUnitOfWork uow, Common.CloudinaryHelper cloudinaryHelper)
         {
             _uow = uow;
+            _cloudinaryHelper = cloudinaryHelper;
         }
 
         public async Task<ServiceResponse> CreateBlogAsync(BlogRequest request, ClaimsPrincipal userClaims)
@@ -34,13 +36,33 @@ namespace BusinessObjectLayer.Services
                 var userId = int.Parse(userIdClaim);
                 var blogRepo = _uow.GetRepository<IBlogRepository>();
 
+                // Handle thumbnail upload if file is provided
+                string? thumbnailUrl = null;
+                if (request.ThumbnailFile != null && request.ThumbnailFile.Length > 0)
+                {
+                    var uploadResult = await _cloudinaryHelper.UploadImageAsync(
+                        request.ThumbnailFile,
+                        "blogs/thumbnails");
+
+                    if (!uploadResult.Success)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Error,
+                            Message = uploadResult.ErrorMessage ?? "Failed to upload thumbnail image."
+                        };
+                    }
+
+                    thumbnailUrl = uploadResult.Url;
+                }
+
                 var blog = new Blog
                 {
                     UserId = userId,
                     Title = request.Title ?? string.Empty,
                     Content = request.Content ?? string.Empty,
                     Slug = GenerateSlug(request.Title ?? string.Empty),
-                    ThumbnailUrl = request.ThumbnailUrl
+                    ThumbnailUrl = thumbnailUrl
                 };
 
                 await blogRepo.AddAsync(blog);
@@ -295,7 +317,25 @@ namespace BusinessObjectLayer.Services
                     blog.Slug = GenerateSlug(request.Title);
                 }
                 if (request.Content != null) blog.Content = request.Content;
-                if (request.ThumbnailUrl != null) blog.ThumbnailUrl = request.ThumbnailUrl;
+
+                // Handle thumbnail: only update when a new file is uploaded
+                if (request.ThumbnailFile != null && request.ThumbnailFile.Length > 0)
+                {
+                    var uploadResult = await _cloudinaryHelper.UploadImageAsync(
+                        request.ThumbnailFile,
+                        "blogs/thumbnails");
+
+                    if (!uploadResult.Success)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Error,
+                            Message = uploadResult.ErrorMessage ?? "Failed to upload thumbnail image."
+                        };
+                    }
+
+                    blog.ThumbnailUrl = uploadResult.Url;
+                }
 
                 blogRepo.UpdateBlog(blog);
                 await _uow.SaveChangesAsync();
