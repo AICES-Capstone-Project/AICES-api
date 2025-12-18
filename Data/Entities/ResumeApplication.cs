@@ -31,6 +31,12 @@ namespace Data.Entities
 
         [Column(TypeName = "decimal(5,2)")]
         public decimal? AdjustedScore { get; set; } // HR adjusted score when not satisfied with AI score
+        
+        public bool IsAdjusted { get; set; } = false; // Flag to indicate if score has been adjusted
+        
+        [ForeignKey("AdjustedByUser")]
+        public int? AdjustedBy { get; set; } // UserId of the last person who modified the score
+        
         [Column(TypeName = "jsonb")]
         public string? AIExplanation { get; set; } // AI explanation of the scoring
         public string? RequiredSkills { get; set; } // Required skills for the job
@@ -51,6 +57,7 @@ namespace Data.Entities
         public Campaign? Campaign { get; set; }
         public Job Job { get; set; } = null!;
         public Candidate? Candidate { get; set; }
+        public User? AdjustedByUser { get; set; }
         public ICollection<ScoreDetail> ScoreDetails { get; set; } = new List<ScoreDetail>();
         public ICollection<ApplicationComparison> ApplicationComparisons { get; set; } = new List<ApplicationComparison>();
     }

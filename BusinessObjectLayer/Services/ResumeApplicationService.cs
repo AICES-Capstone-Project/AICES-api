@@ -76,6 +76,35 @@ namespace BusinessObjectLayer.Services
         {
             try
             {
+                // Get current user ID
+                var userClaims = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = userClaims != null ? ClaimUtils.GetUserIdClaim(userClaims) : null;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Unauthorized,
+                        Message = "User not authenticated."
+                    };
+                }
+
+                int userId = int.Parse(userIdClaim);
+
+                // Get user with RoleId
+                var userRepo = _uow.GetRepository<IUserRepository>();
+                var currentUser = await userRepo.GetByIdAsync(userId);
+                if (currentUser == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "User not found."
+                    };
+                }
+
+                int roleId = currentUser.RoleId;
+
                 // Get company ID from current user
                 var companyIdResult = await GetCurrentUserCompanyIdAsync();
                 if (companyIdResult.errorResponse != null)
@@ -96,8 +125,50 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Update the adjusted score
-                application.AdjustedScore = request.AdjustedScore;
+                // Business logic for score adjustment
+                // HR Recruiter (roleId = 5): can only adjust once, after that isAdjusted = true
+                // HR Manager (roleId = 4): can adjust multiple times, isAdjusted always set to true at first time, after that only HR Manager can modify
+                
+                if (roleId != 4 && roleId != 5)
+                {
+                    // Other roles are not allowed to adjust scores
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Only HR Recruiter and HR Manager can adjust scores."
+                    };
+                }
+
+                if (roleId == 5) // HR Recruiter
+                {
+                    // Check if already adjusted (HR Recruiter can only adjust once)
+                    if (application.IsAdjusted)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Forbidden,
+                            Message = "HR Recruiter can only adjust the score once. The score has already been adjusted."
+                        };
+                    }
+                    
+                    // First time adjustment by HR Recruiter
+                    application.AdjustedScore = request.AdjustedScore;
+                    application.IsAdjusted = true;
+                    application.AdjustedBy = userId;
+                }
+                else if (roleId == 4) // HR Manager
+                {
+                    // HR Manager can always adjust
+                    // If this is the first time any adjustment is made, set isAdjusted = true
+                    if (!application.IsAdjusted)
+                    {
+                        application.IsAdjusted = true;
+                    }
+                    
+                    // Update the score and track who adjusted it
+                    application.AdjustedScore = request.AdjustedScore;
+                    application.AdjustedBy = userId;
+                }
 
                 await resumeApplicationRepo.UpdateAsync(application);
                 await _uow.SaveChangesAsync();

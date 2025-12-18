@@ -375,6 +375,7 @@ namespace BusinessObjectLayer.Services
                                 {
                                     CompanyId = companyUser.CompanyId.Value,
                                     FileUrl = uploadedFileUrl!,
+                                    OriginalFileName = file.FileName,
                                     FileHash = fileHash,
                                     Status = ResumeStatusEnum.Pending,
                                     ReuseCount = 0
@@ -1300,6 +1301,7 @@ namespace BusinessObjectLayer.Services
                     ApplicationId = resumeApplication?.ApplicationId,
                     QueueJobId = resumeApplication?.QueueJobId ?? string.Empty,
                     FileUrl = resume?.FileUrl ?? string.Empty,
+                    OriginalFileName = resume?.OriginalFileName,
                     Status = resume?.Status ?? ResumeStatusEnum.Pending,
                     ApplicationStatus = resumeApplication?.Status ?? ApplicationStatusEnum.Pending,
                     CampaignId = resumeApplication?.CampaignId,

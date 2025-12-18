@@ -39,5 +39,6 @@ namespace Data.Entities
         public ICollection<Invitation>? ReceivedInvitations { get; set; }
         public ICollection<Job>? CreatedJobs { get; set; }
         public ICollection<Campaign>? CreatedCampaigns { get; set; }
+        public ICollection<ResumeApplication>? AdjustedResumeApplications { get; set; }
     }
 }

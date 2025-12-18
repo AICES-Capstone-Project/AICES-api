@@ -430,6 +430,14 @@ namespace DataAccessLayer
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // User - ResumeApplications (AdjustedBy)
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.AdjustedResumeApplications)
+                .WithOne(ra => ra.AdjustedByUser)
+                .HasForeignKey(ra => ra.AdjustedBy)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
             // User - Blogs
             modelBuilder.Entity<User>()
                 .HasMany(u => u.Blogs)
