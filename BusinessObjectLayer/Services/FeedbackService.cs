@@ -87,12 +87,19 @@ namespace BusinessObjectLayer.Services
             var feedbacks = await feedbackRepo.GetAllFeedbacksAsync(page, pageSize);
             var total = await feedbackRepo.GetTotalFeedbacksAsync();
 
-            var responseData = feedbacks.Select(f => new FeedbackResponse
+            var responseData = feedbacks.Select(f => new FeedbackDetailResponse
             {
                 FeedbackId = f.FeedbackId,
                 UserName = f.CompanyUser?.User?.Email ?? string.Empty,
                 Rating = f.Rating,
-                CreatedAt = f.CreatedAt
+                CreatedAt = f.CreatedAt,
+                ComUserId = f.ComUserId,
+                CompanyName = f.CompanyUser?.Company?.Name,
+                CompanyId = f.CompanyUser?.CompanyId,
+                CompanyLogoUrl = f.CompanyUser?.Company?.LogoUrl,
+                UserEmail = f.CompanyUser?.User?.Email,
+                UserFullName = f.CompanyUser?.User?.Profile?.FullName,
+                UserAvatarUrl = f.CompanyUser?.User?.Profile?.AvatarUrl
             }).ToList();
 
             var result = new
@@ -135,9 +142,11 @@ namespace BusinessObjectLayer.Services
                 UserFullName = feedback.CompanyUser?.User?.Profile?.FullName,
                 CompanyName = feedback.CompanyUser?.Company?.Name,
                 CompanyId = feedback.CompanyUser?.CompanyId,
+                CompanyLogoUrl = feedback.CompanyUser?.Company?.LogoUrl,
                 Rating = feedback.Rating,
                 Comment = feedback.Comment,
-                CreatedAt = feedback.CreatedAt
+                CreatedAt = feedback.CreatedAt,
+                UserAvatarUrl = feedback.CompanyUser?.User?.Profile?.AvatarUrl
             };
 
             return new ServiceResponse
@@ -181,9 +190,11 @@ namespace BusinessObjectLayer.Services
                 UserFullName = f.CompanyUser?.User?.Profile?.FullName,
                 CompanyName = f.CompanyUser?.Company?.Name,
                 CompanyId = f.CompanyUser?.CompanyId,
+                CompanyLogoUrl = f.CompanyUser?.Company?.LogoUrl,
                 Rating = f.Rating,
                 Comment = f.Comment,
-                CreatedAt = f.CreatedAt
+                CreatedAt = f.CreatedAt,
+                UserAvatarUrl = f.CompanyUser?.User?.Profile?.AvatarUrl
             }).ToList();
 
             var result = new
