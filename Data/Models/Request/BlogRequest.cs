@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 
 namespace Data.Models.Request
 {
@@ -18,7 +19,10 @@ namespace Data.Models.Request
         [MinLength(10, ErrorMessage = "Content must be at least 10 characters")]
         public string? Content { get; set; }
 
-        public string? ThumbnailUrl { get; set; }
+        /// <summary>
+        /// Thumbnail image file upload
+        /// </summary>
+        public IFormFile? ThumbnailFile { get; set; }
     }
 }
 

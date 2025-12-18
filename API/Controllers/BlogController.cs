@@ -61,7 +61,7 @@ namespace API.Controllers
 
         [HttpPost]
         [Authorize(Roles = "System_Manager, System_Admin, System_Staff")]
-        public async Task<IActionResult> CreateBlog([FromBody] BlogRequest request)
+        public async Task<IActionResult> CreateBlog([FromForm] BlogRequest request)
         {
             var serviceResponse = await _blogService.CreateBlogAsync(request, User);
             return ControllerResponse.Response(serviceResponse);
@@ -69,7 +69,7 @@ namespace API.Controllers
 
         [HttpPut("{id}")]
         [Authorize(Roles = "System_Manager, System_Admin, System_Staff")]
-        public async Task<IActionResult> UpdateBlog(int id, [FromBody] BlogRequest request)
+        public async Task<IActionResult> UpdateBlog(int id, [FromForm] BlogRequest request)
         {
             var serviceResponse = await _blogService.UpdateBlogAsync(id, request, User);
             return ControllerResponse.Response(serviceResponse);
