@@ -24,5 +24,12 @@ namespace API.Controllers
             var response = await _resumeApplicationService.UpdateAdjustedScoreAsync(applicationId, request, User);
             return ControllerResponse.Response(response);
         }
+
+        [HttpPatch("{applicationId}/status")]
+        public async Task<IActionResult> UpdateStatus(int applicationId, [FromBody] UpdateApplicationStatusRequest request)
+        {
+            var response = await _resumeApplicationService.UpdateStatusAsync(applicationId, request, User);
+            return ControllerResponse.Response(response);
+        }
     }
 }

@@ -189,5 +189,80 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> UpdateStatusAsync(int applicationId, UpdateApplicationStatusRequest request, ClaimsPrincipal user)
+        {
+            try
+            {
+                // Get company ID from current user
+                var companyIdResult = await GetCurrentUserCompanyIdAsync();
+                if (companyIdResult.errorResponse != null)
+                {
+                    return companyIdResult.errorResponse;
+                }
+                int companyId = companyIdResult.companyId!.Value;
+
+                var resumeApplicationRepo = _uow.GetRepository<IResumeApplicationRepository>();
+                var application = await resumeApplicationRepo.GetApplicationByIdAndCompanyAsync(applicationId, companyId);
+
+                if (application == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Resume application not found."
+                    };
+                }
+
+                var currentStatus = application.Status;
+                var newStatus = request.Status;
+
+                // Validate status transition: reviewed -> shortlisted -> interview -> rejected / hired
+                bool isValidTransition = false;
+
+                if (currentStatus == ApplicationStatusEnum.Reviewed && newStatus == ApplicationStatusEnum.Shortlisted)
+                {
+                    isValidTransition = true;
+                }
+                else if (currentStatus == ApplicationStatusEnum.Shortlisted && newStatus == ApplicationStatusEnum.Interview)
+                {
+                    isValidTransition = true;
+                }
+                else if (currentStatus == ApplicationStatusEnum.Interview && (newStatus == ApplicationStatusEnum.Rejected || newStatus == ApplicationStatusEnum.Hired))
+                {
+                    isValidTransition = true;
+                }
+
+                if (!isValidTransition)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = $"Invalid status transition. Current status: {currentStatus}. " +
+                                 "Allowed transitions: Reviewed -> Shortlisted -> Interview -> Rejected/Hired"
+                    };
+                }
+
+                // Update status
+                application.Status = newStatus;
+                await resumeApplicationRepo.UpdateAsync(application);
+                await _uow.SaveChangesAsync();
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Application status updated successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while updating the application status.",
+                    Data = ex.Message
+                };
+            }
+        }
     }
 }
