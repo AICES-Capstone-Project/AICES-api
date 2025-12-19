@@ -19,8 +19,10 @@ namespace Data.Models.Response
         public int ComUserId { get; set; }
         public string? CompanyName { get; set; }
         public int? CompanyId { get; set; }
+        public string? CompanyLogoUrl { get; set; }
         public string? UserEmail { get; set; }
         public string? UserFullName { get; set; }
+        public string? UserAvatarUrl { get; set; }
         public string? Comment { get; set; }
     }
 }
