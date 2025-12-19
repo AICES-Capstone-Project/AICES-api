@@ -20,6 +20,7 @@ namespace Data.Models.Response
         public decimal? AdjustedScore { get; set; }
         public string? MatchSkills { get; set; }
         public string? MissingSkills { get; set; }
+        public string? Note { get; set; }
         public DateTime? CreatedAt { get; set; }
     }
 

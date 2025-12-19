@@ -7,6 +7,8 @@ namespace Data.Models.Request
     {
         [Required(ErrorMessage = "Status is required")]
         public ApplicationStatusEnum Status { get; set; }
+        
+        public string? Note { get; set; }
     }
 }
 

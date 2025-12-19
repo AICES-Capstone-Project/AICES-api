@@ -245,6 +245,13 @@ namespace BusinessObjectLayer.Services
 
                 // Update status
                 application.Status = newStatus;
+                
+                // Update note if provided, otherwise keep existing value
+                if (request.Note != null)
+                {
+                    application.Note = request.Note;
+                }
+                
                 await resumeApplicationRepo.UpdateAsync(application);
                 await _uow.SaveChangesAsync();
 

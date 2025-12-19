@@ -1398,6 +1398,7 @@ namespace BusinessObjectLayer.Services
                     AdjustedScore = resumeApplication?.AdjustedScore,
                     AIExplanation = resumeApplication?.AIExplanation,
                     ErrorMessage = resumeApplication?.ErrorMessage,
+                    Note = resumeApplication?.Note,
                     ScoreDetails = scoreDetailsResponse
                 };
 

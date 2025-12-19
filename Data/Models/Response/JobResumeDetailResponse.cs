@@ -25,6 +25,7 @@ namespace Data.Models.Response
         public decimal? AdjustedScore { get; set; }
         public string? AIExplanation { get; set; }
         public string? ErrorMessage { get; set; }
+        public string? Note { get; set; }
         public List<ResumeScoreDetailResponse> ScoreDetails { get; set; } = new();
     }
 

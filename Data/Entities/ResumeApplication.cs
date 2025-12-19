@@ -43,6 +43,7 @@ namespace Data.Entities
         public string? MatchSkills { get; set; }
         public string? MissingSkills { get; set; }
         public ApplicationStatusEnum Status { get; set; }
+        public string? Note { get; set; } // Note for the application
         public string? ErrorMessage { get; set; } // Error message if parsing failed
 
         // Tracking and logging fields

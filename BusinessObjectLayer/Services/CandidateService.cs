@@ -503,6 +503,7 @@ namespace BusinessObjectLayer.Services
                         AdjustedScore = a.AdjustedScore,
                         MatchSkills = a.MatchSkills,
                         MissingSkills = a.MissingSkills,
+                        Note = a.Note,
                         CreatedAt = a.CreatedAt
                     }).ToList();
 
@@ -583,6 +584,7 @@ namespace BusinessObjectLayer.Services
                     CreatedAt = application.CreatedAt,
                     MatchSkills = application.MatchSkills,
                     MissingSkills = application.MissingSkills,
+                    Note = application.Note,
                     RequiredSkills = application.RequiredSkills,
                     AIExplanation = application.AIExplanation,
                     ScoreDetails = application.ScoreDetails.Select(sd => new ResumeScoreDetailResponse
