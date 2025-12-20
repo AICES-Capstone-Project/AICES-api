@@ -13,6 +13,7 @@ namespace Data.Models.Response
 
         public decimal? TotalScore { get; set; }
         public decimal? AdjustedScore { get; set; }
+        public string? Note { get; set; }
     }
 }
 

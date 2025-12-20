@@ -1275,7 +1275,8 @@ namespace BusinessObjectLayer.Services
                         ApplicationStatus = application.Status,
                         FullName = application.Resume?.Candidate?.FullName ?? "Unknown",
                         TotalScore = application.TotalScore,
-                        AdjustedScore = application.AdjustedScore
+                        AdjustedScore = application.AdjustedScore,
+                        Note = application.Note
                     })
                     .ToList();
 
