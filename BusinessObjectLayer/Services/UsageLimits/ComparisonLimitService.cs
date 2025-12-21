@@ -28,16 +28,39 @@ namespace BusinessObjectLayer.Services.UsageLimits
                 var (compareLimit, compareHoursLimit, periodStartDate, periodEndDate, companySubscriptionId) 
                     = await GetSubscriptionLimitInfoAsync(companyId);
 
-                if (compareLimit <= 0)
+                // ✅ Correct logic for nullable compareLimit:
+                // - null → unlimited (no tracking)
+                // - 0 → NO comparisons allowed (reject)
+                // - > 0 → enforce limit with usage counter
+                
+                if (!compareLimit.HasValue)
                 {
-                    // No limit set, allow comparison
+                    // No limit set (null), allow unlimited comparisons
                     return new ServiceResponse
                     {
                         Status = SRStatus.Success,
-                        Message = "Comparison limit check passed (no limit)."
+                        Message = "Comparison limit check passed (unlimited)."
                     };
                 }
 
+                if (compareLimit.Value == 0)
+                {
+                    // Limit is 0, no comparisons allowed (Free plan)
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Comparison feature is not available in your current plan. Please upgrade to access candidate comparison.",
+                        Data = new
+                        {
+                            CurrentCount = 0,
+                            Limit = 0,
+                            HoursLimit = compareHoursLimit,
+                            Remaining = 0
+                        }
+                    };
+                }
+
+                // compareLimit > 0, enforce with usage counter
                 var usageCounterRepo = _uow.GetRepository<IUsageCounterRepository>();
                 
                 // Fast read-only check
@@ -58,11 +81,11 @@ namespace BusinessObjectLayer.Services.UsageLimits
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = $"Comparison limit reached. You have used {currentUsage}/{compareLimit} comparisons in the last {compareHoursLimit} hours.",
+                        Message = $"Comparison limit reached. You have used {currentUsage}/{compareLimit.Value} comparisons in the last {compareHoursLimit} hours.",
                         Data = new
                         {
                             CurrentCount = currentUsage,
-                            Limit = compareLimit,
+                            Limit = compareLimit.Value,
                             HoursLimit = compareHoursLimit,
                             Remaining = 0
                         }
@@ -82,9 +105,9 @@ namespace BusinessObjectLayer.Services.UsageLimits
                     Data = new
                     {
                         CurrentCount = usage,
-                        Limit = compareLimit,
+                        Limit = compareLimit.Value,
                         HoursLimit = compareHoursLimit,
-                        Remaining = compareLimit - usage
+                        Remaining = compareLimit.Value - usage
                     }
                 };
             }
@@ -111,16 +134,39 @@ namespace BusinessObjectLayer.Services.UsageLimits
                 var (compareLimit, compareHoursLimit, periodStartDate, periodEndDate, companySubscriptionId) 
                     = await GetSubscriptionLimitInfoAsync(companyId);
 
-                if (compareLimit <= 0)
+                // ✅ Correct logic for nullable compareLimit:
+                // - null → unlimited (no tracking)
+                // - 0 → NO comparisons allowed (reject)
+                // - > 0 → enforce limit with usage counter
+                
+                if (!compareLimit.HasValue)
                 {
-                    // No limit set, allow comparison
+                    // No limit set (null), allow unlimited comparisons
                     return new ServiceResponse
                     {
                         Status = SRStatus.Success,
-                        Message = "Comparison limit check passed (no limit)."
+                        Message = "Comparison limit check passed (unlimited)."
                     };
                 }
 
+                if (compareLimit.Value == 0)
+                {
+                    // Limit is 0, no comparisons allowed (Free plan)
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Comparison feature is not available in your current plan. Please upgrade to access candidate comparison.",
+                        Data = new
+                        {
+                            CurrentCount = 0,
+                            Limit = 0,
+                            HoursLimit = compareHoursLimit,
+                            Remaining = 0
+                        }
+                    };
+                }
+
+                // compareLimit > 0, enforce with usage counter
                 var usageCounterRepo = _uow.GetRepository<IUsageCounterRepository>();
                 
                 // Step 1: Get or create counter (ensures counter exists)
@@ -130,7 +176,7 @@ namespace BusinessObjectLayer.Services.UsageLimits
                     companySubscriptionId,
                     periodStartDate,
                     periodEndDate,
-                    compareLimit);
+                    compareLimit.Value);
                 
                 await _uow.SaveChangesAsync(); // Save counter if newly created
 
@@ -154,11 +200,11 @@ namespace BusinessObjectLayer.Services.UsageLimits
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = $"Comparison limit reached. You have used {currentCounter?.Used ?? 0}/{currentCounter?.Limit ?? 0} comparisons in the last {compareHoursLimit} hours.",
+                        Message = $"Comparison limit reached. You have used {currentCounter?.Used ?? 0}/{compareLimit.Value} comparisons in the last {compareHoursLimit} hours.",
                         Data = new
                         {
                             CurrentCount = currentCounter?.Used ?? 0,
-                            Limit = currentCounter?.Limit ?? 0,
+                            Limit = compareLimit.Value,
                             HoursLimit = compareHoursLimit,
                             Remaining = 0
                         }
@@ -179,9 +225,9 @@ namespace BusinessObjectLayer.Services.UsageLimits
                     Data = new
                     {
                         CurrentCount = updatedCounter?.Used ?? 0,
-                        Limit = updatedCounter?.Limit ?? 0,
+                        Limit = compareLimit.Value,
                         HoursLimit = compareHoursLimit,
-                        Remaining = (updatedCounter?.Limit ?? 0) - (updatedCounter?.Used ?? 0)
+                        Remaining = compareLimit.Value - (updatedCounter?.Used ?? 0)
                     }
                 };
             }
@@ -201,13 +247,13 @@ namespace BusinessObjectLayer.Services.UsageLimits
         /// Get subscription limit info and calculate period for comparison
         /// Returns: (compareLimit, compareHoursLimit, periodStartDate, periodEndDate, companySubscriptionId)
         /// </summary>
-        private async Task<(int compareLimit, int compareHoursLimit, DateTime periodStartDate, DateTime periodEndDate, int? companySubscriptionId)> 
+        private async Task<(int? compareLimit, int compareHoursLimit, DateTime periodStartDate, DateTime periodEndDate, int? companySubscriptionId)> 
             GetSubscriptionLimitInfoAsync(int companyId)
         {
             var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
             var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
 
-            int compareLimit;
+            int? compareLimit;  // ✅ Nullable to distinguish between "no limit" (null), "no access" (0), and "limited" (> 0)
             int compareHoursLimit;
             DateTime periodStartDate;
             DateTime periodEndDate;
@@ -224,8 +270,10 @@ namespace BusinessObjectLayer.Services.UsageLimits
                     throw new InvalidOperationException("No active subscription found and Free subscription not configured.");
                 }
 
-                compareLimit = freeSubscription.CompareLimit ?? 0;
-                compareHoursLimit = freeSubscription.CompareHoursLimit ?? 0;
+                // ✅ Keep CompareLimit as nullable from Free subscription
+                // null = unlimited, 0 = no access, > 0 = limited
+                compareLimit = freeSubscription.CompareLimit;  // Don't coalesce to 0!
+                compareHoursLimit = freeSubscription.CompareHoursLimit ?? 1;  // Default 24h if not set
                 companySubscriptionId = null;
 
                 // ✅ FIXED: Round period to start of hour/day to keep it consistent
@@ -253,8 +301,9 @@ namespace BusinessObjectLayer.Services.UsageLimits
             else
             {
                 // Paid plan: fixed period from subscription start
-                compareLimit = companySubscription.Subscription?.CompareLimit ?? 0;
-                compareHoursLimit = companySubscription.Subscription?.CompareHoursLimit ?? 0;
+                // ✅ Keep CompareLimit as nullable from subscription
+                compareLimit = companySubscription.Subscription?.CompareLimit;  // Don't coalesce to 0!
+                compareHoursLimit = companySubscription.Subscription?.CompareHoursLimit ?? 24;  // Default 24h if not set
                 companySubscriptionId = companySubscription.ComSubId;
 
                 // ✅ FIXED: Round subscription start to start of hour for consistency
