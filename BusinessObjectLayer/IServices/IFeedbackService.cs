@@ -11,5 +11,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10);
         Task<ServiceResponse> GetByIdAsync(int feedbackId);
         Task<ServiceResponse> GetMyFeedbacksAsync(ClaimsPrincipal userClaims, int page = 1, int pageSize = 10);
+        Task<ServiceResponse> DeleteMyFeedbackAsync(int feedbackId, ClaimsPrincipal userClaims);
+        Task<ServiceResponse> DeleteFeedbackByAdminAsync(int feedbackId);
     }
 }

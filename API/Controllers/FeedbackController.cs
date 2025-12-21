@@ -17,9 +17,7 @@ namespace API.Controllers
             _feedbackService = feedbackService;
         }
 
-        /// <summary>
-        /// Get feedbacks created by the current HR user (HR_Recruiter, HR_Manager only)
-        /// </summary>
+        
         [HttpGet("me")]
         [Authorize(Roles = "HR_Recruiter,HR_Manager")]
         public async Task<IActionResult> GetMyFeedbacks([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
@@ -28,14 +26,21 @@ namespace API.Controllers
             return ControllerResponse.Response(response);
         }
 
-        /// <summary>
-        /// Create a new feedback (HR_Recruiter, HR_Manager only)
-        /// </summary>
+        
         [HttpPost]
         [Authorize(Roles = "HR_Recruiter,HR_Manager")]
         public async Task<IActionResult> CreateFeedback([FromBody] FeedbackRequest request)
         {
             var response = await _feedbackService.CreateAsync(request, User);
+            return ControllerResponse.Response(response);
+        }
+
+        
+        [HttpDelete("{feedbackId}")]
+        [Authorize(Roles = "HR_Recruiter,HR_Manager")]
+        public async Task<IActionResult> DeleteMyFeedback(int feedbackId)
+        {
+            var response = await _feedbackService.DeleteMyFeedbackAsync(feedbackId, User);
             return ControllerResponse.Response(response);
         }
     }
@@ -51,9 +56,7 @@ namespace API.Controllers
             _feedbackService = feedbackService;
         }
 
-        /// <summary>
-        /// Get all feedbacks with pagination (System_Admin, System_Manager, System_Staff only)
-        /// </summary>
+        
         [HttpGet]
         [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
         public async Task<IActionResult> GetAllFeedbacks([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
@@ -62,14 +65,21 @@ namespace API.Controllers
             return ControllerResponse.Response(response);
         }
 
-        /// <summary>
-        /// Get feedback detail by ID (System_Admin, System_Manager, System_Staff only)
-        /// </summary>
+        
         [HttpGet("{feedbackId}")]
         [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
         public async Task<IActionResult> GetFeedbackDetail(int feedbackId)
         {
             var response = await _feedbackService.GetByIdAsync(feedbackId);
+            return ControllerResponse.Response(response);
+        }
+
+        
+        [HttpDelete("{feedbackId}")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> DeleteFeedback(int feedbackId)
+        {
+            var response = await _feedbackService.DeleteFeedbackByAdminAsync(feedbackId);
             return ControllerResponse.Response(response);
         }
     }

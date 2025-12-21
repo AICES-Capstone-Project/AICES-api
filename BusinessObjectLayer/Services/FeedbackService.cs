@@ -29,7 +29,7 @@ namespace BusinessObjectLayer.Services
 
             var userId = int.Parse(userIdClaim);
 
-            // Kiểm tra user có phải HR_Recruiter hoặc HR_Manager không
+            
             var userRepo = _uow.GetRepository<IUserRepository>();
             var user = await userRepo.GetByIdAsync(userId);
             if (user == null)
@@ -40,7 +40,7 @@ namespace BusinessObjectLayer.Services
             if (role == null)
                 return new ServiceResponse { Status = SRStatus.NotFound, Message = "Role not found" };
 
-            // Chỉ HR_Recruiter và HR_Manager mới được tạo feedback
+           
             if (role.RoleName != "HR_Recruiter" && role.RoleName != "HR_Manager")
             {
                 return new ServiceResponse
@@ -50,7 +50,7 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            // Lấy CompanyUser của user
+            
             var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
             var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
             if (companyUser == null || companyUser.CompanyId == null)
@@ -212,6 +212,86 @@ namespace BusinessObjectLayer.Services
                 Status = SRStatus.Success,
                 Message = "Feedbacks retrieved successfully.",
                 Data = result
+            };
+        }
+
+        public async Task<ServiceResponse> DeleteMyFeedbackAsync(int feedbackId, ClaimsPrincipal userClaims)
+        {
+            var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
+            if (userIdClaim == null)
+                return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
+
+            var userId = int.Parse(userIdClaim);
+
+            
+            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+
+            if (companyUser == null || companyUser.CompanyId == null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "You must join a company."
+                };
+            }
+
+            
+            var feedbackRepo = _uow.GetRepository<IFeedbackRepository>();
+            var feedback = await feedbackRepo.GetForUpdateAsync(feedbackId);
+
+            if (feedback == null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "Feedback not found."
+                };
+            }
+
+            
+            if (feedback.ComUserId != companyUser.ComUserId)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Unauthorized,
+                    Message = "You can only delete your own feedback."
+                };
+            }
+
+            
+            await feedbackRepo.SoftDeleteAsync(feedback);
+            await _uow.SaveChangesAsync();
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "Feedback deleted successfully."
+            };
+        }
+
+        public async Task<ServiceResponse> DeleteFeedbackByAdminAsync(int feedbackId)
+        {
+            var feedbackRepo = _uow.GetRepository<IFeedbackRepository>();
+            var feedback = await feedbackRepo.GetForUpdateAsync(feedbackId);
+
+            if (feedback == null)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.NotFound,
+                    Message = "Feedback not found."
+                };
+            }
+
+           
+            await feedbackRepo.SoftDeleteAsync(feedback);
+            await _uow.SaveChangesAsync();
+
+            return new ServiceResponse
+            {
+                Status = SRStatus.Success,
+                Message = "Feedback deleted successfully by admin."
             };
         }
     }
