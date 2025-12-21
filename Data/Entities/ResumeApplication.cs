@@ -52,6 +52,8 @@ namespace Data.Entities
         public ProcessingModeEnum? ProcessingMode { get; set; } // Processing mode: Parse, Score, Clone, Rescore
         public DateTime? ProcessedAt { get; set; } // When AI finished processing (or when cloned)
         public int? ProcessingTimeMs { get; set; } // AI processing time in milliseconds
+        public DateTime? HiredAt { get; set; } // When the application was hired
+        public DateTime? RejectedAt { get; set; } // When the application was rejected
 
         // Navigation
         public Resume Resume { get; set; } = null!;

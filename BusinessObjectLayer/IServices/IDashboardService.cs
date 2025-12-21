@@ -22,6 +22,9 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetSystemResumeStatsAsync();
         Task<ServiceResponse> GetSubscriptionPlanBreakdownAsync(string range = "month");
         Task<ServiceResponse> GetResumeEffectivenessAsync();
+        Task<ServiceResponse> GetPipelineFunnelAsync(int? jobId, int? campaignId, DateTime? startDate, DateTime? endDate);
+        Task<ServiceResponse> GetUsageHistoryAsync(string range);
+        Task<ServiceResponse> GetCompanyStatsOverviewAsync();
     }
 }
 

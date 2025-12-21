@@ -755,6 +755,75 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetPipelineFunnelAsync(int? jobId, int? campaignId, DateTime? startDate, DateTime? endDate)
+        {
+            try
+            {
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+                if (string.IsNullOrEmpty(userIdClaim)) return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated." };
+
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(int.Parse(userIdClaim));
+                if (companyUser?.CompanyId == null) return new ServiceResponse { Status = SRStatus.NotFound, Message = "Company not found for user." };
+
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+                var response = await dashboardRepo.GetPipelineFunnelAsync(companyUser.CompanyId.Value, jobId, campaignId, startDate, endDate);
+
+                return new ServiceResponse { Status = SRStatus.Success, Message = "Pipeline funnel retrieved successfully.", Data = response };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse { Status = SRStatus.Error, Message = "An error occurred: " + ex.Message };
+            }
+        }
+
+        public async Task<ServiceResponse> GetUsageHistoryAsync(string range = "month")
+        {
+            try
+            {
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+                if (string.IsNullOrEmpty(userIdClaim)) return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated." };
+
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(int.Parse(userIdClaim));
+                if (companyUser?.CompanyId == null) return new ServiceResponse { Status = SRStatus.NotFound, Message = "Company not found for user." };
+
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+                var response = await dashboardRepo.GetUsageHistoryAsync(companyUser.CompanyId.Value, range);
+
+                return new ServiceResponse { Status = SRStatus.Success, Message = "Usage history retrieved successfully.", Data = response };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse { Status = SRStatus.Error, Message = "An error occurred: " + ex.Message };
+            }
+        }
+
+        public async Task<ServiceResponse> GetCompanyStatsOverviewAsync()
+        {
+            try
+            {
+                var user = _httpContextAccessor.HttpContext?.User;
+                var userIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+                if (string.IsNullOrEmpty(userIdClaim)) return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated." };
+
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyUser = await companyUserRepo.GetByUserIdAsync(int.Parse(userIdClaim));
+                if (companyUser?.CompanyId == null) return new ServiceResponse { Status = SRStatus.NotFound, Message = "Company not found for user." };
+
+                var dashboardRepo = _uow.GetRepository<IDashboardRepository>();
+                var response = await dashboardRepo.GetCompanyStatsOverviewAsync(companyUser.CompanyId.Value);
+
+                return new ServiceResponse { Status = SRStatus.Success, Message = "Company stats overview retrieved successfully.", Data = response };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse { Status = SRStatus.Error, Message = "An error occurred: " + ex.Message };
+            }
+        }
     }
 }
 

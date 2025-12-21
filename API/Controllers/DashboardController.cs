@@ -39,6 +39,34 @@ namespace API.Controllers
             var serviceResponse = await _dashboardService.GetTopRatedCandidatesAsync(limit);
             return ControllerResponse.Response(serviceResponse);
         }
+
+        [HttpGet("pipeline/funnel")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> GetPipelineFunnel(
+            [FromQuery] int? jobId,
+            [FromQuery] int? campaignId,
+            [FromQuery] DateTime? startDate,
+            [FromQuery] DateTime? endDate)
+        {
+            var serviceResponse = await _dashboardService.GetPipelineFunnelAsync(jobId, campaignId, startDate, endDate);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpGet("subscription/usage-history")]
+        [Authorize(Roles = "HR_Manager")]
+        public async Task<IActionResult> GetUsageHistory([FromQuery] string range = "month")
+        {
+            var serviceResponse = await _dashboardService.GetUsageHistoryAsync(range);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        [HttpGet("stats/overview")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        public async Task<IActionResult> GetCompanyStatsOverview()
+        {
+            var serviceResponse = await _dashboardService.GetCompanyStatsOverviewAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
     }
 
     [Route("api/system/dashboard")]

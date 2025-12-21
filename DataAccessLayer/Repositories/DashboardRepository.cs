@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Data.Models.Response;
 
 namespace DataAccessLayer.Repositories
 {
@@ -455,6 +456,222 @@ namespace DataAccessLayer.Repositories
             )).ToList();
 
             return result;
+        }
+
+        public async Task<PipelineFunnelResponse> GetPipelineFunnelAsync(int companyId, int? jobId, int? campaignId, DateTime? startDate, DateTime? endDate)
+        {
+            var query = _context.ResumeApplications
+                .AsNoTracking()
+                .Include(ra => ra.Resume)
+                .Where(ra => ra.Resume != null && ra.Resume.CompanyId == companyId && ra.IsActive);
+
+            if (jobId.HasValue) query = query.Where(ra => ra.JobId == jobId.Value);
+            if (campaignId.HasValue) query = query.Where(ra => ra.CampaignId == campaignId.Value);
+            if (startDate.HasValue) query = query.Where(ra => ra.CreatedAt >= startDate.Value);
+            if (endDate.HasValue) query = query.Where(ra => ra.CreatedAt <= endDate.Value);
+
+            var data = await query.GroupBy(ra => ra.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            var totalApplied = await query.CountAsync();
+
+            var stages = new List<PipelineStageResponse>();
+            
+            // "Applied" is total active applications in the set
+            stages.Add(new PipelineStageResponse { Name = "Applied", Count = totalApplied, ConversionRate = 100 });
+            
+            int reviewedCount = data.Where(d => d.Status == ApplicationStatusEnum.Reviewed || d.Status == ApplicationStatusEnum.Shortlisted || d.Status == ApplicationStatusEnum.Interview || d.Status == ApplicationStatusEnum.OfferSent || d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
+            stages.Add(new PipelineStageResponse { Name = "Reviewed", Count = reviewedCount, ConversionRate = totalApplied > 0 ? Math.Round((decimal)reviewedCount / totalApplied * 100, 2) : 0 });
+
+            int shortlistedCount = data.Where(d => d.Status == ApplicationStatusEnum.Shortlisted || d.Status == ApplicationStatusEnum.Interview || d.Status == ApplicationStatusEnum.OfferSent || d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
+            stages.Add(new PipelineStageResponse { Name = "Shortlisted", Count = shortlistedCount, ConversionRate = totalApplied > 0 ? Math.Round((decimal)shortlistedCount / totalApplied * 100, 2) : 0 });
+
+            int interviewCount = data.Where(d => d.Status == ApplicationStatusEnum.Interview || d.Status == ApplicationStatusEnum.OfferSent || d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
+            stages.Add(new PipelineStageResponse { Name = "Interview", Count = interviewCount, ConversionRate = totalApplied > 0 ? Math.Round((decimal)interviewCount / totalApplied * 100, 2) : 0 });
+
+            int offerSentCount = data.Where(d => d.Status == ApplicationStatusEnum.OfferSent || d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
+            stages.Add(new PipelineStageResponse { Name = "Offer Sent", Count = offerSentCount, ConversionRate = totalApplied > 0 ? Math.Round((decimal)offerSentCount / totalApplied * 100, 2) : 0 });
+
+            int hiredCount = data.Where(d => d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
+            stages.Add(new PipelineStageResponse { Name = "Hired", Count = hiredCount, ConversionRate = totalApplied > 0 ? Math.Round((decimal)hiredCount / totalApplied * 100, 2) : 0 });
+
+            return new PipelineFunnelResponse { Stages = stages };
+        }
+
+        public async Task<UsageHistoryResponse> GetUsageHistoryAsync(int companyId, string range)
+        {
+            DateTime now = DateTime.UtcNow;
+            DateTime from;
+            string unit = "day";
+            bool groupByMonth = false;
+            bool groupByHour = false;
+
+            if (range.Equals("1d", StringComparison.OrdinalIgnoreCase))
+            {
+                from = now.AddHours(-23);
+                unit = "hour";
+                groupByHour = true;
+            }
+            else if (range.Equals("7d", StringComparison.OrdinalIgnoreCase))
+            {
+                from = now.AddDays(-6).Date;
+                unit = "day";
+            }
+            else if (range.Equals("28d", StringComparison.OrdinalIgnoreCase))
+            {
+                from = now.AddDays(-27).Date;
+                unit = "day";
+            }
+            else if (range.Equals("90d", StringComparison.OrdinalIgnoreCase))
+            {
+                from = now.AddDays(-89).Date;
+                unit = "day";
+            }
+            else if (range.Equals("month", StringComparison.OrdinalIgnoreCase))
+            {
+                from = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                unit = "day";
+            }
+            else if (range.Equals("year", StringComparison.OrdinalIgnoreCase))
+            {
+                from = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-11);
+                unit = "month";
+                groupByMonth = true;
+            }
+            else // Default to 28 days
+            {
+                from = now.AddDays(-27).Date;
+                unit = "day";
+            }
+
+            // Aggregate data from UsageCounters (Primary source for billing/limit consistency)
+            var usageData = await _context.UsageCounters
+                .AsNoTracking()
+                .Where(uc => uc.CompanyId == companyId 
+                          && uc.PeriodStartDate >= from 
+                          && uc.PeriodStartDate <= now 
+                          && uc.IsActive)
+                .ToListAsync();
+
+            // Get subscription limits
+            var companySubscription = await _context.CompanySubscriptions
+                .Include(cs => cs.Subscription)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(cs => cs.CompanyId == companyId && cs.IsActive && cs.SubscriptionStatus == Data.Enum.SubscriptionStatusEnum.Active);
+
+            var resumeLimit = companySubscription?.Subscription?.ResumeLimit ?? 0;
+            var aiComparisonLimit = companySubscription?.Subscription?.CompareLimit;
+
+            var labels = new List<string>();
+            var resumeUploads = new List<int>();
+            var aiComparisons = new List<int>();
+
+            if (groupByMonth)
+            {
+                for (var dt = new DateTime(from.Year, from.Month, 1); dt <= now; dt = dt.AddMonths(1))
+                {
+                    labels.Add(dt.ToString("MMM yyyy"));
+                    resumeUploads.Add(usageData.Where(u => u.UsageType == UsageTypeEnum.Resume && u.PeriodStartDate.Year == dt.Year && u.PeriodStartDate.Month == dt.Month).Sum(u => u.Used));
+                    aiComparisons.Add(usageData.Where(u => u.UsageType == UsageTypeEnum.Comparison && u.PeriodStartDate.Year == dt.Year && u.PeriodStartDate.Month == dt.Month).Sum(u => u.Used));
+                }
+            }
+            else if (groupByHour)
+            {
+                for (var dt = from; dt <= now; dt = dt.AddHours(1))
+                {
+                    labels.Add(dt.ToString("HH:00"));
+                    resumeUploads.Add(usageData.Where(u => u.UsageType == UsageTypeEnum.Resume && u.PeriodStartDate.Date == dt.Date && u.PeriodStartDate.Hour == dt.Hour).Sum(u => u.Used));
+                    aiComparisons.Add(usageData.Where(u => u.UsageType == UsageTypeEnum.Comparison && u.PeriodStartDate.Date == dt.Date && u.PeriodStartDate.Hour == dt.Hour).Sum(u => u.Used));
+                }
+            }
+            else
+            {
+                for (var dt = from.Date; dt <= now.Date; dt = dt.AddDays(1))
+                {
+                    labels.Add(dt.ToString("MMM dd"));
+                    resumeUploads.Add(usageData.Where(u => u.UsageType == UsageTypeEnum.Resume && u.PeriodStartDate.Date == dt.Date).Sum(u => u.Used));
+                    aiComparisons.Add(usageData.Where(u => u.UsageType == UsageTypeEnum.Comparison && u.PeriodStartDate.Date == dt.Date).Sum(u => u.Used));
+                }
+            }
+
+            return new UsageHistoryResponse
+            {
+                Range = range,
+                Unit = unit,
+                Labels = labels,
+                ResumeUploads = resumeUploads,
+                AiComparisons = aiComparisons,
+                ResumeLimit = resumeLimit,
+                AiComparisonLimit = aiComparisonLimit
+            };
+        }
+
+        public async Task<CompanyStatsOverviewResponse> GetCompanyStatsOverviewAsync(int companyId)
+        {
+            var now = DateTime.UtcNow;
+            var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var endOfMonth = startOfMonth.AddMonths(1).AddTicks(-1);
+
+            var totalJobs = await _context.Jobs.CountAsync(j => j.CompanyId == companyId && j.IsActive);
+
+            var top5JobsInCampaigns = await _context.JobCampaigns
+                .Include(jc => jc.Job)
+                .Where(jc => jc.Job != null && jc.Job.CompanyId == companyId && jc.Job.IsActive)
+                .GroupBy(jc => new { jc.JobId, Title = jc.Job!.Title })
+                .OrderByDescending(g => g.Count())
+                .Take(5)
+                .Select(g => new Top5JobInCampaignResponse { JobId = g.Key.JobId, Title = g.Key.Title, CampaignCount = g.Count() })
+                .ToListAsync();
+
+            var top5CampaignsWithMostJobs = await _context.JobCampaigns
+                .Include(jc => jc.Campaign)
+                .Where(jc => jc.Campaign != null && jc.Campaign.CompanyId == companyId && jc.Campaign.IsActive)
+                .GroupBy(jc => new { jc.CampaignId, Title = jc.Campaign!.Title })
+                .OrderByDescending(g => g.Count())
+                .Take(5)
+                .Select(g => new Top5CampaignWithMostJobsResponse { CampaignId = g.Key.CampaignId, Title = g.Key.Title, JobCount = g.Count() })
+                .ToListAsync();
+
+            var top5CandidatesWithMostJobs = await _context.ResumeApplications
+                .Include(ra => ra.Resume)
+                .Include(ra => ra.Candidate)
+                .Where(ra => ra.Resume != null && ra.Resume.CompanyId == companyId && ra.IsActive && ra.CandidateId != null && ra.Candidate != null)
+                .GroupBy(ra => new { ra.CandidateId, FullName = ra.Candidate!.FullName })
+                .OrderByDescending(g => g.Select(ra => ra.JobId).Distinct().Count())
+                .Take(5)
+                .Select(g => new Top5CandidateWithMostJobsResponse { CandidateId = g.Key.CandidateId!.Value, FullName = g.Key.FullName, JobCount = g.Select(ra => ra.JobId).Distinct().Count() })
+                .ToListAsync();
+
+            var top5HighestScoreCVs = await _context.ResumeApplications
+                .Include(ra => ra.Resume)
+                .Include(ra => ra.Candidate)
+                .Include(ra => ra.Job)
+                .Where(ra => ra.Resume != null && ra.Resume.CompanyId == companyId && ra.IsActive && ra.TotalScore != null && ra.Candidate != null && ra.Job != null)
+                .OrderByDescending(ra => ra.TotalScore)
+                .Take(5)
+                .Select(ra => new Top5HighestScoreCVResponse { ApplicationId = ra.ApplicationId, CandidateName = ra.Candidate!.FullName, JobTitle = ra.Job!.Title, Score = ra.TotalScore!.Value })
+                .ToListAsync();
+
+            var campaigns = await _context.Campaigns
+                .Include(c => c.JobCampaigns)
+                .Include(c => c.ResumeApplications)
+                .Where(c => c.CompanyId == companyId && c.IsActive && c.EndDate >= startOfMonth && c.EndDate <= endOfMonth)
+                .ToListAsync();
+
+            var onTimeCampaignsCount = campaigns.Count(c => 
+                c.ResumeApplications.Count(ra => ra.Status == ApplicationStatusEnum.Hired && ra.IsActive) >= (c.JobCampaigns?.Sum(jc => jc.TargetQuantity) ?? 0)
+            );
+
+            return new CompanyStatsOverviewResponse
+            {
+                TotalJobs = totalJobs,
+                Top5JobsInCampaigns = top5JobsInCampaigns,
+                Top5CampaignsWithMostJobs = top5CampaignsWithMostJobs,
+                Top5CandidatesWithMostJobs = top5CandidatesWithMostJobs,
+                Top5HighestScoreCVs = top5HighestScoreCVs,
+                OnTimeCampaignsThisMonth = onTimeCampaignsCount
+            };
         }
     }
 }

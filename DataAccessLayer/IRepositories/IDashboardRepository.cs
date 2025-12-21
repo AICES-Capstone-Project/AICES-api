@@ -1,8 +1,10 @@
+using Data.Models.Response;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+
 
 namespace DataAccessLayer.IRepositories
 {
@@ -42,6 +44,11 @@ namespace DataAccessLayer.IRepositories
         Task<List<(int SubscriptionId, string SubscriptionName, int ActiveCount, decimal MonthlyRevenue)>> GetSubscriptionPlanBreakdownAsync(DateTime fromDate, DateTime toDate);
         Task<int> GetResumeCountByStatusAsync(Data.Enum.ResumeStatusEnum status);
         Task<int> GetResumeCountByStatusesAsync(IEnumerable<Data.Enum.ResumeStatusEnum> statuses);
+        
+        // New Dashboard APIs
+        Task<PipelineFunnelResponse> GetPipelineFunnelAsync(int companyId, int? jobId, int? campaignId, DateTime? startDate, DateTime? endDate);
+        Task<UsageHistoryResponse> GetUsageHistoryAsync(int companyId, string range);
+        Task<CompanyStatsOverviewResponse> GetCompanyStatsOverviewAsync(int companyId);
     }
 }
 
