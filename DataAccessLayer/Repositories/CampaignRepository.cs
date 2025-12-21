@@ -127,7 +127,7 @@ namespace DataAccessLayer.Repositories
                     .ThenInclude(u => u.Profile)
                 .Include(c => c.JobCampaigns)
                     .ThenInclude(jc => jc.Job)
-                .FirstOrDefaultAsync(c => c.IsActive && c.CampaignId == id && c.Company.CompanyStatus == CompanyStatusEnum.Approved && c.Status == CampaignStatusEnum.Published);
+                .FirstOrDefaultAsync(c => c.IsActive && c.CampaignId == id && c.Company.CompanyStatus == CompanyStatusEnum.Approved);
             
             if (campaign != null && campaign.JobCampaigns != null)
             {
@@ -149,7 +149,7 @@ namespace DataAccessLayer.Repositories
                 .Include(c => c.Company)
                 .Include(c => c.JobCampaigns)
                     .ThenInclude(jc => jc.Job)
-                .FirstOrDefaultAsync(c => c.IsActive && c.CampaignId == id && c.Company.CompanyStatus == CompanyStatusEnum.Approved && c.Status == CampaignStatusEnum.Published);
+                .FirstOrDefaultAsync(c => c.IsActive && c.CampaignId == id && c.Company.CompanyStatus == CompanyStatusEnum.Approved);
             
             // Ensure JobCampaigns is initialized
             if (campaign != null && campaign.JobCampaigns == null)
@@ -164,7 +164,7 @@ namespace DataAccessLayer.Repositories
         {
             var campaigns = await _context.Campaigns
                 .AsNoTracking()
-                .Where(c => c.IsActive && c.CompanyId == companyId && c.Company.CompanyStatus == CompanyStatusEnum.Approved && c.Status == CampaignStatusEnum.Published)
+                .Where(c => c.IsActive && c.CompanyId == companyId && c.Company.CompanyStatus == CompanyStatusEnum.Approved)
                 .Include(c => c.Company)
                 .Include(c => c.Creator)
                     .ThenInclude(u => u.Profile)
@@ -195,7 +195,7 @@ namespace DataAccessLayer.Repositories
         {
             var query = _context.Campaigns
                 .AsNoTracking()
-                .Where(c => c.IsActive && c.CompanyId == companyId && c.Company.CompanyStatus == CompanyStatusEnum.Approved && c.Status == CampaignStatusEnum.Published)
+                .Where(c => c.IsActive && c.CompanyId == companyId && c.Company.CompanyStatus == CompanyStatusEnum.Approved)
                 .AsQueryable();
 
             // Search filter
@@ -256,7 +256,7 @@ namespace DataAccessLayer.Repositories
         {
             var query = _context.Campaigns
                 .AsNoTracking()
-                .Where(c => c.IsActive && c.CompanyId == companyId && c.Company.CompanyStatus == CompanyStatusEnum.Approved && c.Status == CampaignStatusEnum.Published)
+                .Where(c => c.IsActive && c.CompanyId == companyId && c.Company.CompanyStatus == CompanyStatusEnum.Approved)
                 .AsQueryable();
 
             // Search filter
@@ -422,9 +422,7 @@ namespace DataAccessLayer.Repositories
             {
                 if (campaign.JobCampaigns != null)
                 {
-                    campaign.JobCampaigns = campaign.JobCampaigns
-                        .Where(jc => jc.Job != null && jc.Job.IsActive)
-                        .ToList();
+                    campaign.JobCampaigns = [.. campaign.JobCampaigns.Where(jc => jc.Job != null && jc.Job.IsActive)];
 
                     // Calculate totals
                     campaign.TotalHired = campaign.JobCampaigns.Sum(jc => jc.CurrentHired);
@@ -488,7 +486,7 @@ namespace DataAccessLayer.Repositories
             {
                 if (campaign.JobCampaigns == null)
                 {
-                    campaign.JobCampaigns = new List<JobCampaign>();
+                    campaign.JobCampaigns = [];
                 }
                 else
                 {
@@ -539,7 +537,7 @@ namespace DataAccessLayer.Repositories
         {
             var query = _context.Campaigns
                 .AsNoTracking()
-                .Where(c => c.IsActive && c.CompanyId == companyId && c.Title == title && (c.Status == CampaignStatusEnum.Published || c.Status == CampaignStatusEnum.Pending));
+                .Where(c => c.IsActive && c.CompanyId == companyId && c.Title == title);
 
             if (excludeCampaignId.HasValue)
             {
