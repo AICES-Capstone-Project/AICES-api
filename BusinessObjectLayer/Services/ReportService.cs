@@ -1197,5 +1197,195 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetJobsStatisticsAsync()
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                var firstDayOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+                // 1. Total Jobs (all active)
+                var totalJobs = await _context.Jobs
+                    .AsNoTracking()
+                    .Where(j => j.IsActive)
+                    .CountAsync();
+
+                // 2. Active Jobs (Published status)
+                var activeJobs = await _context.Jobs
+                    .AsNoTracking()
+                    .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Published)
+                    .CountAsync();
+
+                // 3. Pending Jobs (waiting approval)
+                var pendingJobs = await _context.Jobs
+                    .AsNoTracking()
+                    .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Pending)
+                    .CountAsync();
+
+                // 4. Rejected Jobs
+                var rejectedJobs = await _context.Jobs
+                    .AsNoTracking()
+                    .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Rejected)
+                    .CountAsync();
+
+                // 5. Archived Jobs
+                var archivedJobs = await _context.Jobs
+                    .AsNoTracking()
+                    .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Archived)
+                    .CountAsync();
+
+                // 6. New Jobs This Month
+                var newJobsThisMonth = await _context.Jobs
+                    .AsNoTracking()
+                    .Where(j => j.IsActive && j.CreatedAt >= firstDayOfMonth)
+                    .CountAsync();
+
+                // 7. Average Applications Per Job
+                var totalApplications = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive)
+                    .CountAsync();
+
+                var jobsWithApplications = await _context.Jobs
+                    .AsNoTracking()
+                    .Where(j => j.IsActive && j.ResumeApplications.Any(ra => ra.IsActive))
+                    .CountAsync();
+
+                decimal avgApplicationsPerJob = jobsWithApplications > 0
+                    ? Math.Round((decimal)totalApplications / jobsWithApplications, 2)
+                    : 0;
+
+                // 8. Top Categories (top 5)
+                var topCategories = await (from j in _context.Jobs
+                                          join s in _context.Specializations on j.SpecializationId equals s.SpecializationId into specGroup
+                                          from spec in specGroup.DefaultIfEmpty()
+                                          join c in _context.Categories on spec.CategoryId equals c.CategoryId into catGroup
+                                          from cat in catGroup.DefaultIfEmpty()
+                                          where j.IsActive && cat != null
+                                          group j by new { cat.CategoryId, cat.Name } into g
+                                          orderby g.Count() descending
+                                          select new TopCategoryJob
+                                          {
+                                              CategoryId = g.Key.CategoryId,
+                                              CategoryName = g.Key.Name,
+                                              JobCount = g.Count()
+                                          })
+                                          .Take(5)
+                                          .ToListAsync();
+
+                var statistics = new JobStatisticsResponse
+                {
+                    TotalJobs = totalJobs,
+                    ActiveJobs = activeJobs,
+                    DraftJobs = pendingJobs,
+                    ClosedJobs = archivedJobs,
+                    NewJobsThisMonth = newJobsThisMonth,
+                    AverageApplicationsPerJob = avgApplicationsPerJob,
+                    StatusBreakdown = new JobsByStatusBreakdown
+                    {
+                        Published = activeJobs,
+                        Draft = pendingJobs,
+                        Closed = archivedJobs
+                    },
+                    TopCategories = topCategories
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Job statistics retrieved successfully.",
+                    Data = statistics
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Failed to retrieve job statistics: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> GetJobsEffectivenessAsync()
+        {
+            try
+            {
+                // 1. Average Resumes Per Job
+                var totalResumes = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive)
+                    .CountAsync();
+
+                var totalJobs = await _context.Jobs
+                    .AsNoTracking()
+                    .Where(j => j.IsActive && j.ResumeApplications.Any(ra => ra.IsActive))
+                    .CountAsync();
+
+                decimal avgResumesPerJob = totalJobs > 0
+                    ? Math.Round((decimal)totalResumes / totalJobs, 2)
+                    : 0;
+
+                // 2. Qualified Rate: Tỉ lệ CV có AI Score > 75
+                var totalApplicationsWithScore = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive && (ra.TotalScore != null || ra.AdjustedScore != null))
+                    .CountAsync();
+
+                var qualifiedApplications = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive && 
+                           ((ra.AdjustedScore != null && ra.AdjustedScore > 75) ||
+                            (ra.AdjustedScore == null && ra.TotalScore != null && ra.TotalScore > 75)))
+                    .CountAsync();
+
+                decimal qualifiedRate = totalApplicationsWithScore > 0
+                    ? Math.Round((decimal)qualifiedApplications / totalApplicationsWithScore, 2)
+                    : 0;
+
+                // 3. Success Hiring Rate: Tỉ lệ job có ít nhất 1 ứng viên được chấp nhận
+                // (Giả sử có field Status trong ResumeApplication, nếu không có thì tạm tính bằng cách khác)
+                var totalJobsPublished = await _context.Jobs
+                    .AsNoTracking()
+                    .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Published)
+                    .CountAsync();
+
+                // Jobs có ít nhất 1 resume application với status Hired hoặc Accepted
+                var successfulJobs = await _context.Jobs
+                    .AsNoTracking()
+                    .Where(j => j.IsActive && 
+                           j.JobStatus == JobStatusEnum.Published &&
+                           j.ResumeApplications.Any(ra => ra.IsActive && 
+                                                    ra.Status == ApplicationStatusEnum.Hired))
+                    .CountAsync();
+
+                decimal successHiringRate = totalJobsPublished > 0
+                    ? Math.Round((decimal)successfulJobs / totalJobsPublished, 2)
+                    : 0;
+
+                var effectiveness = new JobEffectivenessResponse
+                {
+                    AverageResumesPerJob = avgResumesPerJob,
+                    QualifiedRate = qualifiedRate,
+                    SuccessHiringRate = successHiringRate
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Job effectiveness retrieved successfully.",
+                    Data = effectiveness
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Failed to retrieve job effectiveness: {ex.Message}"
+                };
+            }
+        }
     }
 }
