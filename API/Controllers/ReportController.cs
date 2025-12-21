@@ -18,9 +18,7 @@ namespace API.Controllers
             _reportService = reportService;
         }
 
-        /// <summary>
-        /// Get executive summary for system admin
-        /// </summary>
+        
         [HttpGet("system/executive-summary")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetExecutiveSummary()
@@ -29,11 +27,27 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
+        
+        [HttpGet("system/companies/overview")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetCompaniesOverview()
+        {
+            var serviceResponse = await _reportService.GetCompaniesOverviewAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
         /// <summary>
-        /// Export candidates of a job to Excel file
+        /// Get company real usage categorization
         /// </summary>
-        /// <param name="jobId">Job ID</param>
-        /// <returns>Excel file with candidate data</returns>
+        [HttpGet("system/companies/usage")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetCompaniesUsage()
+        {
+            var serviceResponse = await _reportService.GetCompaniesUsageAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        
         [HttpGet("campaigns/{campaignId}/job/{jobId}/excel")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> ExportJobCandidatesToExcel(int campaignId, int jobId)
@@ -54,12 +68,7 @@ namespace API.Controllers
             return File(excelData.FileBytes, excelData.ContentType, excelData.FileName);
         }
 
-        /// <summary>
-        /// Export candidates of a job to PDF report
-        /// </summary>
-        /// <param name="campaignId">Campaign ID</param>
-        /// <param name="jobId">Job ID</param>
-        /// <returns>PDF file with detailed candidate report</returns>
+        
         [HttpGet("campaigns/{campaignId}/job/{jobId}/pdf")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> ExportJobCandidatesToPdf(int campaignId, int jobId)
