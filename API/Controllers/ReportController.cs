@@ -19,6 +19,17 @@ namespace API.Controllers
         }
 
         /// <summary>
+        /// Get executive summary for system admin
+        /// </summary>
+        [HttpGet("system/executive-summary")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetExecutiveSummary()
+        {
+            var serviceResponse = await _reportService.GetExecutiveSummaryAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        /// <summary>
         /// Export candidates of a job to Excel file
         /// </summary>
         /// <param name="jobId">Job ID</param>

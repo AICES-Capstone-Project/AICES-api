@@ -1,0 +1,12 @@
+namespace Data.Models.Response
+{
+    public class ExecutiveSummaryResponse
+    {
+        public int TotalCompanies { get; set; }
+        public int ActiveCompanies { get; set; }
+        public int TotalJobs { get; set; }
+        public int AiProcessedResumes { get; set; }
+        public decimal TotalRevenue { get; set; }
+        public decimal CompanyRetentionRate { get; set; }
+    }
+}

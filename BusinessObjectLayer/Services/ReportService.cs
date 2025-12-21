@@ -908,5 +908,91 @@ namespace BusinessObjectLayer.Services
         }
 
         #endregion
+
+        public async Task<ServiceResponse> GetExecutiveSummaryAsync()
+        {
+            try
+            {
+                // 1. Total Companies
+                var totalCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive)
+                    .CountAsync();
+
+                // 2. Active Companies (có ít nhất 1 job published hoặc có subscription active)
+                var activeCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && 
+                           (_context.Jobs.Any(j => j.CompanyId == c.CompanyId && j.IsActive && j.JobStatus == JobStatusEnum.Published) ||
+                            _context.CompanySubscriptions.Any(cs => cs.CompanyId == c.CompanyId && cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active)))
+                    .CountAsync();
+
+                // 3. Total Jobs (all active jobs)
+                var totalJobs = await _context.Jobs
+                    .AsNoTracking()
+                    .Where(j => j.IsActive)
+                    .CountAsync();
+
+                // 4. AI Processed Resumes (resumes with score)
+                var aiProcessedResumes = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive && (ra.TotalScore != null || ra.AdjustedScore != null))
+                    .Select(ra => ra.ResumeId)
+                    .Distinct()
+                    .CountAsync();
+
+                // 5. Total Revenue (sum of successful payments via transactions)
+                var totalRevenue = await _context.Transactions
+                    .AsNoTracking()
+                    .Where(t => t.IsActive && 
+                           t.Payment != null && 
+                           t.Payment.IsActive && 
+                           t.Payment.PaymentStatus == PaymentStatusEnum.Paid)
+                    .SumAsync(t => (decimal?)t.Amount) ?? 0;
+
+                // 6. Company Retention Rate (companies with more than 1 subscription or renewed)
+                var companiesWithSubscriptions = await _context.CompanySubscriptions
+                    .AsNoTracking()
+                    .Where(cs => cs.IsActive)
+                    .GroupBy(cs => cs.CompanyId)
+                    .CountAsync();
+
+                var companiesWithMultipleSubscriptions = await _context.CompanySubscriptions
+                    .AsNoTracking()
+                    .Where(cs => cs.IsActive)
+                    .GroupBy(cs => cs.CompanyId)
+                    .Where(g => g.Count() > 1)
+                    .CountAsync();
+
+                decimal retentionRate = companiesWithSubscriptions > 0 
+                    ? Math.Round((decimal)companiesWithMultipleSubscriptions / companiesWithSubscriptions, 2)
+                    : 0;
+
+                var summary = new ExecutiveSummaryResponse
+                {
+                    TotalCompanies = totalCompanies,
+                    ActiveCompanies = activeCompanies,
+                    TotalJobs = totalJobs,
+                    AiProcessedResumes = aiProcessedResumes,
+                    TotalRevenue = totalRevenue,
+                    CompanyRetentionRate = retentionRate
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Executive summary retrieved successfully.",
+                    Data = summary
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Failed to retrieve executive summary: {ex.Message}"
+                };
+            }
+        }
     }
 }
