@@ -303,6 +303,10 @@ namespace BusinessObjectLayer.Services
                         comparison.Status = ComparisonStatusEnum.Failed;
                         comparison.ErrorMessage = request.Reason ?? request.Error;
                         comparison.ProcessedAt = DateTime.UtcNow;
+                        if (!string.IsNullOrWhiteSpace(request.ComparisonName))
+                        {
+                            comparison.ComparisonName = request.ComparisonName;
+                        }
 
                         await comparisonRepo.UpdateAsync(comparison);
                         await _uow.CommitTransactionAsync();
@@ -343,6 +347,10 @@ namespace BusinessObjectLayer.Services
                     comparison.ResultJson = JsonUtils.SerializeRawJsonSafe(request.ResultJson);
                     comparison.Status = ComparisonStatusEnum.Completed;
                     comparison.ProcessedAt = DateTime.UtcNow;
+                    if (!string.IsNullOrWhiteSpace(request.ComparisonName))
+                    {
+                        comparison.ComparisonName = request.ComparisonName;
+                    }
                     await comparisonRepo.UpdateAsync(comparison);
                     await _uow.CommitTransactionAsync();
 
@@ -441,17 +449,18 @@ namespace BusinessObjectLayer.Services
                     }
                 }
 
-                var response = new
+                var response = new ComparisonDetailResponse
                 {
-                    comparisonId = comparison.ComparisonId,
-                    jobId = comparison.JobId,
-                    campaignId = comparison.CampaignId,
-                    status = comparison.Status.ToString(),
-                    queueJobId = comparison.QueueJobId,
-                    resultJson = resultData,
-                    errorMessage = comparison.ErrorMessage,
-                    processedAt = comparison.ProcessedAt,
-                    createdAt = comparison.CreatedAt
+                    ComparisonId = comparison.ComparisonId,
+                    JobId = comparison.JobId,
+                    CampaignId = comparison.CampaignId,
+                    ComparisonName = comparison.ComparisonName,
+                    Status = comparison.Status.ToString(),
+                    ResultData = resultData,
+                    ErrorMessage = comparison.ErrorMessage,
+                    ProcessedAt = comparison.ProcessedAt,
+                    CreatedAt = comparison.CreatedAt,
+                    HasResult = !string.IsNullOrEmpty(comparison.ResultJson)
                 };
 
                 return new ServiceResponse
@@ -519,16 +528,16 @@ namespace BusinessObjectLayer.Services
                 // Get all comparisons for this job and campaign
                 var comparisons = await comparisonRepo.GetByJobIdAndCampaignIdAsync(jobId, campaignId);
 
-                var response = comparisons.Select(c => new
+                var response = comparisons.Select(c => new ComparisonResponse
                 {
-                    comparisonId = c.ComparisonId,
-                    jobId = c.JobId,
-                    campaignId = c.CampaignId,
-                    status = c.Status.ToString(),
-                    queueJobId = c.QueueJobId,
-                    processedAt = c.ProcessedAt,
-                    createdAt = c.CreatedAt,
-                    hasResult = !string.IsNullOrEmpty(c.ResultJson)
+                    ComparisonId = c.ComparisonId,
+                    JobId = c.JobId,
+                    CampaignId = c.CampaignId,
+                    ComparisonName = c.ComparisonName,
+                    Status = c.Status.ToString(),
+                    ProcessedAt = c.ProcessedAt,
+                    CreatedAt = c.CreatedAt,
+                    HasResult = !string.IsNullOrEmpty(c.ResultJson)
                 }).ToList();
 
                 return new ServiceResponse

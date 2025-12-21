@@ -22,6 +22,9 @@ namespace Data.Models.Request
         [JsonPropertyName("companyId")]
         public int? CompanyId { get; set; }
 
+        [JsonPropertyName("comparisonName")]
+        public string? ComparisonName { get; set; }
+
         [JsonPropertyName("resultJson")]
         public object? ResultJson { get; set; } // Full comparison result from AI
 

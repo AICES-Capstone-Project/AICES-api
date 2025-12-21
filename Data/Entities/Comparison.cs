@@ -21,6 +21,7 @@ namespace Data.Entities
 
         [ForeignKey("Company")]
         public int CompanyId { get; set; }
+        public string? ComparisonName { get; set; }
 
         public string? QueueJobId { get; set; } // Redis queue job ID for tracking
 

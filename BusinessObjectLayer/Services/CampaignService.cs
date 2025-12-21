@@ -616,11 +616,6 @@ namespace BusinessObjectLayer.Services
                         campaign.EndDate = request.EndDate.Value;
                     }
 
-                    if (request.Status.HasValue)
-                    {
-                        campaign.Status = request.Status.Value;
-                    }
-
                     // Update job campaigns only if provided
                     if (request.Jobs != null)
                     {

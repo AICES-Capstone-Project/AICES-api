@@ -55,8 +55,6 @@ namespace Data.Models.Request
 
         public DateTime? EndDate { get; set; }
 
-        public CampaignStatusEnum? Status { get; set; }
-
         public List<JobWithTargetRequest>? Jobs { get; set; }
     }
 }
