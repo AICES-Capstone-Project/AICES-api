@@ -24,7 +24,7 @@ namespace DataAccessLayer.Repositories
         {
             var query = _context.Campaigns
                 .AsNoTracking()
-                .Where(c => c.IsActive && c.Company.CompanyStatus == CompanyStatusEnum.Approved && c.Status == CampaignStatusEnum.Published)
+                .Where(c => c.IsActive && c.Company.CompanyStatus == CompanyStatusEnum.Approved)
                 .AsQueryable();
 
             // Search filter
@@ -86,7 +86,7 @@ namespace DataAccessLayer.Repositories
         {
             var query = _context.Campaigns
                 .AsNoTracking()
-                .Where(c => c.IsActive && c.Company.CompanyStatus == CompanyStatusEnum.Approved && c.Status == CampaignStatusEnum.Published)
+                .Where(c => c.IsActive && c.Company.CompanyStatus == CompanyStatusEnum.Approved)
                 .AsQueryable();
 
             // Search filter

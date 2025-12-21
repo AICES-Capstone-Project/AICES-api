@@ -37,6 +37,8 @@ namespace BusinessObjectLayer.Services
                 Duration = s.Duration,
                 ResumeLimit = s.ResumeLimit,
                 HoursLimit = s.HoursLimit,
+                CompareLimit = s.CompareLimit,
+                CompareHoursLimit = s.CompareHoursLimit,
                 CreatedAt = s.CreatedAt
             }).ToList();
 
@@ -79,6 +81,8 @@ namespace BusinessObjectLayer.Services
                 Duration = subscription.Duration,
                 ResumeLimit = subscription.ResumeLimit,
                 HoursLimit = subscription.HoursLimit,
+                CompareLimit = subscription.CompareLimit,
+                CompareHoursLimit = subscription.CompareHoursLimit,
                 CreatedAt = subscription.CreatedAt
             };
 
@@ -115,6 +119,8 @@ namespace BusinessObjectLayer.Services
                     Duration = request.Duration,
                     ResumeLimit = request.ResumeLimit,
                     HoursLimit = request.HoursLimit,
+                    CompareLimit = request.CompareLimit,
+                    CompareHoursLimit = request.CompareHoursLimit,
                     StripePriceId = request.StripePriceId,
                 };
 
@@ -154,6 +160,8 @@ namespace BusinessObjectLayer.Services
             subscription.Duration = request.Duration;
             subscription.ResumeLimit = request.ResumeLimit;
             subscription.HoursLimit = request.HoursLimit;
+            subscription.CompareLimit = request.CompareLimit;
+            subscription.CompareHoursLimit = request.CompareHoursLimit;
             subscription.StripePriceId = request.StripePriceId;
             
             await _uow.BeginTransactionAsync();

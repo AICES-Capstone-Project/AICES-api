@@ -1374,6 +1374,8 @@ namespace BusinessObjectLayer.Services
                     Duration = freeSubscription.Duration,
                     ResumeLimit = freeSubscription.ResumeLimit,
                     HoursLimit = freeSubscription.HoursLimit,
+                    CompareLimit = freeSubscription.CompareLimit,
+                    CompareHoursLimit = freeSubscription.CompareHoursLimit,
                     StartDate = null,
                     EndDate = null,
                     SubscriptionStatus = SubscriptionStatusEnum.Active
@@ -1389,6 +1391,8 @@ namespace BusinessObjectLayer.Services
                     Duration = companySubscription.Subscription?.Duration,
                     ResumeLimit = companySubscription.Subscription?.ResumeLimit ?? 0,
                     HoursLimit = companySubscription.Subscription?.HoursLimit ?? 0,
+                    CompareLimit = companySubscription.Subscription?.CompareLimit,
+                    CompareHoursLimit = companySubscription.Subscription?.CompareHoursLimit,
                     StartDate = companySubscription.StartDate,
                     EndDate = companySubscription.EndDate,
                     SubscriptionStatus = companySubscription.SubscriptionStatus

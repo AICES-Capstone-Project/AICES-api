@@ -16,6 +16,8 @@ namespace Data.Models.Request
         public DurationEnum Duration { get; set; }
         public int ResumeLimit { get; set; }
         public int HoursLimit { get; set; }
+        public int? CompareLimit { get; set; }
+        public int? CompareHoursLimit { get; set; }
         public string? StripePriceId { get; set; }
     }
 }

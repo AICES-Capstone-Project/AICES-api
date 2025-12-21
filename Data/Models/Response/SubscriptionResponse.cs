@@ -16,6 +16,8 @@ namespace Data.Models.Response
         public DurationEnum Duration { get; set; }
         public int ResumeLimit { get; set; }
         public int HoursLimit { get; set; }
+        public int? CompareLimit { get; set; }
+        public int? CompareHoursLimit { get; set; }
         public DateTime? CreatedAt { get; set; }
     }
 }
