@@ -34,6 +34,12 @@ namespace Data.Entities
 
         public CampaignStatusEnum Status { get; set; }
 
+        [NotMapped]
+        public int TotalHired { get; set; }
+
+        [NotMapped]
+        public int TotalTarget { get; set; }
+
         // Navigation
         public Company Company { get; set; } = null!;
         public User? Creator { get; set; }

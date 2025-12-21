@@ -20,6 +20,7 @@ namespace DataAccessLayer.IRepositories
         Task AddAsync(Campaign campaign);
         void Update(Campaign campaign);
         Task<List<JobCampaign>> GetActiveJobsByCampaignIdAsync(int campaignId);
+        Task<(List<JobCampaign> Items, int TotalCount)> GetActiveJobsByCampaignIdAsync(int campaignId, int page, int pageSize, string? search = null);
         Task<List<Campaign>> GetPendingByCompanyIdAsync(int companyId, int page = 1, int pageSize = 10, string? search = null);
         Task<int> GetTotalPendingByCompanyIdAsync(int companyId, string? search = null);
         Task<Campaign?> GetPendingByIdAndCompanyIdAsync(int campaignId, int companyId);
@@ -33,4 +34,3 @@ namespace DataAccessLayer.IRepositories
         Task<bool> ExistsByTitleAndCompanyIdAsync(string title, int companyId, int? excludeCampaignId = null);
     }
 }
-

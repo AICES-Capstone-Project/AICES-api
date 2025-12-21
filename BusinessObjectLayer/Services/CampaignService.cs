@@ -95,7 +95,9 @@ namespace BusinessObjectLayer.Services
                     EndDate = c.EndDate,
                     Status = c.Status,
                     CreatedAt = c.CreatedAt,
-                    TotalJobs = c.JobCampaigns?.Count ?? 0
+                    TotalJobs = c.JobCampaigns?.Count ?? 0,
+                    CurrentHired = c.TotalHired.ToString(),
+                    TargetQuantity = c.TotalTarget.ToString()
                 }).ToList();
 
                 return new ServiceResponse
@@ -191,6 +193,8 @@ namespace BusinessObjectLayer.Services
                         EndDate = campaign.EndDate,
                         Status = campaign.Status,
                         CreatedAt = campaign.CreatedAt,
+                        CurrentHired = campaign.TotalHired.ToString(),
+                        TargetQuantity = campaign.TotalTarget.ToString(),
                         Jobs = campaign.JobCampaigns?.Select(jc => new JobCampaignInfoResponse
                         {
                             JobId = jc.JobId,
@@ -253,7 +257,9 @@ namespace BusinessObjectLayer.Services
                     EndDate = c.EndDate,
                     Status = c.Status,
                     CreatedAt = c.CreatedAt,
-                    TotalJobs = c.JobCampaigns?.Count ?? 0
+                    TotalJobs = c.JobCampaigns?.Count ?? 0,
+                    CurrentHired = c.TotalHired.ToString(),
+                    TargetQuantity = c.TotalTarget.ToString()
                 }).ToList();
 
                 return new ServiceResponse
@@ -306,9 +312,8 @@ namespace BusinessObjectLayer.Services
 
                 var campaignRepo = _uow.GetRepository<ICampaignRepository>();
                 await MarkExpiredCampaignsAsync(campaignRepo, companyUser.CompanyId.Value);
-                var allCampaigns = (await campaignRepo.GetByCompanyIdAsync(companyUser.CompanyId.Value)).ToList();
-
-                var campaign = allCampaigns.FirstOrDefault(c => c.CampaignId == id);
+                
+                var campaign = await campaignRepo.GetByIdAsync(id);
                 if (campaign == null)
                 {
                     return new ServiceResponse
@@ -318,7 +323,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                // Verify campaign belongs to user's company (should always be true, defensive)
+                // Verify campaign belongs to user's company
                 if (campaign.CompanyId != companyUser.CompanyId.Value)
                 {
                     return new ServiceResponse
@@ -344,6 +349,8 @@ namespace BusinessObjectLayer.Services
                         EndDate = campaign.EndDate,
                         Status = campaign.Status,
                         CreatedAt = campaign.CreatedAt,
+                        CurrentHired = campaign.TotalHired.ToString(),
+                        TargetQuantity = campaign.TotalTarget.ToString(),
                         Jobs = campaign.JobCampaigns?.Select(jc => new JobCampaignInfoResponse
                         {
                             JobId = jc.JobId,
@@ -365,7 +372,7 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> GetCampaignJobsAsync(int campaignId)
+        public async Task<ServiceResponse> GetCampaignJobsAsync(int campaignId, int page = 1, int pageSize = 10, string? search = null)
         {
             try
             {
@@ -418,9 +425,9 @@ namespace BusinessObjectLayer.Services
                 }
 
                 var jobCampaignRepo = _uow.GetRepository<ICampaignRepository>();
-                var jobCampaigns = await jobCampaignRepo.GetActiveJobsByCampaignIdAsync(campaignId);
+                var (jobCampaigns, totalCount) = await jobCampaignRepo.GetActiveJobsByCampaignIdAsync(campaignId, page, pageSize, search);
 
-                var jobs = jobCampaigns.Select(jc => new JobCampaignInfoResponse
+                var paginatedJobs = jobCampaigns.Select(jc => new JobCampaignInfoResponse
                 {
                     JobId = jc.JobId,
                     JobTitle = jc.Job?.Title,
@@ -432,7 +439,14 @@ namespace BusinessObjectLayer.Services
                 {
                     Status = SRStatus.Success,
                     Message = "Campaign jobs retrieved successfully.",
-                    Data = jobs
+                    Data = new PaginatedJobCampaignResponse
+                    {
+                        Jobs = paginatedJobs,
+                        TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize),
+                        CurrentPage = page,
+                        PageSize = pageSize,
+                        TotalCount = totalCount
+                    }
                 };
             }
             catch (Exception ex)

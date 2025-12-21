@@ -72,6 +72,10 @@ namespace DataAccessLayer.Repositories
                     campaign.JobCampaigns = campaign.JobCampaigns
                         .Where(jc => jc.Job != null && jc.Job.IsActive)
                         .ToList();
+
+                    // Calculate totals
+                    campaign.TotalHired = campaign.JobCampaigns.Sum(jc => jc.CurrentHired);
+                    campaign.TotalTarget = campaign.JobCampaigns.Sum(jc => jc.TargetQuantity);
                 }
             }
             
@@ -130,6 +134,10 @@ namespace DataAccessLayer.Repositories
                 campaign.JobCampaigns = campaign.JobCampaigns
                     .Where(jc => jc.Job != null && jc.Job.IsActive)
                     .ToList();
+
+                // Calculate totals
+                campaign.TotalHired = campaign.JobCampaigns.Sum(jc => jc.CurrentHired);
+                campaign.TotalTarget = campaign.JobCampaigns.Sum(jc => jc.TargetQuantity);
             }
             
             return campaign;
@@ -173,6 +181,10 @@ namespace DataAccessLayer.Repositories
                     campaign.JobCampaigns = campaign.JobCampaigns
                         .Where(jc => jc.Job != null && jc.Job.IsActive)
                         .ToList();
+
+                    // Calculate totals
+                    campaign.TotalHired = campaign.JobCampaigns.Sum(jc => jc.CurrentHired);
+                    campaign.TotalTarget = campaign.JobCampaigns.Sum(jc => jc.TargetQuantity);
                 }
             }
             
@@ -230,6 +242,10 @@ namespace DataAccessLayer.Repositories
                     campaign.JobCampaigns = campaign.JobCampaigns
                         .Where(jc => jc.Job != null && jc.Job.IsActive)
                         .ToList();
+
+                    // Calculate totals
+                    campaign.TotalHired = campaign.JobCampaigns.Sum(jc => jc.CurrentHired);
+                    campaign.TotalTarget = campaign.JobCampaigns.Sum(jc => jc.TargetQuantity);
                 }
             }
             
@@ -329,6 +345,30 @@ namespace DataAccessLayer.Repositories
                 .ToListAsync();
         }
 
+        public async Task<(List<JobCampaign> Items, int TotalCount)> GetActiveJobsByCampaignIdAsync(int campaignId, int page, int pageSize, string? search = null)
+        {
+            var query = _context.JobCampaigns
+                .AsNoTracking()
+                .Where(jc => jc.CampaignId == campaignId && jc.Job != null && jc.Job.IsActive && jc.Job.Company.CompanyStatus == CompanyStatusEnum.Approved && jc.Job.JobStatus == JobStatusEnum.Published)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(jc => jc.Job.Title.Contains(search));
+            }
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .Include(jc => jc.Job)
+                .Include(jc => jc.Job.Company)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, totalCount);
+        }
+
         public async Task AddAsync(Campaign campaign)
         {
             await _context.Campaigns.AddAsync(campaign);
@@ -385,6 +425,10 @@ namespace DataAccessLayer.Repositories
                     campaign.JobCampaigns = campaign.JobCampaigns
                         .Where(jc => jc.Job != null && jc.Job.IsActive)
                         .ToList();
+
+                    // Calculate totals
+                    campaign.TotalHired = campaign.JobCampaigns.Sum(jc => jc.CurrentHired);
+                    campaign.TotalTarget = campaign.JobCampaigns.Sum(jc => jc.TargetQuantity);
                 }
             }
             
@@ -423,6 +467,10 @@ namespace DataAccessLayer.Repositories
                 campaign.JobCampaigns = campaign.JobCampaigns
                     .Where(jc => jc.Job != null && jc.Job.IsActive)
                     .ToList();
+
+                // Calculate totals
+                campaign.TotalHired = campaign.JobCampaigns.Sum(jc => jc.CurrentHired);
+                campaign.TotalTarget = campaign.JobCampaigns.Sum(jc => jc.TargetQuantity);
             }
             
             return campaign;
