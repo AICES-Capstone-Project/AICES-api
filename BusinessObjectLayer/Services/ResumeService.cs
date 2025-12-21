@@ -206,6 +206,23 @@ namespace BusinessObjectLayer.Services
                 ResumeApplication? existingApplication = null;
                 bool shouldCloneResult = false;
                 bool reuseExistingResume = false;
+                
+                // Define statuses that result in immediate failure clone (no quota)
+                var fatalStatuses = new[] { 
+                    ResumeStatusEnum.InvalidJobData, 
+                    ResumeStatusEnum.InvalidResumeData, 
+                    ResumeStatusEnum.JobTitleNotMatched, 
+                    ResumeStatusEnum.CorruptedFile, 
+                    ResumeStatusEnum.DuplicateResume 
+                };
+
+                // Define statuses that trigger a retry (new upload, consume quota)
+                var retryableStatuses = new[] {
+                    ResumeStatusEnum.Failed,
+                    ResumeStatusEnum.Timeout,
+                    ResumeStatusEnum.ServerError,
+                    ResumeStatusEnum.Canceled
+                };
 
                 if (existingResume != null)
                 {
@@ -222,9 +239,20 @@ namespace BusinessObjectLayer.Services
                         // Resume exists and completed → Can reuse for different job (quota consumed)
                         reuseExistingResume = true;
                     }
+                    else if (fatalStatuses.Contains(existingResume.Status))
+                    {
+                        // Fatal error -> Clone failure result (NO quota consumed)
+                        shouldCloneResult = true;
+                    }
+                    else if (retryableStatuses.Contains(existingResume.Status))
+                    {
+                        // Retryable error -> Treat as new upload (quota consumed)
+                        // We do NOT set reuseExistingResume or shouldCloneResult
+                        // This will fall through to the 'else' block in transaction (Create New Resume)
+                    }
                     else
                     {
-                        // Resume exists but not completed or no data → reject
+                        // Resume exists but pending or no data → reject
                         return new ServiceResponse
                         {
                             Status = SRStatus.Validation,
@@ -273,52 +301,72 @@ namespace BusinessObjectLayer.Services
                         }
 
                         // ✅ STEP 2: Create Resume and Application in DB
-                        if (shouldCloneResult && existingApplication != null && existingResume != null)
+                        if (shouldCloneResult && existingResume != null)
                         {
-                            // Clone flow: Copy existing result
+                            // Clone flow: Copy existing result OR Failure
                             var clonedApplication = new ResumeApplication
                             {
                                 ResumeId = existingResume.ResumeId,
                                 JobId = jobId,
                                 CampaignId = campaignId,
                                 QueueJobId = queueJobId,
-                                Status = ApplicationStatusEnum.Reviewed,
-                                CandidateId = existingApplication.CandidateId,
-                                TotalScore = existingApplication.TotalScore,
-                                AdjustedScore = existingApplication.AdjustedScore,
-                                AIExplanation = existingApplication.AIExplanation,
-                                MatchSkills = existingApplication.MatchSkills,
-                                MissingSkills = existingApplication.MissingSkills,
-                                RequiredSkills = existingApplication.RequiredSkills,
-                                ProcessingMode = ProcessingModeEnum.Clone,
-                                ClonedFromApplicationId = existingApplication.ApplicationId,
                                 ProcessedAt = DateTime.UtcNow,
-                                ProcessingTimeMs = 0
+                                ProcessingTimeMs = 0,
+                                ProcessingMode = ProcessingModeEnum.Clone
                             };
 
-                            await _resumeApplicationRepo.CreateAsync(clonedApplication);
-                            await _uow.SaveChangesAsync();
-                            
-                            // Update reuse statistics
-                            existingResume.ReuseCount++;
-                            existingResume.LastReusedAt = DateTime.UtcNow;
-                            await resumeRepo.UpdateAsync(existingResume);
-                            await _uow.SaveChangesAsync();
-
-                            // Clone ScoreDetails
-                            var scoreDetailRepo = _uow.GetRepository<IScoreDetailRepository>();
-                            var clonedScoreDetails = existingApplication.ScoreDetails?.Select(sd => new ScoreDetail
+                            if (existingApplication != null && existingApplication.Status == ApplicationStatusEnum.Reviewed)
                             {
-                                ApplicationId = clonedApplication.ApplicationId,
-                                CriteriaId = sd.CriteriaId,
-                                Matched = sd.Matched,
-                                Score = sd.Score,
-                                AINote = sd.AINote
-                            }).ToList() ?? new List<ScoreDetail>();
+                                // Clone Success
+                                clonedApplication.Status = ApplicationStatusEnum.Reviewed;
+                                clonedApplication.CandidateId = existingApplication.CandidateId;
+                                clonedApplication.TotalScore = existingApplication.TotalScore;
+                                clonedApplication.AdjustedScore = existingApplication.AdjustedScore;
+                                clonedApplication.AIExplanation = existingApplication.AIExplanation;
+                                clonedApplication.MatchSkills = existingApplication.MatchSkills;
+                                clonedApplication.MissingSkills = existingApplication.MissingSkills;
+                                clonedApplication.RequiredSkills = existingApplication.RequiredSkills;
+                                clonedApplication.ClonedFromApplicationId = existingApplication.ApplicationId;
 
-                            if (clonedScoreDetails.Any())
+                                await _resumeApplicationRepo.CreateAsync(clonedApplication);
+                                await _uow.SaveChangesAsync();
+                                
+                                // Update reuse statistics
+                                existingResume.ReuseCount++;
+                                existingResume.LastReusedAt = DateTime.UtcNow;
+                                await resumeRepo.UpdateAsync(existingResume);
+                                await _uow.SaveChangesAsync();
+
+                                // Clone ScoreDetails
+                                var scoreDetailRepo = _uow.GetRepository<IScoreDetailRepository>();
+                                var clonedScoreDetails = existingApplication.ScoreDetails?.Select(sd => new ScoreDetail
+                                {
+                                    ApplicationId = clonedApplication.ApplicationId,
+                                    CriteriaId = sd.CriteriaId,
+                                    Matched = sd.Matched,
+                                    Score = sd.Score,
+                                    AINote = sd.AINote
+                                }).ToList() ?? new List<ScoreDetail>();
+
+                                if (clonedScoreDetails.Any())
+                                {
+                                    await scoreDetailRepo.CreateRangeAsync(clonedScoreDetails);
+                                    await _uow.SaveChangesAsync();
+                                }
+                            }
+                            else
                             {
-                                await scoreDetailRepo.CreateRangeAsync(clonedScoreDetails);
+                                // Clone Failure
+                                clonedApplication.Status = ApplicationStatusEnum.Failed;
+                                clonedApplication.ErrorMessage = existingApplication?.ErrorMessage ?? $"Auto-rejected: {existingResume.Status}";
+                                
+                                await _resumeApplicationRepo.CreateAsync(clonedApplication);
+                                await _uow.SaveChangesAsync();
+                                
+                                // Update reuse stats for failure too
+                                existingResume.ReuseCount++;
+                                existingResume.LastReusedAt = DateTime.UtcNow;
+                                await resumeRepo.UpdateAsync(existingResume);
                                 await _uow.SaveChangesAsync();
                             }
 
@@ -352,7 +400,7 @@ namespace BusinessObjectLayer.Services
                         }
                         else
                         {
-                            // New flow: Create new resume (Pending status, FileUrl = null)
+                            // New flow OR Retry flow: Create new resume (Pending status, FileUrl = null)
                             var resume = new Resume
                             {
                                 CompanyId = companyUser.CompanyId.Value,
