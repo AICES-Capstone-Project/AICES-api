@@ -7,5 +7,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> ExportJobCandidatesToExcelAsync(int campaignId, int jobId);
         Task<ServiceResponse> ExportJobCandidatesToPdfAsync(int campaignId, int jobId);
         Task<ServiceResponse> GetExecutiveSummaryAsync();
+        Task<ServiceResponse> GetCompaniesOverviewAsync();
+        Task<ServiceResponse> GetCompaniesUsageAsync();
     }
 }

@@ -950,18 +950,18 @@ namespace BusinessObjectLayer.Services
                            t.Payment.PaymentStatus == PaymentStatusEnum.Paid)
                     .SumAsync(t => (decimal?)t.Amount) ?? 0;
 
-                // 6. Company Retention Rate (companies with more than 1 subscription or renewed)
+                // 6. Company Retention Rate (companies that have renewed - have more than 1 subscription in history)
+                // Đếm tất cả subscriptions (kể cả expired) để biết công ty có gia hạn hay không
                 var companiesWithSubscriptions = await _context.CompanySubscriptions
                     .AsNoTracking()
-                    .Where(cs => cs.IsActive)
-                    .GroupBy(cs => cs.CompanyId)
+                    .Select(cs => cs.CompanyId)
+                    .Distinct()
                     .CountAsync();
 
                 var companiesWithMultipleSubscriptions = await _context.CompanySubscriptions
                     .AsNoTracking()
-                    .Where(cs => cs.IsActive)
                     .GroupBy(cs => cs.CompanyId)
-                    .Where(g => g.Count() > 1)
+                    .Where(g => g.Count() > 1) // Công ty có > 1 subscription record = đã gia hạn
                     .CountAsync();
 
                 decimal retentionRate = companiesWithSubscriptions > 0 
@@ -991,6 +991,209 @@ namespace BusinessObjectLayer.Services
                 {
                     Status = SRStatus.Error,
                     Message = $"Failed to retrieve executive summary: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> GetCompaniesOverviewAsync()
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                var firstDayOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+                // 1. Total Companies
+                var totalCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive)
+                    .CountAsync();
+
+                // 2. Active Companies (status = Approved)
+                var activeCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
+                    .CountAsync();
+
+                // 3. Inactive Companies (IsActive = true but not Approved)
+                var inactiveCompanies = totalCompanies - activeCompanies;
+
+                // 4. New Companies This Month
+                var newCompaniesThisMonth = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && c.CreatedAt >= firstDayOfMonth)
+                    .CountAsync();
+
+                // 5. Companies with Active Subscription
+                var companiesWithActiveSubscription = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && 
+                           c.CompanySubscriptions.Any(cs => cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active))
+                    .CountAsync();
+
+                // 6. Companies with Expired Subscription (có subscription nhưng không có active)
+                var companiesWithExpiredSubscription = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && 
+                           c.CompanySubscriptions.Any(cs => cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Expired) &&
+                           !c.CompanySubscriptions.Any(cs => cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active))
+                    .CountAsync();
+
+                // 7. Companies without any Subscription
+                var companiesWithoutSubscription = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && 
+                           !c.CompanySubscriptions.Any(cs => cs.IsActive))
+                    .CountAsync();
+
+                // 8. Verification Status Breakdown
+                var verifiedCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
+                    .CountAsync();
+
+                var pendingCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Pending)
+                    .CountAsync();
+
+                var rejectedCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Rejected)
+                    .CountAsync();
+
+                var overview = new CompanyOverviewResponse
+                {
+                    TotalCompanies = totalCompanies,
+                    ActiveCompanies = activeCompanies,
+                    InactiveCompanies = inactiveCompanies,
+                    NewCompaniesThisMonth = newCompaniesThisMonth,
+                    SubscriptionBreakdown = new CompanyBySubscriptionStatus
+                    {
+                        WithActiveSubscription = companiesWithActiveSubscription,
+                        WithExpiredSubscription = companiesWithExpiredSubscription,
+                        WithoutSubscription = companiesWithoutSubscription
+                    },
+                    VerificationBreakdown = new CompanyByVerificationStatus
+                    {
+                        Verified = verifiedCompanies,
+                        Pending = pendingCompanies,
+                        Rejected = rejectedCompanies
+                    }
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Company overview retrieved successfully.",
+                    Data = overview
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Failed to retrieve company overview: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> GetCompaniesUsageAsync()
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                var sevenDaysAgo = now.AddDays(-7);
+                var thirtyDaysAgo = now.AddDays(-30);
+
+                // Total active companies (approved)
+                var totalCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
+                    .CountAsync();
+
+                // 1. Active Companies: Có ít nhất 1 job hoặc 1 resume
+                var activeCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && 
+                           c.CompanyStatus == CompanyStatusEnum.Approved &&
+                           (c.Jobs.Any(j => j.IsActive) || c.Resumes.Any(r => r.IsActive)))
+                    .CountAsync();
+
+                // 2. Registered Only: Đăng ký nhưng chưa tạo job hoặc resume nào
+                var registeredOnly = totalCompanies - activeCompanies;
+
+                // 3. Frequent Companies: Có hoạt động trong 7 ngày gần đây
+                // (tạo job mới, upload resume, hoặc có resume application mới)
+                var frequentCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && 
+                           c.CompanyStatus == CompanyStatusEnum.Approved &&
+                           (c.Jobs.Any(j => j.IsActive && j.CreatedAt >= sevenDaysAgo) ||
+                            c.Resumes.Any(r => r.IsActive && r.CreatedAt >= sevenDaysAgo) ||
+                            c.Jobs.Any(j => j.IsActive && j.ResumeApplications.Any(ra => ra.IsActive && ra.CreatedAt >= sevenDaysAgo))))
+                    .CountAsync();
+
+                // KPIs
+                // 4. Active Rate: % công ty active / tổng công ty
+                decimal activeRate = totalCompanies > 0 
+                    ? Math.Round((decimal)activeCompanies / totalCompanies, 2)
+                    : 0;
+
+                // 5. AI Usage Rate: % công ty có dùng AI screening (có resume được score)
+                var companiesUsingAI = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && 
+                           c.CompanyStatus == CompanyStatusEnum.Approved &&
+                           c.Resumes.Any(r => r.IsActive && 
+                                        r.ResumeApplications.Any(ra => ra.IsActive && 
+                                                                (ra.TotalScore != null || ra.AdjustedScore != null))))
+                    .CountAsync();
+
+                decimal aiUsageRate = totalCompanies > 0 
+                    ? Math.Round((decimal)companiesUsingAI / totalCompanies, 2)
+                    : 0;
+
+                // 6. Returning Rate: % công ty có hoạt động trong 30 ngày gần đây
+                var returningCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && 
+                           c.CompanyStatus == CompanyStatusEnum.Approved &&
+                           (c.Jobs.Any(j => j.IsActive && j.CreatedAt >= thirtyDaysAgo) ||
+                            c.Resumes.Any(r => r.IsActive && r.CreatedAt >= thirtyDaysAgo) ||
+                            c.Jobs.Any(j => j.IsActive && j.ResumeApplications.Any(ra => ra.IsActive && ra.CreatedAt >= thirtyDaysAgo))))
+                    .CountAsync();
+
+                decimal returningRate = totalCompanies > 0 
+                    ? Math.Round((decimal)returningCompanies / totalCompanies, 2)
+                    : 0;
+
+                var usage = new CompanyUsageResponse
+                {
+                    RegisteredOnly = registeredOnly,
+                    ActiveCompanies = activeCompanies,
+                    FrequentCompanies = frequentCompanies,
+                    Kpis = new CompanyUsageKpis
+                    {
+                        ActiveRate = activeRate,
+                        AiUsageRate = aiUsageRate,
+                        ReturningRate = returningRate
+                    }
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Company usage retrieved successfully.",
+                    Data = usage
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Failed to retrieve company usage: {ex.Message}"
                 };
             }
         }
