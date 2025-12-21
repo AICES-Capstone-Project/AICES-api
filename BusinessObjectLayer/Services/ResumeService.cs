@@ -138,6 +138,16 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Only allow uploading resumes to Published campaigns
+                if (campaign.Status != CampaignStatusEnum.Published)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Resumes can only be uploaded to Published campaigns."
+                    };
+                }
+
                 // Validate that job belongs to the campaign
                 var jobCampaign = await campaignRepo.GetJobCampaignByJobIdAndCampaignIdAsync(jobId, campaignId);
 

@@ -2,6 +2,7 @@ using Data.Entities;
 using Data.Enum;
 using DataAccessLayer.IRepositories;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -273,6 +274,7 @@ namespace DataAccessLayer.Repositories
         public async Task<int> MarkExpiredCampaignsAsync(DateTime currentDate, int? companyId = null)
         {
             var query = _context.Campaigns
+                .Include(c => c.JobCampaigns)
                 .Where(c => c.IsActive
                             && c.Status == CampaignStatusEnum.Published
                             && c.EndDate.Date <= currentDate.Date);
@@ -282,19 +284,39 @@ namespace DataAccessLayer.Repositories
                 query = query.Where(c => c.CompanyId == companyId.Value);
             }
 
-            var expiredCampaigns = await query.ToListAsync();
+            var campaignsToCheck = await query.ToListAsync();
 
-            if (!expiredCampaigns.Any())
+            if (campaignsToCheck.Count == 0)
             {
                 return 0;
             }
 
-            foreach (var campaign in expiredCampaigns)
+            int updatedCount = 0;
+            foreach (var campaign in campaignsToCheck)
             {
-                campaign.Status = CampaignStatusEnum.Expired;
+                // Check if all JobCampaigns have CurrentHired >= TargetQuantity
+                bool allJobsCompleted = campaign.JobCampaigns != null && campaign.JobCampaigns.Count > 0 &&
+                    campaign.JobCampaigns.All(jc => jc.CurrentHired >= jc.TargetQuantity);
+
+                if (allJobsCompleted)
+                {
+                    campaign.Status = CampaignStatusEnum.Completed;
+                    updatedCount++;
+                }
+                else
+                {
+                    // Expired: hết thời gian nhưng chưa đạt TargetQuantity
+                    campaign.Status = CampaignStatusEnum.Expired;
+                    updatedCount++;
+                }
             }
 
-            return await _context.SaveChangesAsync();
+            if (updatedCount > 0)
+            {
+                await _context.SaveChangesAsync();
+            }
+
+            return updatedCount;
         }
 
         public async Task<List<JobCampaign>> GetActiveJobsByCampaignIdAsync(int campaignId)
@@ -423,9 +445,12 @@ namespace DataAccessLayer.Repositories
                 else
                 {
                     // Filter out inactive jobs
-                    campaign.JobCampaigns = campaign.JobCampaigns
-                        .Where(jc => jc.Job != null && jc.Job.IsActive)
-                        .ToList();
+                    campaign.JobCampaigns = [.. campaign.JobCampaigns.Where(jc => jc.Job != null && jc.Job.IsActive)];
+
+                    //simplified version
+                    // campaign.JobCampaigns = campaign.JobCampaigns
+                    //     .Where(jc => jc.Job != null && jc.Job.IsActive)
+                    //     .ToList();
                 }
             }
             
@@ -438,6 +463,28 @@ namespace DataAccessLayer.Repositories
                 .AsNoTracking()
                 .Where(jc => jc.JobId == jobId && jc.CampaignId == campaignId)
                 .FirstOrDefaultAsync();
+        }
+
+        public async Task UpdateJobCampaignCurrentHiredAsync(int jobId, int campaignId)
+        {
+            // Count ResumeApplications with Status = Hired for this job and campaign
+            var hiredCount = await _context.ResumeApplications
+                .Where(ra => ra.JobId == jobId 
+                    && ra.CampaignId == campaignId 
+                    && ra.Status == ApplicationStatusEnum.Hired
+                    && ra.IsActive)
+                .CountAsync();
+
+            // Update JobCampaign CurrentHired
+            var jobCampaign = await _context.JobCampaigns
+                .Where(jc => jc.JobId == jobId && jc.CampaignId == campaignId)
+                .FirstOrDefaultAsync();
+
+            if (jobCampaign != null)
+            {
+                jobCampaign.CurrentHired = hiredCount;
+                _context.JobCampaigns.Update(jobCampaign);
+            }
         }
 
         public async Task<bool> ExistsByTitleAndCompanyIdAsync(string title, int companyId, int? excludeCampaignId = null)

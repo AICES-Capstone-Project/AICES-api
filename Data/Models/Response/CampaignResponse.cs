@@ -10,6 +10,17 @@ namespace Data.Models.Response
     public class CampaignResponse
     {
         public int CampaignId { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public CampaignStatusEnum Status { get; set; }
+        public DateTime? CreatedAt { get; set; }
+        public int TotalJobs { get; set; }
+    }
+
+    public class CampaignDetailResponse
+    {
+        public int CampaignId { get; set; }
         public int CompanyId { get; set; }
         public string CompanyName { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;

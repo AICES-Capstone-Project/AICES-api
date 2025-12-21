@@ -90,25 +90,6 @@ namespace API.Controllers
             return ControllerResponse.Response(response);
         }
 
-        [HttpGet("pending")]
-        [Authorize(Roles = "HR_Manager")]
-        public async Task<IActionResult> GetPending(
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10,
-            [FromQuery] string? search = null)
-        {
-            var response = await _campaignService.GetPendingCampaignsAsync(page, pageSize, search);
-            return ControllerResponse.Response(response);
-        }
-
-        [HttpGet("{id}/pending")]
-        [Authorize(Roles = "HR_Manager")]
-        public async Task<IActionResult> GetPendingById(int id)
-        {
-            var response = await _campaignService.GetPendingCampaignByIdAsync(id);
-            return ControllerResponse.Response(response);
-        }
-
         [HttpPatch("{id}/status")]
         [Authorize(Roles = "HR_Manager")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateCampaignStatusRequest request)
@@ -117,12 +98,27 @@ namespace API.Controllers
             return ControllerResponse.Response(response);
         }
 
-        // [HttpGet("me")]
-        // public async Task<IActionResult> GetMyCampaigns()
-        // {
-        //     var response = await _campaignService.GetMyCampaignsAsync();
-        //     return ControllerResponse.Response(response);
-        // }
+        [HttpGet("me")]
+        [Authorize(Roles = "HR_Manager,HR_Recruiter")]
+        public async Task<IActionResult> GetMyCampaigns(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? search = null,
+            [FromQuery] CampaignStatusEnum? status = null,
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null)
+        {
+            var response = await _campaignService.GetMyCampaignsAsync(page, pageSize, search, status, startDate, endDate);
+            return ControllerResponse.Response(response);
+        }
+
+        [HttpGet("me/{id}")]
+        [Authorize(Roles = "HR_Manager,HR_Recruiter")]
+        public async Task<IActionResult> GetMyCampaignById(int id)
+        {
+            var response = await _campaignService.GetMyCampaignsByIdAsync(id);
+            return ControllerResponse.Response(response);
+        }
     }
 }
 

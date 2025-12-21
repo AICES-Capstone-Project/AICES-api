@@ -9,7 +9,10 @@ namespace Data.Enum
     public enum CampaignStatusEnum
     {
         Pending,
+        Rejected,
         Published,
+        Paused,
+        Completed,
         Expired,
     }
 }

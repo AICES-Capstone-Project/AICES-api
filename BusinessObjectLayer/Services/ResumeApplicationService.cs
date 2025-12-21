@@ -255,6 +255,15 @@ namespace BusinessObjectLayer.Services
                 await resumeApplicationRepo.UpdateAsync(application);
                 await _uow.SaveChangesAsync();
 
+                // Update CurrentHired in JobCampaign if status changed to/from Hired and application has CampaignId
+                if (application.CampaignId.HasValue && 
+                    (currentStatus == ApplicationStatusEnum.Hired || newStatus == ApplicationStatusEnum.Hired))
+                {
+                    var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                    await campaignRepo.UpdateJobCampaignCurrentHiredAsync(application.JobId, application.CampaignId.Value);
+                    await _uow.SaveChangesAsync();
+                }
+
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,

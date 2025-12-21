@@ -25,6 +25,7 @@ namespace DataAccessLayer.IRepositories
         Task<Campaign?> GetPendingByIdAndCompanyIdAsync(int campaignId, int companyId);
         Task<Campaign?> GetForUpdateWithAllStatusesAsync(int id);
         Task<JobCampaign?> GetJobCampaignByJobIdAndCampaignIdAsync(int jobId, int campaignId);
+        Task UpdateJobCampaignCurrentHiredAsync(int jobId, int campaignId);
         
         // Legacy methods for backward compatibility
         Task UpdateAsync(Campaign campaign);
