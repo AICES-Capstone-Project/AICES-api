@@ -13,5 +13,6 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetJobsEffectivenessAsync();
         Task<ServiceResponse> GetAiParsingQualityAsync();
         Task<ServiceResponse> GetAiScoringDistributionAsync();
+        Task<ServiceResponse> GetSubscriptionRevenueAsync();
     }
 }

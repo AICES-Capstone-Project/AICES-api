@@ -85,6 +85,17 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
+        /// <summary>
+        /// Get subscription and revenue report
+        /// </summary>
+        [HttpGet("system/subscriptions")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetSubscriptionRevenue()
+        {
+            var serviceResponse = await _reportService.GetSubscriptionRevenueAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
         
         [HttpGet("campaigns/{campaignId}/job/{jobId}/excel")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]

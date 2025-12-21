@@ -1571,5 +1571,141 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetSubscriptionRevenueAsync()
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                var firstDayOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+                // 1. Total Active Companies
+                var totalActiveCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
+                    .CountAsync();
+
+                // 2. Paid Companies (có active subscription)
+                var paidCompanies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive && 
+                           c.CompanyStatus == CompanyStatusEnum.Approved &&
+                           c.CompanySubscriptions.Any(cs => cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active))
+                    .CountAsync();
+
+                // 3. Free Companies (không có active subscription)
+                var freeCompanies = totalActiveCompanies - paidCompanies;
+
+                // 4. Monthly Revenue (transactions trong tháng này với payment status = Paid)
+                var monthlyRevenue = await _context.Transactions
+                    .AsNoTracking()
+                    .Where(t => t.IsActive && 
+                           t.CreatedAt >= firstDayOfMonth &&
+                           t.Payment != null &&
+                           t.Payment.IsActive &&
+                           t.Payment.PaymentStatus == PaymentStatusEnum.Paid)
+                    .SumAsync(t => (decimal?)t.Amount) ?? 0;
+
+                // 5. Renewal Rate (công ty có > 1 subscription / tổng công ty có subscription)
+                var companiesWithSubscriptions = await _context.CompanySubscriptions
+                    .AsNoTracking()
+                    .Select(cs => cs.CompanyId)
+                    .Distinct()
+                    .CountAsync();
+
+                var companiesWithMultipleSubscriptions = await _context.CompanySubscriptions
+                    .AsNoTracking()
+                    .GroupBy(cs => cs.CompanyId)
+                    .Where(g => g.Count() > 1)
+                    .CountAsync();
+
+                decimal renewalRate = companiesWithSubscriptions > 0
+                    ? Math.Round((decimal)companiesWithMultipleSubscriptions / companiesWithSubscriptions, 2)
+                    : 0;
+
+                // 6. Popular Plan (subscription plan có nhiều company nhất)
+                var planStats = await (from cs in _context.CompanySubscriptions
+                                      join s in _context.Subscriptions on cs.SubscriptionId equals s.SubscriptionId
+                                      where cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active
+                                      group new { cs, s } by new { s.SubscriptionId, s.Name } into g
+                                      select new
+                                      {
+                                          SubscriptionId = g.Key.SubscriptionId,
+                                          PlanName = g.Key.Name,
+                                          CompanyCount = g.Select(x => x.cs.CompanyId).Distinct().Count(),
+                                          Revenue = g.Sum(x => (decimal?)0) ?? 0 // Revenue tính từ transactions
+                                      })
+                                      .OrderByDescending(x => x.CompanyCount)
+                                      .ToListAsync();
+
+                var popularPlan = planStats.FirstOrDefault()?.PlanName ?? "N/A";
+
+                // 7. Calculate revenue per plan
+                var planRevenueDict = await (from t in _context.Transactions
+                                            join p in _context.Payments on t.PaymentId equals p.PaymentId
+                                            join cs in _context.CompanySubscriptions on p.ComSubId equals cs.ComSubId
+                                            join s in _context.Subscriptions on cs.SubscriptionId equals s.SubscriptionId
+                                            where t.IsActive && p.IsActive && p.PaymentStatus == PaymentStatusEnum.Paid
+                                            group t by new { s.SubscriptionId, s.Name } into g
+                                            select new
+                                            {
+                                                SubscriptionId = g.Key.SubscriptionId,
+                                                PlanName = g.Key.Name,
+                                                Revenue = g.Sum(x => (decimal)x.Amount)
+                                            })
+                                            .ToDictionaryAsync(x => x.SubscriptionId, x => x.Revenue);
+
+                var planStatistics = planStats.Select(p => new PlanStatistic
+                {
+                    SubscriptionId = p.SubscriptionId,
+                    PlanName = p.PlanName,
+                    CompanyCount = p.CompanyCount,
+                    Revenue = planRevenueDict.TryGetValue(p.SubscriptionId, out var rev) ? rev : 0
+                }).ToList();
+
+                // 8. Total Revenue (all time)
+                var totalRevenue = await _context.Transactions
+                    .AsNoTracking()
+                    .Where(t => t.IsActive && 
+                           t.Payment != null &&
+                           t.Payment.IsActive &&
+                           t.Payment.PaymentStatus == PaymentStatusEnum.Paid)
+                    .SumAsync(t => (decimal?)t.Amount) ?? 0;
+
+                decimal avgRevenuePerCompany = paidCompanies > 0
+                    ? Math.Round(totalRevenue / paidCompanies, 2)
+                    : 0;
+
+                var subscriptionRevenue = new SubscriptionRevenueResponse
+                {
+                    FreeCompanies = freeCompanies,
+                    PaidCompanies = paidCompanies,
+                    MonthlyRevenue = monthlyRevenue,
+                    RenewalRate = renewalRate,
+                    PopularPlan = popularPlan,
+                    Breakdown = new SubscriptionBreakdown
+                    {
+                        PlanStatistics = planStatistics,
+                        TotalRevenue = totalRevenue,
+                        AverageRevenuePerCompany = avgRevenuePerCompany
+                    }
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Subscription revenue retrieved successfully.",
+                    Data = subscriptionRevenue
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Failed to retrieve subscription revenue: {ex.Message}"
+                };
+            }
+        }
     }
 }
