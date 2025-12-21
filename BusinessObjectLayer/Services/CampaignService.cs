@@ -96,8 +96,8 @@ namespace BusinessObjectLayer.Services
                     Status = c.Status,
                     CreatedAt = c.CreatedAt,
                     TotalJobs = c.JobCampaigns?.Count ?? 0,
-                    CurrentHired = c.TotalHired.ToString(),
-                    TargetQuantity = c.TotalTarget.ToString()
+                    TotalHired = c.TotalHired.ToString(),
+                    TotalTarget = c.TotalTarget.ToString()
                 }).ToList();
 
                 return new ServiceResponse
@@ -193,8 +193,8 @@ namespace BusinessObjectLayer.Services
                         EndDate = campaign.EndDate,
                         Status = campaign.Status,
                         CreatedAt = campaign.CreatedAt,
-                        CurrentHired = campaign.TotalHired.ToString(),
-                        TargetQuantity = campaign.TotalTarget.ToString(),
+                        TotalHired = campaign.TotalHired.ToString(),
+                        TotalTarget = campaign.TotalTarget.ToString(),
                         Jobs = campaign.JobCampaigns?.Select(jc => new JobCampaignInfoResponse
                         {
                             JobId = jc.JobId,
@@ -258,8 +258,8 @@ namespace BusinessObjectLayer.Services
                     Status = c.Status,
                     CreatedAt = c.CreatedAt,
                     TotalJobs = c.JobCampaigns?.Count ?? 0,
-                    CurrentHired = c.TotalHired.ToString(),
-                    TargetQuantity = c.TotalTarget.ToString()
+                    TotalHired = c.TotalHired.ToString(),
+                    TotalTarget = c.TotalTarget.ToString()
                 }).ToList();
 
                 return new ServiceResponse
@@ -349,8 +349,8 @@ namespace BusinessObjectLayer.Services
                         EndDate = campaign.EndDate,
                         Status = campaign.Status,
                         CreatedAt = campaign.CreatedAt,
-                        CurrentHired = campaign.TotalHired.ToString(),
-                        TargetQuantity = campaign.TotalTarget.ToString(),
+                        TotalHired = campaign.TotalHired.ToString(),
+                        TotalTarget = campaign.TotalTarget.ToString(),
                         Jobs = campaign.JobCampaigns?.Select(jc => new JobCampaignInfoResponse
                         {
                             JobId = jc.JobId,

@@ -14,9 +14,8 @@ namespace Data.Models.Response
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public CampaignStatusEnum Status { get; set; }
-        public string? CurrentHired { get; set; }
-        public string? TargetQuantity { get; set; }
-        public string? TotalApplications { get; set; }
+        public string? TotalHired { get; set; }
+        public string? TotalTarget { get; set; }
         public DateTime? CreatedAt { get; set; }
         public int TotalJobs { get; set; }
     }
@@ -31,8 +30,8 @@ namespace Data.Models.Response
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public CampaignStatusEnum Status { get; set; }
-        public string? CurrentHired { get; set; }
-        public string? TargetQuantity { get; set; }
+        public string? TotalHired { get; set; }
+        public string? TotalTarget { get; set; }
         public DateTime? CreatedAt { get; set; }
         public string? CreatorName { get; set; }
         public List<JobCampaignInfoResponse> Jobs { get; set; } = new List<JobCampaignInfoResponse>();
