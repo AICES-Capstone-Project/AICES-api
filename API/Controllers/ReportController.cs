@@ -63,6 +63,28 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
+        /// <summary>
+        /// Get AI resume parsing quality report
+        /// </summary>
+        [HttpGet("system/ai/parsing")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetAiParsingQuality()
+        {
+            var serviceResponse = await _reportService.GetAiParsingQualityAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        /// <summary>
+        /// Get AI scoring distribution report
+        /// </summary>
+        [HttpGet("system/ai/scoring")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetAiScoringDistribution()
+        {
+            var serviceResponse = await _reportService.GetAiScoringDistributionAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
         
         [HttpGet("campaigns/{campaignId}/job/{jobId}/excel")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]

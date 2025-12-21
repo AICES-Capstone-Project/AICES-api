@@ -1387,5 +1387,189 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        public async Task<ServiceResponse> GetAiParsingQualityAsync()
+        {
+            try
+            {
+                // 1. Total Resumes
+                var totalResumes = await _context.Resumes
+                    .AsNoTracking()
+                    .Where(r => r.IsActive)
+                    .CountAsync();
+
+                // 2. Successful Parsing (Status = Completed)
+                var successfulParsing = await _context.Resumes
+                    .AsNoTracking()
+                    .Where(r => r.IsActive && r.Status == ResumeStatusEnum.Completed)
+                    .CountAsync();
+
+                // 3. Failed Parsing (all other statuses except Completed and Pending)
+                var failedParsing = await _context.Resumes
+                    .AsNoTracking()
+                    .Where(r => r.IsActive && 
+                           r.Status != ResumeStatusEnum.Completed && 
+                           r.Status != ResumeStatusEnum.Pending)
+                    .CountAsync();
+
+                // 4. Success Rate
+                decimal successRate = totalResumes > 0
+                    ? Math.Round((decimal)successfulParsing / totalResumes, 2)
+                    : 0;
+
+                // 5. Average Processing Time (from ResumeApplications)
+                var avgProcessingTime = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive && ra.ProcessingTimeMs != null)
+                    .AverageAsync(ra => (decimal?)ra.ProcessingTimeMs) ?? 0;
+
+                // 6. Common Errors - Group by ResumeStatus
+                var errorStats = await _context.Resumes
+                    .AsNoTracking()
+                    .Where(r => r.IsActive && 
+                           r.Status != ResumeStatusEnum.Completed && 
+                           r.Status != ResumeStatusEnum.Pending)
+                    .GroupBy(r => r.Status)
+                    .Select(g => new
+                    {
+                        Status = g.Key,
+                        Count = g.Count()
+                    })
+                    .OrderByDescending(x => x.Count)
+                    .Take(5)
+                    .ToListAsync();
+
+                var commonErrors = errorStats.Select(e => new ErrorStatistic
+                {
+                    ErrorType = e.Status.ToString(),
+                    Count = e.Count,
+                    Percentage = failedParsing > 0 ? Math.Round((decimal)e.Count / failedParsing, 2) : 0
+                }).ToList();
+
+                var parsingQuality = new AiParsingQualityResponse
+                {
+                    SuccessRate = successRate,
+                    TotalResumes = totalResumes,
+                    SuccessfulParsing = successfulParsing,
+                    FailedParsing = failedParsing,
+                    AverageProcessingTimeMs = Math.Round(avgProcessingTime, 0),
+                    CommonErrors = commonErrors
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "AI parsing quality retrieved successfully.",
+                    Data = parsingQuality
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Failed to retrieve AI parsing quality: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> GetAiScoringDistributionAsync()
+        {
+            try
+            {
+                // 1. Total Applications with Score
+                var totalScored = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive && (ra.TotalScore != null || ra.AdjustedScore != null))
+                    .CountAsync();
+
+                // 2. Get all scores for distribution calculation
+                var scores = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive && (ra.TotalScore != null || ra.AdjustedScore != null))
+                    .Select(ra => ra.AdjustedScore ?? ra.TotalScore ?? 0)
+                    .ToListAsync();
+
+                // 3. Score Distribution
+                var highScores = scores.Count(s => s > 75);
+                var mediumScores = scores.Count(s => s >= 50 && s <= 75);
+                var lowScores = scores.Count(s => s < 50);
+
+                decimal highPct = totalScored > 0 ? Math.Round((decimal)highScores / totalScored, 2) : 0;
+                decimal mediumPct = totalScored > 0 ? Math.Round((decimal)mediumScores / totalScored, 2) : 0;
+                decimal lowPct = totalScored > 0 ? Math.Round((decimal)lowScores / totalScored, 2) : 0;
+
+                // 4. Success Rate (applications that got scored successfully)
+                var totalApplications = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive)
+                    .CountAsync();
+
+                decimal successRate = totalApplications > 0
+                    ? Math.Round((decimal)totalScored / totalApplications, 2)
+                    : 0;
+
+                // 5. Average Processing Time
+                var avgProcessingTime = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive && ra.ProcessingTimeMs != null && (ra.TotalScore != null || ra.AdjustedScore != null))
+                    .AverageAsync(ra => (decimal?)ra.ProcessingTimeMs) ?? 0;
+
+                // 6. Common Errors from ErrorMessage
+                var errorMessages = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive && !string.IsNullOrEmpty(ra.ErrorMessage))
+                    .Select(ra => ra.ErrorMessage)
+                    .ToListAsync();
+
+                var commonErrors = errorMessages
+                    .Take(10)
+                    .Distinct()
+                    .ToList();
+
+                // 7. Statistics
+                var avgScore = scores.Any() ? Math.Round((decimal)scores.Average(), 2) : 0;
+                var sortedScores = scores.OrderBy(s => s).ToList();
+                var medianScore = sortedScores.Any() 
+                    ? sortedScores.Count % 2 == 0 
+                        ? Math.Round((sortedScores[sortedScores.Count / 2 - 1] + sortedScores[sortedScores.Count / 2]) / 2, 2)
+                        : sortedScores[sortedScores.Count / 2]
+                    : 0;
+
+                var scoringDistribution = new AiScoringDistributionResponse
+                {
+                    SuccessRate = successRate,
+                    ScoreDistribution = new ScoreDistribution
+                    {
+                        High = highPct,
+                        Medium = mediumPct,
+                        Low = lowPct
+                    },
+                    AverageProcessingTimeMs = Math.Round(avgProcessingTime, 0),
+                    CommonErrors = commonErrors,
+                    Statistics = new ScoringStatistics
+                    {
+                        TotalScored = totalScored,
+                        AverageScore = avgScore,
+                        MedianScore = medianScore
+                    }
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "AI scoring distribution retrieved successfully.",
+                    Data = scoringDistribution
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Failed to retrieve AI scoring distribution: {ex.Message}"
+                };
+            }
+        }
     }
 }
