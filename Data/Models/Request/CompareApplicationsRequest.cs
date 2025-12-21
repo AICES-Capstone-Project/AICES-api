@@ -13,7 +13,7 @@ namespace Data.Models.Request
 
         [Required]
         [MinLength(2, ErrorMessage = "At least 2 applications are required for comparison")]
-        [MaxLength(5, ErrorMessage = "Maximum 5 applications can be compared at once")]
+        [MaxLength(3, ErrorMessage = "Maximum 3 applications can be compared at once")]
         public List<int> ApplicationIds { get; set; } = new();
     }
 }

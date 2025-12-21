@@ -44,12 +44,12 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
-            if (request.ApplicationIds.Count > 5)
+            if (request.ApplicationIds.Count > 3)
             {
                 return new ServiceResponse
                 {
                     Status = SRStatus.Validation,
-                    Message = "Maximum 5 applications can be compared at once."
+                    Message = "Maximum 3 applications can be compared at once."
                 };
             }
 
@@ -103,6 +103,17 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.Forbidden,
                         Message = "You do not have permission to access this job."
+                    };
+                }
+
+                // Check for duplicate comparison
+                var isDuplicate = await comparisonRepo.IsDuplicateComparisonAsync(companyId, request.ApplicationIds);
+                if (isDuplicate)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "A comparison for these applications already exists for your company."
                     };
                 }
 

@@ -51,5 +51,31 @@ namespace DataAccessLayer.Repositories
         {
             _context.Comparisons.Update(comparison);
         }
+
+        public async Task<bool> IsDuplicateComparisonAsync(int companyId, List<int> applicationIds)
+        {
+            var count = applicationIds.Count;
+            
+            // Get all active comparisons for this company
+            var potentialDuplicates = await _context.Comparisons
+                .Where(c => c.CompanyId == companyId && c.IsActive)
+                .Include(c => c.ApplicationComparisons)
+                .ToListAsync();
+
+            // Check if any has the exact same set of application IDs
+            foreach (var comp in potentialDuplicates)
+            {
+                if (comp.ApplicationComparisons.Count == count)
+                {
+                    var existingIds = comp.ApplicationComparisons.Select(ac => ac.ApplicationId).ToList();
+                    if (!applicationIds.Except(existingIds).Any())
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
     }
 }
