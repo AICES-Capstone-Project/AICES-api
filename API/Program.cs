@@ -314,6 +314,7 @@ builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IResumeLimitService, BusinessObjectLayer.Services.UsageLimits.ResumeLimitService>();
+builder.Services.AddScoped<IComparisonLimitService, BusinessObjectLayer.Services.UsageLimits.ComparisonLimitService>();
 builder.Services.AddScoped<IResumeService, ResumeService>();
 builder.Services.AddScoped<IComparisonService, ComparisonService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();

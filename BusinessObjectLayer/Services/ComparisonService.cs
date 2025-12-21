@@ -17,17 +17,20 @@ namespace BusinessObjectLayer.Services
         private readonly RedisHelper _redisHelper;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IResumeApplicationRepository _resumeApplicationRepo;
+        private readonly IComparisonLimitService _comparisonLimitService;
 
         public ComparisonService(
             IUnitOfWork uow,
             RedisHelper redisHelper,
             IHttpContextAccessor httpContextAccessor,
-            IResumeApplicationRepository resumeApplicationRepo)
+            IResumeApplicationRepository resumeApplicationRepo,
+            IComparisonLimitService comparisonLimitService)
         {
             _uow = uow;
             _redisHelper = redisHelper;
             _httpContextAccessor = httpContextAccessor;
             _resumeApplicationRepo = resumeApplicationRepo;
+            _comparisonLimitService = comparisonLimitService;
         }
 
         public async Task<ServiceResponse> CompareApplicationsAsync(CompareApplicationsRequest request)
@@ -103,6 +106,13 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // ✅ Check comparison limit (early check for fast fail)
+                var earlyLimitCheck = await _comparisonLimitService.CheckComparisonLimitAsync(companyId);
+                if (earlyLimitCheck.Status != SRStatus.Success)
+                {
+                    return earlyLimitCheck;
+                }
+
                 // Get all applications and validate they belong to this job/campaign
                 var applications = await _resumeApplicationRepo.GetByJobIdAndApplicationIdsAndCampaignAsync(
                     request.JobId,
@@ -167,7 +177,16 @@ namespace BusinessObjectLayer.Services
                 int comparisonId;
                 try
                 {
-                    // Create Comparison record
+                    // ✅ STEP 1: Atomic check and increment comparison counter (CRITICAL - prevents race condition)
+                    var limitCheckInTransaction = await _comparisonLimitService.CheckComparisonLimitInTransactionAsync(companyId);
+                    if (limitCheckInTransaction.Status != SRStatus.Success)
+                    {
+                        await _uow.RollbackTransactionAsync();
+                        return limitCheckInTransaction;
+                    }
+                    // Counter has been incremented atomically - quota reserved
+
+                    // ✅ STEP 2: Create Comparison record in DB
                     var comparison = new Comparison
                     {
                         JobId = request.JobId,
