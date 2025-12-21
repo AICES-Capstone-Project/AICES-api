@@ -36,14 +36,30 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        /// <summary>
-        /// Get company real usage categorization
-        /// </summary>
+      
         [HttpGet("system/companies/usage")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetCompaniesUsage()
         {
             var serviceResponse = await _reportService.GetCompaniesUsageAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+      
+        [HttpGet("system/jobs/statistics")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetJobsStatistics()
+        {
+            var serviceResponse = await _reportService.GetJobsStatisticsAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+   
+        [HttpGet("system/jobs/effectiveness")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetJobsEffectiveness()
+        {
+            var serviceResponse = await _reportService.GetJobsEffectivenessAsync();
             return ControllerResponse.Response(serviceResponse);
         }
 

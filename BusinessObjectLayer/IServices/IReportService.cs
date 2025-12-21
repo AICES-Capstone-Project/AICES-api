@@ -9,5 +9,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetExecutiveSummaryAsync();
         Task<ServiceResponse> GetCompaniesOverviewAsync();
         Task<ServiceResponse> GetCompaniesUsageAsync();
+        Task<ServiceResponse> GetJobsStatisticsAsync();
+        Task<ServiceResponse> GetJobsEffectivenessAsync();
     }
 }
