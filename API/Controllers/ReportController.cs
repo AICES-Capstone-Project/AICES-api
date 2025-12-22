@@ -7,19 +7,19 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-    [Route("api/reports")]
+    [Route("api/system/reports")]
     [ApiController]
-    public class ReportController : ControllerBase
+    public class SystemReportController : ControllerBase
     {
         private readonly IReportService _reportService;
 
-        public ReportController(IReportService reportService)
+        public SystemReportController(IReportService reportService)
         {
             _reportService = reportService;
         }
 
         
-        [HttpGet("system/executive-summary")]
+        [HttpGet("executive-summary")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetExecutiveSummary()
         {
@@ -28,7 +28,7 @@ namespace API.Controllers
         }
 
         
-        [HttpGet("system/companies/overview")]
+        [HttpGet("companies/overview")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetCompaniesOverview()
         {
@@ -37,7 +37,7 @@ namespace API.Controllers
         }
 
       
-        [HttpGet("system/companies/usage")]
+        [HttpGet("companies/usage")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetCompaniesUsage()
         {
@@ -46,7 +46,7 @@ namespace API.Controllers
         }
 
       
-        [HttpGet("system/jobs/statistics")]
+        [HttpGet("jobs/statistics")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetJobsStatistics()
         {
@@ -55,7 +55,7 @@ namespace API.Controllers
         }
 
    
-        [HttpGet("system/jobs/effectiveness")]
+        [HttpGet("jobs/effectiveness")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetJobsEffectiveness()
         {
@@ -66,7 +66,7 @@ namespace API.Controllers
         /// <summary>
         /// Get AI resume parsing quality report
         /// </summary>
-        [HttpGet("system/ai/parsing")]
+        [HttpGet("ai/parsing")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetAiParsingQuality()
         {
@@ -77,7 +77,7 @@ namespace API.Controllers
         /// <summary>
         /// Get AI scoring distribution report
         /// </summary>
-        [HttpGet("system/ai/scoring")]
+        [HttpGet("ai/scoring")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetAiScoringDistribution()
         {
@@ -88,7 +88,7 @@ namespace API.Controllers
         /// <summary>
         /// Get subscription and revenue report
         /// </summary>
-        [HttpGet("system/subscriptions")]
+        [HttpGet("subscriptions")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetSubscriptionRevenue()
         {

@@ -289,6 +289,7 @@ builder.Services.AddScoped<IFeedbackRepository, FeedbackRepository>();
 builder.Services.AddScoped<IComparisonRepository, ComparisonRepository>();
 builder.Services.AddScoped<IApplicationComparisonRepository, ApplicationComparisonRepository>();
 builder.Services.AddScoped<IUsageCounterRepository, UsageCounterRepository>();
+builder.Services.AddScoped<IReportRepository, ReportRepository>();
 
 
 // Services
