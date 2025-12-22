@@ -15,7 +15,9 @@ namespace Data.Models.Response
         public string CompanyName { get; set; } = string.Empty;
         public int? CampaignId { get; set; }
         public string? CampaignTitle { get; set; }
-        public ApplicationStatusEnum Status { get; set; }
+        public ResumeStatusEnum? ResumeStatus { get; set; }
+        public ApplicationStatusEnum ApplicationStatus { get; set; }
+        public ApplicationErrorEnum? ApplicationErrorType { get; set; }
         public decimal? TotalScore { get; set; }
         public decimal? AdjustedScore { get; set; }
         public string? MatchSkills { get; set; }
@@ -28,6 +30,7 @@ namespace Data.Models.Response
     {
         public string? RequiredSkills { get; set; }
         public string? AIExplanation { get; set; }
+        public string? ErrorMessage { get; set; }
         public List<ResumeScoreDetailResponse> ScoreDetails { get; set; } = new();
     }
 }
