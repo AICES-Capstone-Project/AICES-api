@@ -17,6 +17,8 @@ namespace Data.Enum
         Failed,
         // Timeout: When a resume processing timed out
         Timeout,
+        // InvalidResumeData: When the resume content is not valid or cannot be parsed as a resume (not a CV file, empty content, etc.)
+        InvalidResumeData,
         // CorruptedFile: When a resume file is corrupted, File bị hỏng, AI/Parser không đọc được nội dung.
         CorruptedFile,
         // DuplicateResume: When a resume is already exists with the same hash

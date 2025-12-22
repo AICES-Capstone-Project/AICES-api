@@ -210,6 +210,7 @@ namespace BusinessObjectLayer.Services
                 // Define statuses that result in immediate failure clone (no quota)
                 // These are file-level fatal errors. Job-level errors are checked separately.
                 var fatalStatuses = new[] { 
+                    ResumeStatusEnum.InvalidResumeData,
                     ResumeStatusEnum.CorruptedFile, 
                     ResumeStatusEnum.DuplicateResume 
                 };
@@ -233,10 +234,10 @@ namespace BusinessObjectLayer.Services
                     }
                     else if (existingApplication != null && existingApplication.Status == ApplicationStatusEnum.Failed && 
                              (existingApplication.ErrorType == ApplicationErrorEnum.JobTitleNotMatched || 
-                              existingApplication.ErrorType == ApplicationErrorEnum.InvalidJobData ||
-                              existingApplication.ErrorType == ApplicationErrorEnum.InvalidResumeData))
+                              existingApplication.ErrorType == ApplicationErrorEnum.InvalidJobData))
                     {
-                        // Same resume + same job + previously failed with application-level fatal error → Clone failure (NO quota)
+                        // Same resume + same job + previously failed with job-level error → Clone failure (NO quota)
+                        // Note: InvalidResumeData is file-level and handled via Resume.Status check below
                         shouldCloneResult = true;
                     }
                     else if (existingResume.Status == ResumeStatusEnum.Completed && existingResume.Data != null)
@@ -361,8 +362,9 @@ namespace BusinessObjectLayer.Services
                             }
                             else
                             {
-                                // Clone Failure
+                                // Clone Failure - copy error information from existing application
                                 clonedApplication.Status = ApplicationStatusEnum.Failed;
+                                clonedApplication.ErrorType = existingApplication?.ErrorType ?? ApplicationErrorEnum.TechnicalError;
                                 clonedApplication.ErrorMessage = existingApplication?.ErrorMessage ?? $"Auto-rejected: {existingResume.Status}";
                                 
                                 await _resumeApplicationRepo.CreateAsync(clonedApplication);
@@ -949,19 +951,23 @@ namespace BusinessObjectLayer.Services
                         switch (request.Error.ToLower())
                         {
                             case "invalid_resume_data":
-                                fileStatus = ResumeStatusEnum.Failed; // File is not a valid resume
-                                applicationError = ApplicationErrorEnum.InvalidResumeData;
+                                fileStatus = ResumeStatusEnum.InvalidResumeData; // File is not a valid resume
+                                applicationError = ApplicationErrorEnum.TechnicalError;
                                 errorMessage = request.Reason ?? "The uploaded file is not a valid resume.";
                                 break;
                             
                             case "invalid_job_data":
-                                fileStatus = ResumeStatusEnum.Completed; // File is fine, but job data is bad
+                                // File was parsed successfully but job data is incomplete/invalid
+                                // Keep Resume.Status as Completed IF it was already parsed, otherwise Failed
+                                fileStatus = !string.IsNullOrEmpty(resume.Data) ? ResumeStatusEnum.Completed : ResumeStatusEnum.Failed;
                                 applicationError = ApplicationErrorEnum.InvalidJobData;
                                 errorMessage = request.Reason ?? "The job data is invalid.";
                                 break;
                             
                             case "job_title_not_matched":
-                                fileStatus = ResumeStatusEnum.Completed; // File is fine, just doesn't match this job
+                                // File was parsed successfully but doesn't match this specific job
+                                // Keep Resume.Status as Completed IF it was already parsed, otherwise Failed
+                                fileStatus = !string.IsNullOrEmpty(resume.Data) ? ResumeStatusEnum.Completed : ResumeStatusEnum.Failed;
                                 applicationError = ApplicationErrorEnum.JobTitleNotMatched;
                                 errorMessage = request.Reason ?? "The candidate's experience does not match the job title requirements.";
                                 break;
@@ -974,7 +980,14 @@ namespace BusinessObjectLayer.Services
                         }
 
                         resume.Status = fileStatus;
-                        resume.Data = null; // keep Data null on error
+                        // Only clear Data if it's a file-level error
+                        if (fileStatus == ResumeStatusEnum.InvalidResumeData ||
+                            fileStatus == ResumeStatusEnum.CorruptedFile ||
+                            fileStatus == ResumeStatusEnum.Failed)
+                        {
+                            resume.Data = null;
+                        }
+                        // For job-level errors (InvalidJobData, JobTitleNotMatched), keep existing Data if any
                         
                         // Update ResumeApplication status and error type
                         resumeApplication.Status = ApplicationStatusEnum.Failed;
@@ -1000,11 +1013,11 @@ namespace BusinessObjectLayer.Services
                         });
 
                         // Return appropriate message based on error type
-                        string responseMessage = applicationError switch
+                        string responseMessage = fileStatus switch
                         {
-                            ApplicationErrorEnum.InvalidResumeData => "The uploaded file is not a valid resume.",
-                            ApplicationErrorEnum.InvalidJobData => "The job data is invalid.",
-                            ApplicationErrorEnum.JobTitleNotMatched => "The candidate's experience does not match the job title requirements.",
+                            ResumeStatusEnum.InvalidResumeData => "The uploaded file is not a valid resume.",
+                            _ when applicationError == ApplicationErrorEnum.InvalidJobData => "The job data is invalid.",
+                            _ when applicationError == ApplicationErrorEnum.JobTitleNotMatched => "The candidate's experience does not match the job title requirements.",
                             _ => "An error occurred while processing the resume."
                         };
 
