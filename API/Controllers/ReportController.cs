@@ -18,11 +18,85 @@ namespace API.Controllers
             _reportService = reportService;
         }
 
+        
+        [HttpGet("system/executive-summary")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetExecutiveSummary()
+        {
+            var serviceResponse = await _reportService.GetExecutiveSummaryAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        
+        [HttpGet("system/companies/overview")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetCompaniesOverview()
+        {
+            var serviceResponse = await _reportService.GetCompaniesOverviewAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+      
+        [HttpGet("system/companies/usage")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetCompaniesUsage()
+        {
+            var serviceResponse = await _reportService.GetCompaniesUsageAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+      
+        [HttpGet("system/jobs/statistics")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetJobsStatistics()
+        {
+            var serviceResponse = await _reportService.GetJobsStatisticsAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+   
+        [HttpGet("system/jobs/effectiveness")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetJobsEffectiveness()
+        {
+            var serviceResponse = await _reportService.GetJobsEffectivenessAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
         /// <summary>
-        /// Export candidates of a job to Excel file
+        /// Get AI resume parsing quality report
         /// </summary>
-        /// <param name="jobId">Job ID</param>
-        /// <returns>Excel file with candidate data</returns>
+        [HttpGet("system/ai/parsing")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetAiParsingQuality()
+        {
+            var serviceResponse = await _reportService.GetAiParsingQualityAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        /// <summary>
+        /// Get AI scoring distribution report
+        /// </summary>
+        [HttpGet("system/ai/scoring")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetAiScoringDistribution()
+        {
+            var serviceResponse = await _reportService.GetAiScoringDistributionAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        /// <summary>
+        /// Get subscription and revenue report
+        /// </summary>
+        [HttpGet("system/subscriptions")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetSubscriptionRevenue()
+        {
+            var serviceResponse = await _reportService.GetSubscriptionRevenueAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        
         [HttpGet("campaigns/{campaignId}/job/{jobId}/excel")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> ExportJobCandidatesToExcel(int campaignId, int jobId)
@@ -43,12 +117,7 @@ namespace API.Controllers
             return File(excelData.FileBytes, excelData.ContentType, excelData.FileName);
         }
 
-        /// <summary>
-        /// Export candidates of a job to PDF report
-        /// </summary>
-        /// <param name="campaignId">Campaign ID</param>
-        /// <param name="jobId">Job ID</param>
-        /// <returns>PDF file with detailed candidate report</returns>
+        
         [HttpGet("campaigns/{campaignId}/job/{jobId}/pdf")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> ExportJobCandidatesToPdf(int campaignId, int jobId)
