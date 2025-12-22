@@ -25,6 +25,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetPipelineFunnelAsync(int? jobId, int? campaignId, DateTime? startDate, DateTime? endDate);
         Task<ServiceResponse> GetUsageHistoryAsync(string range);
         Task<ServiceResponse> GetCompanyStatsOverviewAsync();
+        Task<ServiceResponse> GetTotalJobsCountAsync();
     }
 }
 
