@@ -33,11 +33,21 @@ namespace DataAccessLayer.Repositories
         public async Task<User?> GetForUpdateByEmailAsync(string email)
         {
             return await _context.Users
+				.Include(u => u.Role)
+				.Include(u => u.Profile)
+				.Include(u => u.CompanyUser)
+					.ThenInclude(cu => cu.Company)
+				.FirstOrDefaultAsync(u => u.IsActive && u.Email == email);
+		}
+
+		public async Task<User?> GetForUpdateByIdAsync(int userId)
+		{
+			return await _context.Users
                 .Include(u => u.Role)
                 .Include(u => u.Profile)
                 .Include(u => u.CompanyUser)
                     .ThenInclude(cu => cu.Company)
-                .FirstOrDefaultAsync(u => u.IsActive && u.Email == email);
+				.FirstOrDefaultAsync(u => u.IsActive && u.UserId == userId);
         }
 
         public async Task<User> AddAsync(User user)
