@@ -49,6 +49,38 @@ namespace API.Controllers
         }
 
         /// <summary>
+        /// POST /api/resumes/upload-batch
+        /// Batch upload up to 100 resumes at once
+        /// Handles transient failures with automatic retry
+        /// </summary>
+        [HttpPost("upload-batch")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        [RequestSizeLimit(524288000)] // 500MB limit for batch uploads
+        public async Task<IActionResult> UploadResumeBatch([FromForm] ResumeBatchUploadRequest request)
+        {
+            if (request == null)
+            {
+                return ControllerResponse.Response(new ServiceResponse
+                {
+                    Status = SRStatus.Validation,
+                    Message = "Request is required."
+                });
+            }
+
+            if (request.Files == null || request.Files.Count == 0)
+            {
+                return ControllerResponse.Response(new ServiceResponse
+                {
+                    Status = SRStatus.Validation,
+                    Message = "At least one file is required."
+                });
+            }
+
+            var serviceResponse = await _resumeService.UploadResumeBatchAsync(request.CampaignId, request.JobId, request.Files);
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        /// <summary>
         /// POST /api/jobs/{jobId}/resumes/{resumeId}/resend
         /// Resend a completed resume for AI re-scoring (advanced analysis)
         /// Uses existing parsed data, does not re-parse the resume

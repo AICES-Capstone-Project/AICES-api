@@ -11,17 +11,18 @@ using System.Threading.Tasks;
 
 namespace BusinessObjectLayer.Common
 {
-    public class GoogleCloudStorageHelper
+    public class GoogleCloudStorageHelper : IStorageHelper
     {
         private readonly StorageClient _storageClient;
         private readonly string _bucketName;
+        private readonly GoogleCredential _credential;
 
         public GoogleCloudStorageHelper(string bucketName, string serviceAccountEmail)
         {
             _bucketName = bucketName ?? throw new ArgumentNullException(nameof(bucketName));
 
-            var credential = GoogleCredential.GetApplicationDefault();
-            _storageClient = StorageClient.Create(credential);
+            _credential = GoogleCredential.GetApplicationDefault();
+            _storageClient = StorageClient.Create(_credential);
         }
 
         // ----------------------------
@@ -77,6 +78,75 @@ namespace BusinessObjectLayer.Common
                 {
                     Status = SRStatus.Error,
                     Message = $"Upload failed: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> DeleteFileAsync(string publicId)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(publicId))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "PublicId is required."
+                    };
+                }
+
+                await _storageClient.DeleteObjectAsync(_bucketName, publicId);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "File deleted successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Delete failed: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> GetSignedUrlAsync(string publicId, int expirationMinutes = 60)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(publicId))
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "PublicId is required."
+                    };
+                }
+
+                // Create a signed URL for the object
+                var urlSigner = UrlSigner.FromCredential(_credential);
+                var url = await urlSigner.SignAsync(
+                    _bucketName,
+                    publicId,
+                    TimeSpan.FromMinutes(expirationMinutes),
+                    HttpMethod.Get);
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Signed URL generated successfully.",
+                    Data = url
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"Failed to generate signed URL: {ex.Message}"
                 };
             }
         }

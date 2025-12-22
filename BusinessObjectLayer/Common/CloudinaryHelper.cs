@@ -1,5 +1,6 @@
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
+using Data.Models.Response;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.IO;
@@ -8,13 +9,104 @@ using System.Threading.Tasks;
 
 namespace BusinessObjectLayer.Common
 {
-    public class CloudinaryHelper
+    public class CloudinaryHelper : IStorageHelper
     {
         private readonly Cloudinary _cloudinary;
 
         public CloudinaryHelper(Cloudinary cloudinary)
         {
             _cloudinary = cloudinary;
+        }
+
+        public async Task<ServiceResponse> UploadFileAsync(IFormFile file, string? folder = null, string? publicId = null)
+        {
+            try
+            {
+                using var stream = file.OpenReadStream();
+                var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
+                bool isImage = imageExtensions.Contains(extension);
+
+                if (isImage)
+                {
+                    var uploadParams = new ImageUploadParams()
+                    {
+                        File = new FileDescription(file.FileName, stream),
+                        Folder = folder,
+                        PublicId = publicId
+                    };
+                    var result = await _cloudinary.UploadAsync(uploadParams);
+                    if (result.Error != null)
+                        return new ServiceResponse { Status = Data.Enum.SRStatus.Error, Message = result.Error.Message };
+                    
+                    return new ServiceResponse 
+                    { 
+                        Status = Data.Enum.SRStatus.Success, 
+                        Message = "File uploaded successfully.",
+                        Data = new { Url = result.SecureUrl.ToString(), PublicId = result.PublicId }
+                    };
+                }
+                else
+                {
+                    var uploadParams = new RawUploadParams()
+                    {
+                        File = new FileDescription(file.FileName, stream),
+                        Folder = folder,
+                        PublicId = publicId
+                    };
+                    var result = await _cloudinary.UploadAsync(uploadParams);
+                    if (result.Error != null)
+                        return new ServiceResponse { Status = Data.Enum.SRStatus.Error, Message = result.Error.Message };
+                    
+                    return new ServiceResponse 
+                    { 
+                        Status = Data.Enum.SRStatus.Success, 
+                        Message = "File uploaded successfully.",
+                        Data = new { Url = result.SecureUrl.ToString(), PublicId = result.PublicId }
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse { Status = Data.Enum.SRStatus.Error, Message = ex.Message };
+            }
+        }
+
+        public async Task<ServiceResponse> DeleteFileAsync(string publicId)
+        {
+            try
+            {
+                var deletionParams = new DeletionParams(publicId);
+                var result = await _cloudinary.DestroyAsync(deletionParams);
+                
+                if (result.Error != null)
+                    return new ServiceResponse { Status = Data.Enum.SRStatus.Error, Message = result.Error.Message };
+                    
+                return new ServiceResponse { Status = Data.Enum.SRStatus.Success, Message = "File deleted successfully." };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse { Status = Data.Enum.SRStatus.Error, Message = ex.Message };
+            }
+        }
+
+        public async Task<ServiceResponse> GetSignedUrlAsync(string publicId, int expirationMinutes = 60)
+        {
+            try
+            {
+                // Cloudinary doesn't use short-lived signed URLs in the same way GCS does for basic access,
+                // but we can generate a signed URL if needed. For now, returning the secure URL.
+                var url = _cloudinary.Api.UrlImgUp.BuildUrl(publicId);
+                return new ServiceResponse 
+                { 
+                    Status = Data.Enum.SRStatus.Success, 
+                    Data = url 
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse { Status = Data.Enum.SRStatus.Error, Message = ex.Message };
+            }
         }
 
         /// <summary>

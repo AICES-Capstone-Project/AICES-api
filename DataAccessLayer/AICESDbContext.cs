@@ -78,9 +78,7 @@ namespace DataAccessLayer
         {
             try
             {
-                
                 DotNetEnv.Env.Load();
-
                 return Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__DEFAULTCONNECTIONSTRING") ?? string.Empty;
             }
             catch (Exception ex)

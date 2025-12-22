@@ -106,7 +106,19 @@ if (string.IsNullOrEmpty(connectionString))
 }
 builder.Services.AddDbContext<AICESDbContext>(options =>
 {
-    options.UseNpgsql(connectionString, npgsqlOptions =>
+    // ✅ Enhanced connection string with connection pooling for high-volume uploads
+    // Connection pooling configuration:
+    // - Minimum Pool Size: 10 (pre-warm connections, ready for concurrent uploads)
+    // - Maximum Pool Size: 100 (support up to 100 concurrent operations)
+    // - Connection Lifetime: 300s (recycle connections to prevent stale connections)
+    var enhancedConnectionString = connectionString;
+    if (!connectionString.Contains("Minimum Pool Size") && !connectionString.Contains("MinPoolSize"))
+    {
+        enhancedConnectionString += ";Minimum Pool Size=10;Maximum Pool Size=100;Connection Lifetime=300";
+        Console.WriteLine("✅ Connection pooling configured: MinPoolSize=10, MaxPoolSize=100");
+    }
+    
+    options.UseNpgsql(enhancedConnectionString, npgsqlOptions =>
     {
         // Set command timeout to 60 seconds (default is 30 seconds)
         // This gives more time for complex operations without timing out
@@ -193,6 +205,10 @@ if (!string.IsNullOrEmpty(gcpBucketName))
         );
     });
 
+    // ✅ Register IStorageHelper interface (for dependency injection in services)
+    builder.Services.AddSingleton<BusinessObjectLayer.Common.IStorageHelper>(sp =>
+        sp.GetRequiredService<BusinessObjectLayer.Common.GoogleCloudStorageHelper>());
+
     Console.WriteLine($"✅ Google Cloud Storage configured successfully: {gcpBucketName}, {gcpEmail}");
 }
 else
@@ -221,6 +237,10 @@ try
     var redis = ConnectionMultiplexer.Connect(options);
     builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
     builder.Services.AddScoped<BusinessObjectLayer.Common.RedisHelper>();
+    
+    // ✅ Register IRedisHelper interface (for dependency injection in services)
+    builder.Services.AddScoped<BusinessObjectLayer.Common.IRedisHelper>(sp =>
+        sp.GetRequiredService<BusinessObjectLayer.Common.RedisHelper>());
 
     Console.WriteLine($"✅ Connected to Memorystore Redis at {redisHost}");
 }

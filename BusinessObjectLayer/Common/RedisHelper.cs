@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace BusinessObjectLayer.Common
 {
-    public class RedisHelper
+    public class RedisHelper : IRedisHelper
     {
         private readonly IConnectionMultiplexer _redis;
         private readonly IDatabase _database;
@@ -33,17 +33,37 @@ namespace BusinessObjectLayer.Common
         }
 
         /// <summary>
-        /// Get a job from Redis queue
+        /// Get a job from Redis queue as string
         /// </summary>
-        public async Task<T?> PopJobAsync<T>(string queueName)
+        public async Task<string?> PopJobAsync(string queueName)
         {
             try
             {
                 var json = await _database.ListLeftPopAsync(queueName);
                 if (json.IsNullOrEmpty)
+                    return null;
+
+                return json.ToString();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error popping job from Redis: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get a job from Redis queue and deserialize to T
+        /// </summary>
+        public async Task<T?> PopJobAsync<T>(string queueName)
+        {
+            try
+            {
+                var json = await PopJobAsync(queueName);
+                if (string.IsNullOrEmpty(json))
                     return default;
 
-                return JsonSerializer.Deserialize<T>(json!);
+                return JsonSerializer.Deserialize<T>(json);
             }
             catch (Exception ex)
             {
