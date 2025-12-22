@@ -513,12 +513,12 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Validate dates
-                if (request.EndDate <= request.StartDate)
+                if (request.EndDate <= request.StartDate.AddDays(1))
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = "End date must be after start date."
+                        Message = "End date must be at least one day after start date."
                     };
                 }
 
@@ -673,32 +673,23 @@ namespace BusinessObjectLayer.Services
                     }
                 }
 
-                // Validate dates only if both are provided
-                if (request.StartDate.HasValue && request.EndDate.HasValue && request.EndDate.Value <= request.StartDate.Value)
+                // Validate endDate against existing startDate
+                if (request.EndDate.HasValue && request.EndDate.Value <= campaign.StartDate.AddDays(1))
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = "End date must be after start date."
+                        Message = "End date must be at least one day after the existing start date."
                     };
                 }
 
-                // Validate dates if only one is provided (check against existing value)
-                if (request.StartDate.HasValue && !request.EndDate.HasValue && request.StartDate.Value >= campaign.EndDate)
+                // Only allow modifying jobs for Published campaigns
+                if (request.Jobs != null && campaign.Status != CampaignStatusEnum.Published)
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.Validation,
-                        Message = "Start date must be before the existing end date."
-                    };
-                }
-
-                if (request.EndDate.HasValue && !request.StartDate.HasValue && request.EndDate.Value <= campaign.StartDate)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = "End date must be after the existing start date."
+                        Message = "Jobs can only be modified for Published campaigns."
                     };
                 }
 
@@ -716,13 +707,13 @@ namespace BusinessObjectLayer.Services
                         campaign.Description = request.Description;
                     }
 
-                    if (request.StartDate.HasValue)
-                    {
-                        campaign.StartDate = request.StartDate.Value;
-                    }
-
                     if (request.EndDate.HasValue)
                     {
+                        // Auto-change status from Expired to Published if endDate is extended to a future date
+                        if (campaign.Status == CampaignStatusEnum.Expired && request.EndDate.Value > DateTime.UtcNow)
+                        {
+                            campaign.Status = CampaignStatusEnum.Published;
+                        }
                         campaign.EndDate = request.EndDate.Value;
                     }
 
@@ -999,6 +990,16 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.Forbidden,
                         Message = "You do not have permission to modify this campaign."
+                    };
+                }
+
+                // Only allow removing jobs from Published campaigns
+                if (campaign.Status != CampaignStatusEnum.Published)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Jobs can only be removed from Published campaigns."
                     };
                 }
 

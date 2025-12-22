@@ -18,8 +18,6 @@ namespace Data.Enum
         Shortlisted,
         // Interview: When a resume application is invited for interview
         Interview,
-        // OfferSent: When a resume application is offered
-        OfferSent,
         // Rejected: When a resume application is rejected
         Rejected,
         // Hired: When a resume application is hired

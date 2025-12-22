@@ -17,11 +17,13 @@ namespace BusinessObjectLayer.Services
     {
         private readonly IUnitOfWork _uow;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICampaignRepository _campaignRepo;
 
         public ResumeApplicationService(IUnitOfWork uow, IHttpContextAccessor httpContextAccessor)
         {
             _uow = uow;
             _httpContextAccessor = httpContextAccessor;
+            _campaignRepo = _uow.GetRepository<ICampaignRepository>();
         }
 
         private async Task<(ServiceResponse? errorResponse, int? companyId)> GetCurrentUserCompanyIdAsync()
@@ -125,6 +127,35 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Get campaign to check status
+                if (application.CampaignId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Application is not associated with a campaign."
+                    };
+                }
+
+                var campaign = await _campaignRepo.GetByIdAsync(application.CampaignId.Value);
+                if (campaign == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Associated campaign not found."
+                    };
+                }
+
+                if (campaign.Status != CampaignStatusEnum.Published)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Cannot adjust score for an application in a non-Published campaign."
+                    };
+                }
+
                 // Business logic for score adjustment
                 // HR Recruiter (roleId = 5): can only adjust once, after that isAdjusted = true
                 // HR Manager (roleId = 4): can adjust multiple times, isAdjusted always set to true at first time, after that only HR Manager can modify
@@ -211,6 +242,35 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.NotFound,
                         Message = "Resume application not found."
+                    };
+                }
+
+                // Get campaign to check status
+                if (application.CampaignId == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Application is not associated with a campaign."
+                    };
+                }
+
+                var campaign = await _campaignRepo.GetByIdAsync(application.CampaignId.Value);
+                if (campaign == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Associated campaign not found."
+                    };
+                }
+
+                if (campaign.Status != CampaignStatusEnum.Published)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Cannot update status for an application in a non-Published campaign."
                     };
                 }
 

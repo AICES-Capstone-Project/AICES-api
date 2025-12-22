@@ -481,17 +481,14 @@ namespace DataAccessLayer.Repositories
             // "Applied" is total active applications in the set
             stages.Add(new PipelineStageResponse { Name = "Applied", Count = totalApplied, ConversionRate = 100 });
             
-            int reviewedCount = data.Where(d => d.Status == ApplicationStatusEnum.Reviewed || d.Status == ApplicationStatusEnum.Shortlisted || d.Status == ApplicationStatusEnum.Interview || d.Status == ApplicationStatusEnum.OfferSent || d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
+            int reviewedCount = data.Where(d => d.Status == ApplicationStatusEnum.Reviewed || d.Status == ApplicationStatusEnum.Shortlisted || d.Status == ApplicationStatusEnum.Interview || d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
             stages.Add(new PipelineStageResponse { Name = "Reviewed", Count = reviewedCount, ConversionRate = totalApplied > 0 ? Math.Round((decimal)reviewedCount / totalApplied * 100, 2) : 0 });
 
-            int shortlistedCount = data.Where(d => d.Status == ApplicationStatusEnum.Shortlisted || d.Status == ApplicationStatusEnum.Interview || d.Status == ApplicationStatusEnum.OfferSent || d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
+            int shortlistedCount = data.Where(d => d.Status == ApplicationStatusEnum.Shortlisted || d.Status == ApplicationStatusEnum.Interview || d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
             stages.Add(new PipelineStageResponse { Name = "Shortlisted", Count = shortlistedCount, ConversionRate = totalApplied > 0 ? Math.Round((decimal)shortlistedCount / totalApplied * 100, 2) : 0 });
 
-            int interviewCount = data.Where(d => d.Status == ApplicationStatusEnum.Interview || d.Status == ApplicationStatusEnum.OfferSent || d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
+            int interviewCount = data.Where(d => d.Status == ApplicationStatusEnum.Interview || d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
             stages.Add(new PipelineStageResponse { Name = "Interview", Count = interviewCount, ConversionRate = totalApplied > 0 ? Math.Round((decimal)interviewCount / totalApplied * 100, 2) : 0 });
-
-            int offerSentCount = data.Where(d => d.Status == ApplicationStatusEnum.OfferSent || d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
-            stages.Add(new PipelineStageResponse { Name = "Offer Sent", Count = offerSentCount, ConversionRate = totalApplied > 0 ? Math.Round((decimal)offerSentCount / totalApplied * 100, 2) : 0 });
 
             int hiredCount = data.Where(d => d.Status == ApplicationStatusEnum.Hired).Sum(d => d.Count);
             stages.Add(new PipelineStageResponse { Name = "Hired", Count = hiredCount, ConversionRate = totalApplied > 0 ? Math.Round((decimal)hiredCount / totalApplied * 100, 2) : 0 });

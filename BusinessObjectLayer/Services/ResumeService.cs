@@ -668,227 +668,227 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> ResendResumeAsync(int jobId, int resumeId)
-        {
-            try
-            {
-                // Get current user and company
-                var user = _httpContextAccessor.HttpContext?.User;
-                var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
+        // public async Task<ServiceResponse> ResendResumeAsync(int jobId, int resumeId)
+        // {
+        //     try
+        //     {
+        //         // Get current user and company
+        //         var user = _httpContextAccessor.HttpContext?.User;
+        //         var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
 
-                if (string.IsNullOrEmpty(userIdClaim))
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Unauthorized,
-                        Message = "User not authenticated."
-                    };
-                }
+        //         if (string.IsNullOrEmpty(userIdClaim))
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Unauthorized,
+        //                 Message = "User not authenticated."
+        //             };
+        //         }
 
-                int userId = int.Parse(userIdClaim);
-                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
-                var jobRepo = _uow.GetRepository<IJobRepository>();
-                var resumeRepo = _uow.GetRepository<IResumeRepository>();
+        //         int userId = int.Parse(userIdClaim);
+        //         var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+        //         var jobRepo = _uow.GetRepository<IJobRepository>();
+        //         var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 
-                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+        //         var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 
-                if (companyUser == null || companyUser.CompanyId == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Company not found for user."
-                    };
-                }
+        //         if (companyUser == null || companyUser.CompanyId == null)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.NotFound,
+        //                 Message = "Company not found for user."
+        //             };
+        //         }
 
-                // Validate job exists and belongs to company
-                var job = await jobRepo.GetJobByIdAsync(jobId);
-                if (job == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Job not found."
-                    };
-                }
+        //         // Validate job exists and belongs to company
+        //         var job = await jobRepo.GetJobByIdAsync(jobId);
+        //         if (job == null)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.NotFound,
+        //                 Message = "Job not found."
+        //             };
+        //         }
 
-                if (job.CompanyId != companyUser.CompanyId.Value)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Forbidden,
-                        Message = "You do not have permission to resend this resume."
-                    };
-                }
+        //         if (job.CompanyId != companyUser.CompanyId.Value)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Forbidden,
+        //                 Message = "You do not have permission to resend this resume."
+        //             };
+        //         }
 
-                // Get resume with parsed data
-                var resume = await resumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
-                if (resume == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Resume not found."
-                    };
-                }
+        //         // Get resume with parsed data
+        //         var resume = await resumeRepo.GetByJobIdAndResumeIdAsync(jobId, resumeId);
+        //         if (resume == null)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.NotFound,
+        //                 Message = "Resume not found."
+        //             };
+        //         }
 
-                // Check if resume has been parsed (must have Data)
-                if (string.IsNullOrEmpty(resume.Data))
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = "Resume has not been parsed yet. Cannot rescore."
-                    };
-                }
+        //         // Check if resume has been parsed (must have Data)
+        //         if (string.IsNullOrEmpty(resume.Data))
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Validation,
+        //                 Message = "Resume has not been parsed yet. Cannot rescore."
+        //             };
+        //         }
 
-                // Check if resume status is Completed
-                if (resume.Status != ResumeStatusEnum.Completed)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = $"Cannot rescore resume with status '{resume.Status}'. Only 'Completed' resumes can be rescored."
-                    };
-                }
+        //         // Check if resume status is Completed
+        //         if (resume.Status != ResumeStatusEnum.Completed)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Validation,
+        //                 Message = $"Cannot rescore resume with status '{resume.Status}'. Only 'Completed' resumes can be rescored."
+        //             };
+        //         }
 
-                // Get ResumeApplication to retrieve campaign context
-                var resumeApplication = await _resumeApplicationRepo.GetByResumeIdAndJobIdAsync(resumeId, jobId);
-                if (resumeApplication == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "ResumeApplication not found for this resume."
-                    };
-                }
+        //         // Get ResumeApplication to retrieve campaign context
+        //         var resumeApplication = await _resumeApplicationRepo.GetByResumeIdAndJobIdAsync(resumeId, jobId);
+        //         if (resumeApplication == null)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.NotFound,
+        //                 Message = "ResumeApplication not found for this resume."
+        //             };
+        //         }
 
-                // Generate new queue job ID
-                var newQueueJobId = Guid.NewGuid().ToString();
+        //         // Generate new queue job ID
+        //         var newQueueJobId = Guid.NewGuid().ToString();
 
-                // Prepare criteria data for queue
-                var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
-                {
-                    criteriaId = c.CriteriaId,
-                    name = c.Name,
-                    weight = c.Weight
-                }).ToList() ?? new List<CriteriaQueueResponse>();
+        //         // Prepare criteria data for queue
+        //         var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
+        //         {
+        //             criteriaId = c.CriteriaId,
+        //             name = c.Name,
+        //             weight = c.Weight
+        //         }).ToList() ?? new List<CriteriaQueueResponse>();
 
-                // Parse the existing resume data JSON
-                object? parsedData = null;
-                try
-                {
-                    parsedData = JsonSerializer.Deserialize<object>(resume.Data);
-                }
-                catch
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Error,
-                        Message = "Failed to parse existing resume data."
-                    };
-                }
+        //         // Parse the existing resume data JSON
+        //         object? parsedData = null;
+        //         try
+        //         {
+        //             parsedData = JsonSerializer.Deserialize<object>(resume.Data);
+        //         }
+        //         catch
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Error,
+        //                 Message = "Failed to parse existing resume data."
+        //             };
+        //         }
 
-                // Extract skills and employment types from repository
-                var skillsList = await jobRepo.GetSkillsByJobIdAsync(jobId);
-                var employmentTypesList = await jobRepo.GetEmploymentTypesByJobIdAsync(jobId);
-                var languagesList = await jobRepo.GetLanguagesByJobIdAsync(jobId);
+        //         // Extract skills and employment types from repository
+        //         var skillsList = await jobRepo.GetSkillsByJobIdAsync(jobId);
+        //         var employmentTypesList = await jobRepo.GetEmploymentTypesByJobIdAsync(jobId);
+        //         var languagesList = await jobRepo.GetLanguagesByJobIdAsync(jobId);
 
-                // Push job to Redis queue with mode = "rescore" and parsedData
-                var jobData = new ResumeQueueJobResponse
-                {
-                    companyId = job.CompanyId,
-                    resumeId = resume.ResumeId,
-                    applicationId = resumeApplication.ApplicationId,
-                    queueJobId = newQueueJobId,
-                    campaignId = resumeApplication.CampaignId ?? 0,
-                    jobId = jobId,
-                    jobTitle = job.Title,
-                    fileUrl = resume.FileUrl ?? string.Empty,
-                    requirements = job.Requirements,
-                    skills = skillsList.Any() ? string.Join(", ", skillsList) : null,
-                    languages = languagesList.Any() ? string.Join(", ", languagesList) : null,
-                    specialization = job.Specialization?.Name,
-                    employmentType = employmentTypesList.Any() ? string.Join(", ", employmentTypesList) : null,
-                    criteria = criteriaData,
-                    // Keep Redis mode string in sync with ProcessingModeEnum
-                    mode = ProcessingModeEnum.Rescore.ToString().ToLowerInvariant(),
-                    parsedData = parsedData
-                };
+        //         // Push job to Redis queue with mode = "rescore" and parsedData
+        //         var jobData = new ResumeQueueJobResponse
+        //         {
+        //             companyId = job.CompanyId,
+        //             resumeId = resume.ResumeId,
+        //             applicationId = resumeApplication.ApplicationId,
+        //             queueJobId = newQueueJobId,
+        //             campaignId = resumeApplication.CampaignId ?? 0,
+        //             jobId = jobId,
+        //             jobTitle = job.Title,
+        //             fileUrl = resume.FileUrl ?? string.Empty,
+        //             requirements = job.Requirements,
+        //             skills = skillsList.Any() ? string.Join(", ", skillsList) : null,
+        //             languages = languagesList.Any() ? string.Join(", ", languagesList) : null,
+        //             specialization = job.Specialization?.Name,
+        //             employmentType = employmentTypesList.Any() ? string.Join(", ", employmentTypesList) : null,
+        //             criteria = criteriaData,
+        //             // Keep Redis mode string in sync with ProcessingModeEnum
+        //             mode = ProcessingModeEnum.Rescore.ToString().ToLowerInvariant(),
+        //             parsedData = parsedData
+        //         };
 
-                var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
-                if (!pushed)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Error,
-                        Message = "Failed to push job to Redis queue."
-                    };
-                }
+        //         var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
+        //         if (!pushed)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Error,
+        //                 Message = "Failed to push job to Redis queue."
+        //             };
+        //         }
 
-                // Store rescore job data with queueJobId as key (expires in 24 hours)
-                // await _redisHelper.SetJobDataAsync($"resume:job:{newQueueJobId}", jobData, TimeSpan.FromHours(24));
-                // // Update the resume data key with new job info
-                // await _redisHelper.SetJobDataAsync($"resume:data:{resume.ResumeId}", jobData, TimeSpan.FromHours(24));
+        //         // Store rescore job data with queueJobId as key (expires in 24 hours)
+        //         // await _redisHelper.SetJobDataAsync($"resume:job:{newQueueJobId}", jobData, TimeSpan.FromHours(24));
+        //         // // Update the resume data key with new job info
+        //         // await _redisHelper.SetJobDataAsync($"resume:data:{resume.ResumeId}", jobData, TimeSpan.FromHours(24));
 
-                await _uow.BeginTransactionAsync();
-                try
-                {
-                    // Update application/resume: new queueJobId and status = Pending
-                    resumeApplication.QueueJobId = newQueueJobId;
-                    resumeApplication.Status = ApplicationStatusEnum.Pending;
-                    resumeApplication.ProcessingMode = ProcessingModeEnum.Rescore;
-                    resumeApplication.ProcessedAt = null; // Reset, will be set when AI finishes
-                    resumeApplication.ProcessingTimeMs = null;
-                    resume.Status = ResumeStatusEnum.Pending;
-                    await _resumeApplicationRepo.UpdateAsync(resumeApplication);
-                    await resumeRepo.UpdateAsync(resume);
-                    await _uow.CommitTransactionAsync();
+        //         await _uow.BeginTransactionAsync();
+        //         try
+        //         {
+        //             // Update application/resume: new queueJobId and status = Pending
+        //             resumeApplication.QueueJobId = newQueueJobId;
+        //             resumeApplication.Status = ApplicationStatusEnum.Pending;
+        //             resumeApplication.ProcessingMode = ProcessingModeEnum.Rescore;
+        //             resumeApplication.ProcessedAt = null; // Reset, will be set when AI finishes
+        //             resumeApplication.ProcessingTimeMs = null;
+        //             resume.Status = ResumeStatusEnum.Pending;
+        //             await _resumeApplicationRepo.UpdateAsync(resumeApplication);
+        //             await resumeRepo.UpdateAsync(resume);
+        //             await _uow.CommitTransactionAsync();
 
-                    // Reload resume for SignalR
-                    var rescoreResume = await resumeRepo.GetByJobIdAndResumeIdAsync(jobId, resume.ResumeId);
+        //             // Reload resume for SignalR
+        //             var rescoreResume = await resumeRepo.GetByJobIdAndResumeIdAsync(jobId, resume.ResumeId);
                     
-                    // Capture data for SignalR BEFORE background task
-                    var jobIdForSignalR = jobId;
-                    var resumeIdForSignalR = resume.ResumeId;
+        //             // Capture data for SignalR BEFORE background task
+        //             var jobIdForSignalR = jobId;
+        //             var resumeIdForSignalR = resume.ResumeId;
                     
-                    // Send real-time SignalR update
-                    _ = Task.Run(async () => 
-                    {
-                        await Task.Delay(200);
-                        await SendResumeUpdateAsync(jobIdForSignalR, resumeIdForSignalR, "rescore_initiated", 
-                            new { newStatus = "Pending" }, rescoreResume, null);
-                    });
-                }
-                catch
-                {
-                    await _uow.RollbackTransactionAsync();
-                    throw;
-                }
+        //             // Send real-time SignalR update
+        //             _ = Task.Run(async () => 
+        //             {
+        //                 await Task.Delay(200);
+        //                 await SendResumeUpdateAsync(jobIdForSignalR, resumeIdForSignalR, "rescore_initiated", 
+        //                     new { newStatus = "Pending" }, rescoreResume, null);
+        //             });
+        //         }
+        //         catch
+        //         {
+        //             await _uow.RollbackTransactionAsync();
+        //             throw;
+        //         }
 
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Success,
-                    Message = "Resume rescore initiated successfully.",
-                    Data = new ResumeUploadResponse
-                    {
-                        ResumeId = resume.ResumeId,
-                        QueueJobId = newQueueJobId,
-                        Status = ResumeStatusEnum.Pending
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Error resending resume for rescore: {ex.Message}");
-                Console.WriteLine($"🔍 Stack trace: {ex.StackTrace}");
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "An error occurred while resending the resume for rescore."
-                };
-            }
-        }
+        //         return new ServiceResponse
+        //         {
+        //             Status = SRStatus.Success,
+        //             Message = "Resume rescore initiated successfully.",
+        //             Data = new ResumeUploadResponse
+        //             {
+        //                 ResumeId = resume.ResumeId,
+        //                 QueueJobId = newQueueJobId,
+        //                 Status = ResumeStatusEnum.Pending
+        //             }
+        //         };
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Console.WriteLine($"❌ Error resending resume for rescore: {ex.Message}");
+        //         Console.WriteLine($"🔍 Stack trace: {ex.StackTrace}");
+        //         return new ServiceResponse
+        //         {
+        //             Status = SRStatus.Error,
+        //             Message = "An error occurred while resending the resume for rescore."
+        //         };
+        //     }
+        // }
 
         public async Task<ServiceResponse> ProcessAIResultAsync(AIResultRequest request)
         {
@@ -1480,213 +1480,213 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> RetryFailedResumeAsync(int resumeId)
-        {
-            try
-            {
-                // Get current user and company
-                var user = _httpContextAccessor.HttpContext?.User;
-                var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
+        // public async Task<ServiceResponse> RetryFailedResumeAsync(int resumeId)
+        // {
+        //     try
+        //     {
+        //         // Get current user and company
+        //         var user = _httpContextAccessor.HttpContext?.User;
+        //         var userIdClaim = user != null ? ClaimUtils.GetUserIdClaim(user) : null;
 
-                if (string.IsNullOrEmpty(userIdClaim))
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Unauthorized,
-                        Message = "User not authenticated."
-                    };
-                }
+        //         if (string.IsNullOrEmpty(userIdClaim))
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Unauthorized,
+        //                 Message = "User not authenticated."
+        //             };
+        //         }
 
-                int userId = int.Parse(userIdClaim);
-                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
-                var jobRepo = _uow.GetRepository<IJobRepository>();
-                var resumeRepo = _uow.GetRepository<IResumeRepository>();
+        //         int userId = int.Parse(userIdClaim);
+        //         var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+        //         var jobRepo = _uow.GetRepository<IJobRepository>();
+        //         var resumeRepo = _uow.GetRepository<IResumeRepository>();
                 
-                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+        //         var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
                 
-                if (companyUser == null || companyUser.CompanyId == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Company not found for user."
-                    };
-                }
+        //         if (companyUser == null || companyUser.CompanyId == null)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.NotFound,
+        //                 Message = "Company not found for user."
+        //             };
+        //         }
 
-                // Get resume
-                var resume = await resumeRepo.GetForUpdateAsync(resumeId);
-                if (resume == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Resume not found."
-                    };
-                }
+        //         // Get resume
+        //         var resume = await resumeRepo.GetForUpdateAsync(resumeId);
+        //         if (resume == null)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.NotFound,
+        //                 Message = "Resume not found."
+        //             };
+        //         }
 
-                // Validate company ownership
-                if (resume.CompanyId != companyUser.CompanyId.Value)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Forbidden,
-                        Message = "You do not have permission to retry this resume."
-                    };
-                }
+        //         // Validate company ownership
+        //         if (resume.CompanyId != companyUser.CompanyId.Value)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Forbidden,
+        //                 Message = "You do not have permission to retry this resume."
+        //             };
+        //         }
 
-                // Check if resume status is Failed
-                if (resume.Status != ResumeStatusEnum.Failed)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = $"Cannot retry resume with status '{resume.Status}'. Only 'Failed' resumes can be retried."
-                    };
-                }
+        //         // Check if resume status is Failed
+        //         if (resume.Status != ResumeStatusEnum.Failed)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Validation,
+        //                 Message = $"Cannot retry resume with status '{resume.Status}'. Only 'Failed' resumes can be retried."
+        //             };
+        //         }
 
-                // Check if resume is active
-                if (!resume.IsActive)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = "Cannot retry an inactive resume."
-                    };
-                }
+        //         // Check if resume is active
+        //         if (!resume.IsActive)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Validation,
+        //                 Message = "Cannot retry an inactive resume."
+        //             };
+        //         }
 
-                // Get ResumeApplication to find JobId
-                var resumeApplication = await _resumeApplicationRepo.GetByResumeIdAsync(resumeId);
+        //         // Get ResumeApplication to find JobId
+        //         var resumeApplication = await _resumeApplicationRepo.GetByResumeIdAsync(resumeId);
 
-                if (resumeApplication == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "ResumeApplication not found for this resume."
-                    };
-                }
+        //         if (resumeApplication == null)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.NotFound,
+        //                 Message = "ResumeApplication not found for this resume."
+        //             };
+        //         }
 
-                // Get job with requirements and criteria
-                var job = await jobRepo.GetJobByIdAsync(resumeApplication.JobId);
-                if (job == null)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.NotFound,
-                        Message = "Job not found."
-                    };
-                }
+        //         // Get job with requirements and criteria
+        //         var job = await jobRepo.GetJobByIdAsync(resumeApplication.JobId);
+        //         if (job == null)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.NotFound,
+        //                 Message = "Job not found."
+        //             };
+        //         }
 
-                // Generate new queue job ID
-                var newQueueJobId = Guid.NewGuid().ToString();
+        //         // Generate new queue job ID
+        //         var newQueueJobId = Guid.NewGuid().ToString();
 
-                // Prepare criteria data for queue
-                var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
-                {
-                    criteriaId = c.CriteriaId,
-                    name = c.Name,
-                    weight = c.Weight
-                }).ToList() ?? new List<CriteriaQueueResponse>();
+        //         // Prepare criteria data for queue
+        //         var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
+        //         {
+        //             criteriaId = c.CriteriaId,
+        //             name = c.Name,
+        //             weight = c.Weight
+        //         }).ToList() ?? new List<CriteriaQueueResponse>();
 
-                // Extract skills and employment types from repository
-                var skillsList = await jobRepo.GetSkillsByJobIdAsync(resumeApplication.JobId);
-                var employmentTypesList = await jobRepo.GetEmploymentTypesByJobIdAsync(resumeApplication.JobId);
-                var languagesList = await jobRepo.GetLanguagesByJobIdAsync(resumeApplication.JobId);
+        //         // Extract skills and employment types from repository
+        //         var skillsList = await jobRepo.GetSkillsByJobIdAsync(resumeApplication.JobId);
+        //         var employmentTypesList = await jobRepo.GetEmploymentTypesByJobIdAsync(resumeApplication.JobId);
+        //         var languagesList = await jobRepo.GetLanguagesByJobIdAsync(resumeApplication.JobId);
 
-                // Push job to Redis queue with requirements and criteria
-                var jobData = new ResumeQueueJobResponse
-                {
-                    companyId = job.CompanyId,
-                    resumeId = resume.ResumeId,
-                    applicationId = resumeApplication.ApplicationId,
-                    queueJobId = newQueueJobId,
-                    campaignId = resumeApplication.CampaignId ?? 0,
-                    jobId = resumeApplication.JobId,
-                    jobTitle = job.Title,
-                    fileUrl = resume.FileUrl ?? string.Empty,
-                    requirements = job.Requirements,
-                    skills = skillsList.Any() ? string.Join(", ", skillsList) : null,
-                    languages = languagesList.Any() ? string.Join(", ", languagesList) : null,
-                    specialization = job.Specialization?.Name,
-                    employmentType = employmentTypesList.Any() ? string.Join(", ", employmentTypesList) : null,
-                    criteria = criteriaData,
-                    // Keep Redis mode string in sync with ProcessingModeEnum
-                    mode = ProcessingModeEnum.Parse.ToString().ToLowerInvariant()
-                };
+        //         // Push job to Redis queue with requirements and criteria
+        //         var jobData = new ResumeQueueJobResponse
+        //         {
+        //             companyId = job.CompanyId,
+        //             resumeId = resume.ResumeId,
+        //             applicationId = resumeApplication.ApplicationId,
+        //             queueJobId = newQueueJobId,
+        //             campaignId = resumeApplication.CampaignId ?? 0,
+        //             jobId = resumeApplication.JobId,
+        //             jobTitle = job.Title,
+        //             fileUrl = resume.FileUrl ?? string.Empty,
+        //             requirements = job.Requirements,
+        //             skills = skillsList.Any() ? string.Join(", ", skillsList) : null,
+        //             languages = languagesList.Any() ? string.Join(", ", languagesList) : null,
+        //             specialization = job.Specialization?.Name,
+        //             employmentType = employmentTypesList.Any() ? string.Join(", ", employmentTypesList) : null,
+        //             criteria = criteriaData,
+        //             // Keep Redis mode string in sync with ProcessingModeEnum
+        //             mode = ProcessingModeEnum.Parse.ToString().ToLowerInvariant()
+        //         };
 
-                var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
-                if (!pushed)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Error,
-                        Message = "Failed to push job to Redis queue."
-                    };
-                }
+        //         var pushed = await _redisHelper.PushJobAsync("resume_parse_queue", jobData);
+        //         if (!pushed)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Error,
+        //                 Message = "Failed to push job to Redis queue."
+        //             };
+        //         }
 
-                // Store retry job data with queueJobId as key (expires in 24 hours)
-                // await _redisHelper.SetJobDataAsync($"resume:job:{newQueueJobId}", jobData, TimeSpan.FromHours(24));
-                // // Update the resume data key with new job info
-                // await _redisHelper.SetJobDataAsync($"resume:data:{resume.ResumeId}", jobData, TimeSpan.FromHours(24));
+        //         // Store retry job data with queueJobId as key (expires in 24 hours)
+        //         // await _redisHelper.SetJobDataAsync($"resume:job:{newQueueJobId}", jobData, TimeSpan.FromHours(24));
+        //         // // Update the resume data key with new job info
+        //         // await _redisHelper.SetJobDataAsync($"resume:data:{resume.ResumeId}", jobData, TimeSpan.FromHours(24));
 
-                await _uow.BeginTransactionAsync();
-                try
-                {
-                    // Update application/resume: new queueJobId and status = Pending
-                    resumeApplication.QueueJobId = newQueueJobId;
-                    resumeApplication.Status = ApplicationStatusEnum.Pending;
-                    resumeApplication.ProcessingMode = ProcessingModeEnum.Parse; // Retry = parse again
-                    resumeApplication.ProcessedAt = null; // Reset, will be set when AI finishes
-                    resumeApplication.ProcessingTimeMs = null;
-                    resume.Status = ResumeStatusEnum.Pending;
-                    await _resumeApplicationRepo.UpdateAsync(resumeApplication);
-                    await resumeRepo.UpdateAsync(resume);
-                    await _uow.CommitTransactionAsync();
+        //         await _uow.BeginTransactionAsync();
+        //         try
+        //         {
+        //             // Update application/resume: new queueJobId and status = Pending
+        //             resumeApplication.QueueJobId = newQueueJobId;
+        //             resumeApplication.Status = ApplicationStatusEnum.Pending;
+        //             resumeApplication.ProcessingMode = ProcessingModeEnum.Parse; // Retry = parse again
+        //             resumeApplication.ProcessedAt = null; // Reset, will be set when AI finishes
+        //             resumeApplication.ProcessingTimeMs = null;
+        //             resume.Status = ResumeStatusEnum.Pending;
+        //             await _resumeApplicationRepo.UpdateAsync(resumeApplication);
+        //             await resumeRepo.UpdateAsync(resume);
+        //             await _uow.CommitTransactionAsync();
 
-                    // Reload resume for SignalR
-                    var retryResume = await resumeRepo.GetByJobIdAndResumeIdAsync(resumeApplication.JobId, resume.ResumeId);
+        //             // Reload resume for SignalR
+        //             var retryResume = await resumeRepo.GetByJobIdAndResumeIdAsync(resumeApplication.JobId, resume.ResumeId);
                     
-                    // Capture data for SignalR BEFORE background task
-                    var jobIdForSignalR = resumeApplication.JobId;
-                    var resumeIdForSignalR = resume.ResumeId;
+        //             // Capture data for SignalR BEFORE background task
+        //             var jobIdForSignalR = resumeApplication.JobId;
+        //             var resumeIdForSignalR = resume.ResumeId;
                     
-                    // Send real-time SignalR update
-                    _ = Task.Run(async () => 
-                    {
-                        await Task.Delay(200);
-                        await SendResumeUpdateAsync(jobIdForSignalR, resumeIdForSignalR, "retried", 
-                            new { newStatus = "Pending" }, retryResume, null);
-                    });
-                }
-                catch
-                {
-                    await _uow.RollbackTransactionAsync();
-                    throw;
-                }
+        //             // Send real-time SignalR update
+        //             _ = Task.Run(async () => 
+        //             {
+        //                 await Task.Delay(200);
+        //                 await SendResumeUpdateAsync(jobIdForSignalR, resumeIdForSignalR, "retried", 
+        //                     new { newStatus = "Pending" }, retryResume, null);
+        //             });
+        //         }
+        //         catch
+        //         {
+        //             await _uow.RollbackTransactionAsync();
+        //             throw;
+        //         }
 
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Success,
-                    Message = "Resume retry initiated successfully.",
-                    Data = new ResumeUploadResponse
-                    {
-                        ResumeId = resume.ResumeId,
-                        QueueJobId = newQueueJobId,
-                        Status = ResumeStatusEnum.Pending
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Error retrying failed resume: {ex.Message}");
-                Console.WriteLine($"🔍 Stack trace: {ex.StackTrace}");
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "An error occurred while retrying the resume."
-                };
-            }
-        }
+        //         return new ServiceResponse
+        //         {
+        //             Status = SRStatus.Success,
+        //             Message = "Resume retry initiated successfully.",
+        //             Data = new ResumeUploadResponse
+        //             {
+        //                 ResumeId = resume.ResumeId,
+        //                 QueueJobId = newQueueJobId,
+        //                 Status = ResumeStatusEnum.Pending
+        //             }
+        //         };
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Console.WriteLine($"❌ Error retrying failed resume: {ex.Message}");
+        //         Console.WriteLine($"🔍 Stack trace: {ex.StackTrace}");
+        //         return new ServiceResponse
+        //         {
+        //             Status = SRStatus.Error,
+        //             Message = "An error occurred while retrying the resume."
+        //         };
+        //     }
+        // }
 
         public async Task<ServiceResponse> SoftDeleteResumeAsync(int applicationId)
         {
