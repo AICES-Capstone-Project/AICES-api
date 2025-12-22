@@ -25,4 +25,9 @@ namespace Data.Models.Response
         public string CategoryName { get; set; } = string.Empty;
         public int JobCount { get; set; }
     }
+
+    // Alias for backward compatibility with repository
+    public class CategoryJobCount : TopCategoryJob
+    {
+    }
 }

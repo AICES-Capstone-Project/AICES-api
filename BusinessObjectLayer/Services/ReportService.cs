@@ -5,6 +5,7 @@ using Data.Enum;
 using Data.Models.Response;
 using DataAccessLayer;
 using DataAccessLayer.IRepositories;
+using DataAccessLayer.Repositories;
 using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -24,6 +25,7 @@ namespace BusinessObjectLayer.Services
         private readonly AICESDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly IReportRepository _reportRepository;
 
         public ReportService(IUnitOfWork uow, AICESDbContext context, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment webHostEnvironment)
         {
@@ -31,6 +33,7 @@ namespace BusinessObjectLayer.Services
             _context = context;
             _httpContextAccessor = httpContextAccessor;
             _webHostEnvironment = webHostEnvironment;
+            _reportRepository = _uow.GetRepository<IReportRepository>();
         }
 
         static ReportService()
@@ -914,55 +917,24 @@ namespace BusinessObjectLayer.Services
             try
             {
                 // 1. Total Companies
-                var totalCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive)
-                    .CountAsync();
+                var totalCompanies = await _reportRepository.GetTotalActiveCompaniesAsync();
 
                 // 2. Active Companies (có ít nhất 1 job published hoặc có subscription active)
-                var activeCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && 
-                           (_context.Jobs.Any(j => j.CompanyId == c.CompanyId && j.IsActive && j.JobStatus == JobStatusEnum.Published) ||
-                            _context.CompanySubscriptions.Any(cs => cs.CompanyId == c.CompanyId && cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active)))
-                    .CountAsync();
+                var activeCompanies = await _reportRepository.GetActiveCompaniesWithJobsOrSubscriptionsAsync();
 
                 // 3. Total Jobs (all active jobs)
-                var totalJobs = await _context.Jobs
-                    .AsNoTracking()
-                    .Where(j => j.IsActive)
-                    .CountAsync();
+                var totalJobs = await _reportRepository.GetTotalActiveJobsAsync();
 
                 // 4. AI Processed Resumes (resumes with score)
-                var aiProcessedResumes = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.IsActive && (ra.TotalScore != null || ra.AdjustedScore != null))
-                    .Select(ra => ra.ResumeId)
-                    .Distinct()
-                    .CountAsync();
+                var aiProcessedResumes = await _reportRepository.GetAiProcessedResumesCountAsync();
 
                 // 5. Total Revenue (sum of successful payments via transactions)
-                var totalRevenue = await _context.Transactions
-                    .AsNoTracking()
-                    .Where(t => t.IsActive && 
-                           t.Payment != null && 
-                           t.Payment.IsActive && 
-                           t.Payment.PaymentStatus == PaymentStatusEnum.Paid)
-                    .SumAsync(t => (decimal?)t.Amount) ?? 0;
+                var totalRevenue = await _reportRepository.GetTotalRevenueFromPaidPaymentsAsync();
 
                 // 6. Company Retention Rate (companies that have renewed - have more than 1 subscription in history)
-                // Đếm tất cả subscriptions (kể cả expired) để biết công ty có gia hạn hay không
-                var companiesWithSubscriptions = await _context.CompanySubscriptions
-                    .AsNoTracking()
-                    .Select(cs => cs.CompanyId)
-                    .Distinct()
-                    .CountAsync();
+                var companiesWithSubscriptions = await _reportRepository.GetCompaniesWithSubscriptionsCountAsync();
 
-                var companiesWithMultipleSubscriptions = await _context.CompanySubscriptions
-                    .AsNoTracking()
-                    .GroupBy(cs => cs.CompanyId)
-                    .Where(g => g.Count() > 1) // Công ty có > 1 subscription record = đã gia hạn
-                    .CountAsync();
+                var companiesWithMultipleSubscriptions = await _reportRepository.GetCompaniesWithMultipleSubscriptionsCountAsync();
 
                 decimal retentionRate = companiesWithSubscriptions > 0 
                     ? Math.Round((decimal)companiesWithMultipleSubscriptions / companiesWithSubscriptions, 2)
@@ -1003,63 +975,32 @@ namespace BusinessObjectLayer.Services
                 var firstDayOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
                 // 1. Total Companies
-                var totalCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive)
-                    .CountAsync();
+                var totalCompanies = await _reportRepository.GetTotalActiveCompaniesCountAsync();
 
                 // 2. Active Companies (status = Approved)
-                var activeCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
-                    .CountAsync();
+                var activeCompanies = await _reportRepository.GetCompaniesByStatusAsync(CompanyStatusEnum.Approved);
 
                 // 3. Inactive Companies (IsActive = true but not Approved)
                 var inactiveCompanies = totalCompanies - activeCompanies;
 
                 // 4. New Companies This Month
-                var newCompaniesThisMonth = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && c.CreatedAt >= firstDayOfMonth)
-                    .CountAsync();
+                var newCompaniesThisMonth = await _reportRepository.GetNewCompaniesThisMonthAsync(firstDayOfMonth);
 
                 // 5. Companies with Active Subscription
-                var companiesWithActiveSubscription = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && 
-                           c.CompanySubscriptions.Any(cs => cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active))
-                    .CountAsync();
+                var companiesWithActiveSubscription = await _reportRepository.GetCompaniesWithActiveSubscriptionAsync();
 
                 // 6. Companies with Expired Subscription (có subscription nhưng không có active)
-                var companiesWithExpiredSubscription = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && 
-                           c.CompanySubscriptions.Any(cs => cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Expired) &&
-                           !c.CompanySubscriptions.Any(cs => cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active))
-                    .CountAsync();
+                var companiesWithExpiredSubscription = await _reportRepository.GetCompaniesWithExpiredSubscriptionAsync();
 
                 // 7. Companies without any Subscription
-                var companiesWithoutSubscription = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && 
-                           !c.CompanySubscriptions.Any(cs => cs.IsActive))
-                    .CountAsync();
+                var companiesWithoutSubscription = await _reportRepository.GetCompaniesWithoutSubscriptionAsync();
 
                 // 8. Verification Status Breakdown
-                var verifiedCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
-                    .CountAsync();
+                var verifiedCompanies = await _reportRepository.GetCompaniesByStatusAsync(CompanyStatusEnum.Approved);
 
-                var pendingCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Pending)
-                    .CountAsync();
+                var pendingCompanies = await _reportRepository.GetCompaniesByStatusAsync(CompanyStatusEnum.Pending);
 
-                var rejectedCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Rejected)
-                    .CountAsync();
+                var rejectedCompanies = await _reportRepository.GetCompaniesByStatusAsync(CompanyStatusEnum.Rejected);
 
                 var overview = new CompanyOverviewResponse
                 {
@@ -1107,32 +1048,16 @@ namespace BusinessObjectLayer.Services
                 var thirtyDaysAgo = now.AddDays(-30);
 
                 // Total active companies (approved)
-                var totalCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
-                    .CountAsync();
+                var totalCompanies = await _reportRepository.GetCompaniesByStatusAsync(CompanyStatusEnum.Approved);
 
                 // 1. Active Companies: Có ít nhất 1 job hoặc 1 resume
-                var activeCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && 
-                           c.CompanyStatus == CompanyStatusEnum.Approved &&
-                           (c.Jobs.Any(j => j.IsActive) || c.Resumes.Any(r => r.IsActive)))
-                    .CountAsync();
+                var activeCompanies = await _reportRepository.GetActiveCompaniesWithContentAsync();
 
                 // 2. Registered Only: Đăng ký nhưng chưa tạo job hoặc resume nào
                 var registeredOnly = totalCompanies - activeCompanies;
 
                 // 3. Frequent Companies: Có hoạt động trong 7 ngày gần đây
-                // (tạo job mới, upload resume, hoặc có resume application mới)
-                var frequentCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && 
-                           c.CompanyStatus == CompanyStatusEnum.Approved &&
-                           (c.Jobs.Any(j => j.IsActive && j.CreatedAt >= sevenDaysAgo) ||
-                            c.Resumes.Any(r => r.IsActive && r.CreatedAt >= sevenDaysAgo) ||
-                            c.Jobs.Any(j => j.IsActive && j.ResumeApplications.Any(ra => ra.IsActive && ra.CreatedAt >= sevenDaysAgo))))
-                    .CountAsync();
+                var frequentCompanies = await _reportRepository.GetFrequentCompaniesAsync(sevenDaysAgo);
 
                 // KPIs
                 // 4. Active Rate: % công ty active / tổng công ty
@@ -1141,28 +1066,14 @@ namespace BusinessObjectLayer.Services
                     : 0;
 
                 // 5. AI Usage Rate: % công ty có dùng AI screening (có resume được score)
-                var companiesUsingAI = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && 
-                           c.CompanyStatus == CompanyStatusEnum.Approved &&
-                           c.Resumes.Any(r => r.IsActive && 
-                                        r.ResumeApplications.Any(ra => ra.IsActive && 
-                                                                (ra.TotalScore != null || ra.AdjustedScore != null))))
-                    .CountAsync();
+                var companiesUsingAI = await _reportRepository.GetCompaniesUsingAIAsync();
 
                 decimal aiUsageRate = totalCompanies > 0 
                     ? Math.Round((decimal)companiesUsingAI / totalCompanies, 2)
                     : 0;
 
                 // 6. Returning Rate: % công ty có hoạt động trong 30 ngày gần đây
-                var returningCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && 
-                           c.CompanyStatus == CompanyStatusEnum.Approved &&
-                           (c.Jobs.Any(j => j.IsActive && j.CreatedAt >= thirtyDaysAgo) ||
-                            c.Resumes.Any(r => r.IsActive && r.CreatedAt >= thirtyDaysAgo) ||
-                            c.Jobs.Any(j => j.IsActive && j.ResumeApplications.Any(ra => ra.IsActive && ra.CreatedAt >= thirtyDaysAgo))))
-                    .CountAsync();
+                var returningCompanies = await _reportRepository.GetReturningCompaniesAsync(thirtyDaysAgo);
 
                 decimal returningRate = totalCompanies > 0 
                     ? Math.Round((decimal)returningCompanies / totalCompanies, 2)
@@ -1206,73 +1117,40 @@ namespace BusinessObjectLayer.Services
                 var firstDayOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
                 // 1. Total Jobs (all active)
-                var totalJobs = await _context.Jobs
-                    .AsNoTracking()
-                    .Where(j => j.IsActive)
-                    .CountAsync();
+                var totalJobs = await _reportRepository.GetTotalActiveJobsCountAsync();
 
                 // 2. Active Jobs (Published status)
-                var activeJobs = await _context.Jobs
-                    .AsNoTracking()
-                    .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Published)
-                    .CountAsync();
+                var activeJobs = await _reportRepository.GetActiveJobsByStatusAsync(JobStatusEnum.Published);
 
                 // 3. Pending Jobs (waiting approval)
-                var pendingJobs = await _context.Jobs
-                    .AsNoTracking()
-                    .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Pending)
-                    .CountAsync();
+                var pendingJobs = await _reportRepository.GetActiveJobsByStatusAsync(JobStatusEnum.Pending);
 
                 // 4. Rejected Jobs
-                var rejectedJobs = await _context.Jobs
-                    .AsNoTracking()
-                    .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Rejected)
-                    .CountAsync();
+                var rejectedJobs = await _reportRepository.GetActiveJobsByStatusAsync(JobStatusEnum.Rejected);
 
                 // 5. Archived Jobs
-                var archivedJobs = await _context.Jobs
-                    .AsNoTracking()
-                    .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Archived)
-                    .CountAsync();
+                var archivedJobs = await _reportRepository.GetActiveJobsByStatusAsync(JobStatusEnum.Archived);
 
                 // 6. New Jobs This Month
-                var newJobsThisMonth = await _context.Jobs
-                    .AsNoTracking()
-                    .Where(j => j.IsActive && j.CreatedAt >= firstDayOfMonth)
-                    .CountAsync();
+                var newJobsThisMonth = await _reportRepository.GetNewJobsThisMonthAsync(firstDayOfMonth);
 
                 // 7. Average Applications Per Job
-                var totalApplications = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.IsActive)
-                    .CountAsync();
+                var totalApplications = await _reportRepository.GetTotalApplicationsCountAsync();
 
-                var jobsWithApplications = await _context.Jobs
-                    .AsNoTracking()
-                    .Where(j => j.IsActive && j.ResumeApplications.Any(ra => ra.IsActive))
-                    .CountAsync();
+                var jobsWithApplications = await _reportRepository.GetJobsWithApplicationsCountAsync();
 
                 decimal avgApplicationsPerJob = jobsWithApplications > 0
                     ? Math.Round((decimal)totalApplications / jobsWithApplications, 2)
                     : 0;
 
                 // 8. Top Categories (top 5)
-                var topCategories = await (from j in _context.Jobs
-                                          join s in _context.Specializations on j.SpecializationId equals s.SpecializationId into specGroup
-                                          from spec in specGroup.DefaultIfEmpty()
-                                          join c in _context.Categories on spec.CategoryId equals c.CategoryId into catGroup
-                                          from cat in catGroup.DefaultIfEmpty()
-                                          where j.IsActive && cat != null
-                                          group j by new { cat.CategoryId, cat.Name } into g
-                                          orderby g.Count() descending
-                                          select new TopCategoryJob
-                                          {
-                                              CategoryId = g.Key.CategoryId,
-                                              CategoryName = g.Key.Name,
-                                              JobCount = g.Count()
-                                          })
-                                          .Take(5)
-                                          .ToListAsync();
+                var topCategoriesData = await _reportRepository.GetTopCategoriesByJobCountAsync(5);
+                var topCategories = topCategoriesData.Select(tc => new TopCategoryJob
+                {
+                    CategoryId = tc.CategoryId,
+                    CategoryName = tc.CategoryName,
+                    JobCount = tc.JobCount
+                }).ToList();
 
                 var statistics = new JobStatisticsResponse
                 {
@@ -1313,52 +1191,27 @@ namespace BusinessObjectLayer.Services
             try
             {
                 // 1. Average Resumes Per Job
-                var totalResumes = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.IsActive)
-                    .CountAsync();
+                var totalResumes = await _reportRepository.GetTotalResumesCountAsync();
 
-                var totalJobs = await _context.Jobs
-                    .AsNoTracking()
-                    .Where(j => j.IsActive && j.ResumeApplications.Any(ra => ra.IsActive))
-                    .CountAsync();
+                var totalJobs = await _reportRepository.GetJobsWithApplicationsCountAsync();
 
                 decimal avgResumesPerJob = totalJobs > 0
                     ? Math.Round((decimal)totalResumes / totalJobs, 2)
                     : 0;
 
                 // 2. Qualified Rate: Tỉ lệ CV có AI Score > 75
-                var totalApplicationsWithScore = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.IsActive && (ra.TotalScore != null || ra.AdjustedScore != null))
-                    .CountAsync();
+                var totalApplicationsWithScore = await _reportRepository.GetTotalApplicationsWithScoreAsync();
 
-                var qualifiedApplications = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.IsActive && 
-                           ((ra.AdjustedScore != null && ra.AdjustedScore > 75) ||
-                            (ra.AdjustedScore == null && ra.TotalScore != null && ra.TotalScore > 75)))
-                    .CountAsync();
+                var qualifiedApplications = await _reportRepository.GetQualifiedApplicationsCountAsync();
 
                 decimal qualifiedRate = totalApplicationsWithScore > 0
                     ? Math.Round((decimal)qualifiedApplications / totalApplicationsWithScore, 2)
                     : 0;
 
                 // 3. Success Hiring Rate: Tỉ lệ job có ít nhất 1 ứng viên được chấp nhận
-                // (Giả sử có field Status trong ResumeApplication, nếu không có thì tạm tính bằng cách khác)
-                var totalJobsPublished = await _context.Jobs
-                    .AsNoTracking()
-                    .Where(j => j.IsActive && j.JobStatus == JobStatusEnum.Published)
-                    .CountAsync();
+                var totalJobsPublished = await _reportRepository.GetTotalPublishedJobsCountAsync();
 
-                // Jobs có ít nhất 1 resume application với status Hired hoặc Accepted
-                var successfulJobs = await _context.Jobs
-                    .AsNoTracking()
-                    .Where(j => j.IsActive && 
-                           j.JobStatus == JobStatusEnum.Published &&
-                           j.ResumeApplications.Any(ra => ra.IsActive && 
-                                                    ra.Status == ApplicationStatusEnum.Hired))
-                    .CountAsync();
+                var successfulJobs = await _reportRepository.GetSuccessfulJobsCountAsync();
 
                 decimal successHiringRate = totalJobsPublished > 0
                     ? Math.Round((decimal)successfulJobs / totalJobsPublished, 2)
@@ -1393,24 +1246,13 @@ namespace BusinessObjectLayer.Services
             try
             {
                 // 1. Total Resumes
-                var totalResumes = await _context.Resumes
-                    .AsNoTracking()
-                    .Where(r => r.IsActive)
-                    .CountAsync();
+                var totalResumes = await _reportRepository.GetTotalResumesForParsingAsync();
 
                 // 2. Successful Parsing (Status = Completed)
-                var successfulParsing = await _context.Resumes
-                    .AsNoTracking()
-                    .Where(r => r.IsActive && r.Status == ResumeStatusEnum.Completed)
-                    .CountAsync();
+                var successfulParsing = await _reportRepository.GetSuccessfulParsingCountAsync();
 
                 // 3. Failed Parsing (all other statuses except Completed and Pending)
-                var failedParsing = await _context.Resumes
-                    .AsNoTracking()
-                    .Where(r => r.IsActive && 
-                           r.Status != ResumeStatusEnum.Completed && 
-                           r.Status != ResumeStatusEnum.Pending)
-                    .CountAsync();
+                var failedParsing = await _reportRepository.GetFailedParsingCountAsync();
 
                 // 4. Success Rate
                 decimal successRate = totalResumes > 0
@@ -1418,33 +1260,10 @@ namespace BusinessObjectLayer.Services
                     : 0;
 
                 // 5. Average Processing Time (from ResumeApplications)
-                var avgProcessingTime = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.IsActive && ra.ProcessingTimeMs != null)
-                    .AverageAsync(ra => (decimal?)ra.ProcessingTimeMs) ?? 0;
+                var avgProcessingTime = await _reportRepository.GetAverageProcessingTimeFromApplicationsAsync();
 
                 // 6. Common Errors - Group by ResumeStatus
-                var errorStats = await _context.Resumes
-                    .AsNoTracking()
-                    .Where(r => r.IsActive && 
-                           r.Status != ResumeStatusEnum.Completed && 
-                           r.Status != ResumeStatusEnum.Pending)
-                    .GroupBy(r => r.Status)
-                    .Select(g => new
-                    {
-                        Status = g.Key,
-                        Count = g.Count()
-                    })
-                    .OrderByDescending(x => x.Count)
-                    .Take(5)
-                    .ToListAsync();
-
-                var commonErrors = errorStats.Select(e => new ErrorStatistic
-                {
-                    ErrorType = e.Status.ToString(),
-                    Count = e.Count,
-                    Percentage = failedParsing > 0 ? Math.Round((decimal)e.Count / failedParsing, 2) : 0
-                }).ToList();
+                var commonErrors = await _reportRepository.GetCommonParsingErrorsAsync(5);
 
                 var parsingQuality = new AiParsingQualityResponse
                 {
@@ -1478,17 +1297,10 @@ namespace BusinessObjectLayer.Services
             try
             {
                 // 1. Total Applications with Score
-                var totalScored = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.IsActive && (ra.TotalScore != null || ra.AdjustedScore != null))
-                    .CountAsync();
+                var totalScored = await _reportRepository.GetTotalScoredApplicationsAsync();
 
                 // 2. Get all scores for distribution calculation
-                var scores = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.IsActive && (ra.TotalScore != null || ra.AdjustedScore != null))
-                    .Select(ra => ra.AdjustedScore ?? ra.TotalScore ?? 0)
-                    .ToListAsync();
+                var scores = await _reportRepository.GetAllScoresAsync();
 
                 // 3. Score Distribution
                 var highScores = scores.Count(s => s > 75);
@@ -1500,32 +1312,17 @@ namespace BusinessObjectLayer.Services
                 decimal lowPct = totalScored > 0 ? Math.Round((decimal)lowScores / totalScored, 2) : 0;
 
                 // 4. Success Rate (applications that got scored successfully)
-                var totalApplications = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.IsActive)
-                    .CountAsync();
+                var totalApplications = await _reportRepository.GetTotalApplicationsForScoringAsync();
 
                 decimal successRate = totalApplications > 0
                     ? Math.Round((decimal)totalScored / totalApplications, 2)
                     : 0;
 
                 // 5. Average Processing Time
-                var avgProcessingTime = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.IsActive && ra.ProcessingTimeMs != null && (ra.TotalScore != null || ra.AdjustedScore != null))
-                    .AverageAsync(ra => (decimal?)ra.ProcessingTimeMs) ?? 0;
+                var avgProcessingTime = await _reportRepository.GetAverageProcessingTimeForScoringAsync();
 
                 // 6. Common Errors from ErrorMessage
-                var errorMessages = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.IsActive && !string.IsNullOrEmpty(ra.ErrorMessage))
-                    .Select(ra => ra.ErrorMessage)
-                    .ToListAsync();
-
-                var commonErrors = errorMessages
-                    .Take(10)
-                    .Distinct()
-                    .ToList();
+                var commonErrors = await _reportRepository.GetCommonScoringErrorsAsync(10);
 
                 // 7. Statistics
                 var avgScore = scores.Any() ? Math.Round((decimal)scores.Average(), 2) : 0;
@@ -1577,100 +1374,35 @@ namespace BusinessObjectLayer.Services
             try
             {
                 var now = DateTime.UtcNow;
-                var firstDayOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
                 // 1. Total Active Companies
-                var totalActiveCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && c.CompanyStatus == CompanyStatusEnum.Approved)
-                    .CountAsync();
+                var totalActiveCompanies = await _reportRepository.GetTotalActiveCompaniesForSubscriptionAsync();
 
                 // 2. Paid Companies (có active subscription)
-                var paidCompanies = await _context.Companies
-                    .AsNoTracking()
-                    .Where(c => c.IsActive && 
-                           c.CompanyStatus == CompanyStatusEnum.Approved &&
-                           c.CompanySubscriptions.Any(cs => cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active))
-                    .CountAsync();
+                var paidCompanies = await _reportRepository.GetPaidCompaniesCountAsync();
 
                 // 3. Free Companies (không có active subscription)
                 var freeCompanies = totalActiveCompanies - paidCompanies;
 
                 // 4. Monthly Revenue (transactions trong tháng này với payment status = Paid)
-                var monthlyRevenue = await _context.Transactions
-                    .AsNoTracking()
-                    .Where(t => t.IsActive && 
-                           t.CreatedAt >= firstDayOfMonth &&
-                           t.Payment != null &&
-                           t.Payment.IsActive &&
-                           t.Payment.PaymentStatus == PaymentStatusEnum.Paid)
-                    .SumAsync(t => (decimal?)t.Amount) ?? 0;
+                var monthlyRevenue = await _reportRepository.GetMonthlyRevenueAsync(now.Year, now.Month);
 
                 // 5. Renewal Rate (công ty có > 1 subscription / tổng công ty có subscription)
-                var companiesWithSubscriptions = await _context.CompanySubscriptions
-                    .AsNoTracking()
-                    .Select(cs => cs.CompanyId)
-                    .Distinct()
-                    .CountAsync();
+                var companiesWithSubscriptions = await _reportRepository.GetCompaniesWithSubscriptionsForRevenueAsync();
 
-                var companiesWithMultipleSubscriptions = await _context.CompanySubscriptions
-                    .AsNoTracking()
-                    .GroupBy(cs => cs.CompanyId)
-                    .Where(g => g.Count() > 1)
-                    .CountAsync();
+                var companiesWithMultipleSubscriptions = await _reportRepository.GetCompaniesWithMultipleSubscriptionsForRevenueAsync();
 
                 decimal renewalRate = companiesWithSubscriptions > 0
                     ? Math.Round((decimal)companiesWithMultipleSubscriptions / companiesWithSubscriptions, 2)
                     : 0;
 
-                // 6. Popular Plan (subscription plan có nhiều company nhất)
-                var planStats = await (from cs in _context.CompanySubscriptions
-                                      join s in _context.Subscriptions on cs.SubscriptionId equals s.SubscriptionId
-                                      where cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active
-                                      group new { cs, s } by new { s.SubscriptionId, s.Name } into g
-                                      select new
-                                      {
-                                          SubscriptionId = g.Key.SubscriptionId,
-                                          PlanName = g.Key.Name,
-                                          CompanyCount = g.Select(x => x.cs.CompanyId).Distinct().Count(),
-                                          Revenue = g.Sum(x => (decimal?)0) ?? 0 // Revenue tính từ transactions
-                                      })
-                                      .OrderByDescending(x => x.CompanyCount)
-                                      .ToListAsync();
+                // 6. Popular Plan and Plan Statistics
+                var planStatistics = await _reportRepository.GetPlanStatisticsAsync();
 
-                var popularPlan = planStats.FirstOrDefault()?.PlanName ?? "N/A";
-
-                // 7. Calculate revenue per plan
-                var planRevenueDict = await (from t in _context.Transactions
-                                            join p in _context.Payments on t.PaymentId equals p.PaymentId
-                                            join cs in _context.CompanySubscriptions on p.ComSubId equals cs.ComSubId
-                                            join s in _context.Subscriptions on cs.SubscriptionId equals s.SubscriptionId
-                                            where t.IsActive && p.IsActive && p.PaymentStatus == PaymentStatusEnum.Paid
-                                            group t by new { s.SubscriptionId, s.Name } into g
-                                            select new
-                                            {
-                                                SubscriptionId = g.Key.SubscriptionId,
-                                                PlanName = g.Key.Name,
-                                                Revenue = g.Sum(x => (decimal)x.Amount)
-                                            })
-                                            .ToDictionaryAsync(x => x.SubscriptionId, x => x.Revenue);
-
-                var planStatistics = planStats.Select(p => new PlanStatistic
-                {
-                    SubscriptionId = p.SubscriptionId,
-                    PlanName = p.PlanName,
-                    CompanyCount = p.CompanyCount,
-                    Revenue = planRevenueDict.TryGetValue(p.SubscriptionId, out var rev) ? rev : 0
-                }).ToList();
+                var popularPlan = planStatistics.OrderByDescending(p => p.CompanyCount).FirstOrDefault()?.PlanName ?? "N/A";
 
                 // 8. Total Revenue (all time)
-                var totalRevenue = await _context.Transactions
-                    .AsNoTracking()
-                    .Where(t => t.IsActive && 
-                           t.Payment != null &&
-                           t.Payment.IsActive &&
-                           t.Payment.PaymentStatus == PaymentStatusEnum.Paid)
-                    .SumAsync(t => (decimal?)t.Amount) ?? 0;
+                var totalRevenue = await _reportRepository.GetTotalRevenueAsync();
 
                 decimal avgRevenuePerCompany = paidCompanies > 0
                     ? Math.Round(totalRevenue / paidCompanies, 2)
