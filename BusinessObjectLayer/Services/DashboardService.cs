@@ -665,9 +665,9 @@ namespace BusinessObjectLayer.Services
                     ResumeStatusEnum.Failed,
                     ResumeStatusEnum.Timeout,
                     ResumeStatusEnum.CorruptedFile,
-                    ResumeStatusEnum.InvalidResumeData,
                     ResumeStatusEnum.ServerError,
-                    ResumeStatusEnum.InvalidJobData
+                    // InvalidResumeData is now ResumeStatusEnum.Failed in the new logic or kept for file level errors
+                    // ResumeStatusEnum.InvalidResumeData - keeping it if needed or removing if merged
                 };
                 var failedResumes = await dashboardRepo.GetResumeCountByStatusesAsync(failedStatuses);
                 var pendingResumes = await dashboardRepo.GetResumeCountByStatusAsync(ResumeStatusEnum.Pending);

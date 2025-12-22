@@ -569,6 +569,12 @@ namespace DataAccessLayer
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
+            modelBuilder.Entity<ResumeApplication>()
+                .Property(ra => ra.ErrorType)
+                .HasConversion<string>()
+                .HasMaxLength(50)
+                .IsRequired(false);
+
             // ===== USAGE COUNTER RELATIONSHIPS =====
             
             // Company - UsageCounters (one-to-many)

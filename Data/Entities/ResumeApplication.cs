@@ -43,6 +43,7 @@ namespace Data.Entities
         public string? MatchSkills { get; set; }
         public string? MissingSkills { get; set; }
         public ApplicationStatusEnum Status { get; set; }
+        public ApplicationErrorEnum? ErrorType { get; set; } // Detailed error type from AI or system
         public string? Note { get; set; } // Note for the application
         public string? ErrorMessage { get; set; } // Error message if parsing failed
 

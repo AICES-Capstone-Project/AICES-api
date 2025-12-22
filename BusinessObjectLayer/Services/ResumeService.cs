@@ -208,10 +208,8 @@ namespace BusinessObjectLayer.Services
                 bool reuseExistingResume = false;
                 
                 // Define statuses that result in immediate failure clone (no quota)
+                // These are file-level fatal errors. Job-level errors are checked separately.
                 var fatalStatuses = new[] { 
-                    ResumeStatusEnum.InvalidJobData, 
-                    ResumeStatusEnum.InvalidResumeData, 
-                    ResumeStatusEnum.JobTitleNotMatched, 
                     ResumeStatusEnum.CorruptedFile, 
                     ResumeStatusEnum.DuplicateResume 
                 };
@@ -221,7 +219,6 @@ namespace BusinessObjectLayer.Services
                     ResumeStatusEnum.Failed,
                     ResumeStatusEnum.Timeout,
                     ResumeStatusEnum.ServerError,
-                    ResumeStatusEnum.Canceled
                 };
 
                 if (existingResume != null)
@@ -234,6 +231,14 @@ namespace BusinessObjectLayer.Services
                         // Same resume + same job + already scored → Clone result (NO quota consumed)
                         shouldCloneResult = true;
                     }
+                    else if (existingApplication != null && existingApplication.Status == ApplicationStatusEnum.Failed && 
+                             (existingApplication.ErrorType == ApplicationErrorEnum.JobTitleNotMatched || 
+                              existingApplication.ErrorType == ApplicationErrorEnum.InvalidJobData ||
+                              existingApplication.ErrorType == ApplicationErrorEnum.InvalidResumeData))
+                    {
+                        // Same resume + same job + previously failed with application-level fatal error → Clone failure (NO quota)
+                        shouldCloneResult = true;
+                    }
                     else if (existingResume.Status == ResumeStatusEnum.Completed && existingResume.Data != null)
                     {
                         // Resume exists and completed → Can reuse for different job (quota consumed)
@@ -241,7 +246,7 @@ namespace BusinessObjectLayer.Services
                     }
                     else if (fatalStatuses.Contains(existingResume.Status))
                     {
-                        // Fatal error -> Clone failure result (NO quota consumed)
+                        // Fatal file error -> Clone failure result (NO quota consumed)
                         shouldCloneResult = true;
                     }
                     else if (retryableStatuses.Contains(existingResume.Status))
@@ -937,37 +942,43 @@ namespace BusinessObjectLayer.Services
                     try
                     {
                         // Determine status based on error type
-                        ResumeStatusEnum errorStatus;
+                        ResumeStatusEnum fileStatus = ResumeStatusEnum.Completed;
+                        ApplicationErrorEnum applicationError;
                         string errorMessage;
                         
                         switch (request.Error.ToLower())
                         {
                             case "invalid_resume_data":
-                                errorStatus = ResumeStatusEnum.InvalidResumeData;
+                                fileStatus = ResumeStatusEnum.Failed; // File is not a valid resume
+                                applicationError = ApplicationErrorEnum.InvalidResumeData;
                                 errorMessage = request.Reason ?? "The uploaded file is not a valid resume.";
                                 break;
                             
                             case "invalid_job_data":
-                                errorStatus = ResumeStatusEnum.InvalidJobData;
+                                fileStatus = ResumeStatusEnum.Completed; // File is fine, but job data is bad
+                                applicationError = ApplicationErrorEnum.InvalidJobData;
                                 errorMessage = request.Reason ?? "The job data is invalid.";
                                 break;
                             
                             case "job_title_not_matched":
-                                errorStatus = ResumeStatusEnum.JobTitleNotMatched;
+                                fileStatus = ResumeStatusEnum.Completed; // File is fine, just doesn't match this job
+                                applicationError = ApplicationErrorEnum.JobTitleNotMatched;
                                 errorMessage = request.Reason ?? "The candidate's experience does not match the job title requirements.";
                                 break;
                             
                             default:
-                                errorStatus = ResumeStatusEnum.Failed;
+                                fileStatus = ResumeStatusEnum.Failed;
+                                applicationError = ApplicationErrorEnum.TechnicalError;
                                 errorMessage = request.Reason ?? $"Error: {request.Error}";
                                 break;
                         }
 
-                        resume.Status = errorStatus;
+                        resume.Status = fileStatus;
                         resume.Data = null; // keep Data null on error
                         
-                        // Update ResumeApplication status to Failed for resume errors
+                        // Update ResumeApplication status and error type
                         resumeApplication.Status = ApplicationStatusEnum.Failed;
+                        resumeApplication.ErrorType = applicationError;
                         resumeApplication.ErrorMessage = errorMessage;
                         await _resumeApplicationRepo.UpdateAsync(resumeApplication);
 
@@ -980,22 +991,20 @@ namespace BusinessObjectLayer.Services
                         // Capture data for SignalR BEFORE background task
                         var jobIdForSignalR = resumeApplication.JobId;
                         var resumeIdForSignalR = resume.ResumeId;
-                        var errorStatusStr = errorStatus.ToString();
-                        
                         // Send real-time SignalR update
                         _ = Task.Run(async () => 
                         {
                             await Task.Delay(200);
                             await SendResumeUpdateAsync(jobIdForSignalR, resumeIdForSignalR, "status_changed", 
-                                new { newStatus = errorStatusStr }, resumeForSignalR, null);
+                                new { newStatus = fileStatus.ToString(), errorType = applicationError.ToString() }, resumeForSignalR, null);
                         });
 
                         // Return appropriate message based on error type
-                        string responseMessage = request.Error.ToLower() switch
+                        string responseMessage = applicationError switch
                         {
-                            "invalid_resume_data" => "The uploaded file is not a valid resume.",
-                            "invalid_job_data" => "The job data is invalid.",
-                            "job_title_not_matched" => "The candidate's experience does not match the job title requirements.",
+                            ApplicationErrorEnum.InvalidResumeData => "The uploaded file is not a valid resume.",
+                            ApplicationErrorEnum.InvalidJobData => "The job data is invalid.",
+                            ApplicationErrorEnum.JobTitleNotMatched => "The candidate's experience does not match the job title requirements.",
                             _ => "An error occurred while processing the resume."
                         };
 
@@ -1007,7 +1016,7 @@ namespace BusinessObjectLayer.Services
                             Data = new
                             {
                                 resumeId = resume.ResumeId,
-                                status = errorStatus.ToString(),
+                                status = fileStatus.ToString(),
                                 error = request.Error,
                                 reason = request.Reason
                             }

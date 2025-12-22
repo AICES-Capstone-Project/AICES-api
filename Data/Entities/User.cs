@@ -24,6 +24,8 @@ namespace Data.Entities
         [MaxLength(255)]
         public string? Password { get; set; } // với social login có thể null
         public UserStatusEnum Status { get; set; }
+        public string? CurrentSessionId { get; set; }
+        public DateTime? CurrentSessionExpiry { get; set; }
 
         // Navigation
         [ForeignKey("Role")]
