@@ -50,6 +50,17 @@ namespace DataAccessLayer.Repositories
 				.FirstOrDefaultAsync(u => u.IsActive && u.UserId == userId);
         }
 
+        public async Task<User?> GetByIdNoTrackingAsync(int userId)
+        {
+            return await _context.Users
+                .AsNoTracking()
+                .Include(u => u.Role)
+                .Include(u => u.Profile)
+                .Include(u => u.CompanyUser)
+                    .ThenInclude(cu => cu.Company)
+                .FirstOrDefaultAsync(u => u.IsActive && u.UserId == userId);
+        }
+
         public async Task<User> AddAsync(User user)
         {
             await _context.Users.AddAsync(user);

@@ -13,6 +13,7 @@ namespace DataAccessLayer.IRepositories
         Task<User?> GetByEmailAsync(string email);
         Task<User?> GetForUpdateByEmailAsync(string email);
 			Task<User?> GetForUpdateByIdAsync(int userId);
+        Task<User?> GetByIdNoTrackingAsync(int userId);
         Task<User> AddAsync(User user);
         Task<bool> EmailExistsAsync(string email);
         Task UpdateAsync(User user);
