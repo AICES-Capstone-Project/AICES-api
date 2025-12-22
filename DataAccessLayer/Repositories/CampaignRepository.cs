@@ -143,6 +143,32 @@ namespace DataAccessLayer.Repositories
             return campaign;
         }
 
+        public async Task<Campaign?> GetForUpdateWithJobsAsync(int id)
+        {
+            var campaign = await _context.Campaigns
+                .Include(c => c.Company)
+                .Include(c => c.JobCampaigns)
+                    .ThenInclude(jc => jc.Job)
+                .FirstOrDefaultAsync(c => c.IsActive && c.CampaignId == id && c.Company.CompanyStatus == CompanyStatusEnum.Approved);
+            
+            // Ensure JobCampaigns is initialized and filter out inactive jobs
+            if (campaign != null)
+            {
+                if (campaign.JobCampaigns == null)
+                {
+                    campaign.JobCampaigns = new List<JobCampaign>();
+                }
+                else
+                {
+                    campaign.JobCampaigns = campaign.JobCampaigns
+                        .Where(jc => jc.Job != null && jc.Job.IsActive)
+                        .ToList();
+                }
+            }
+            
+            return campaign;
+        }
+
         public async Task<Campaign?> GetForUpdateAsync(int id)
         {
             var campaign = await _context.Campaigns

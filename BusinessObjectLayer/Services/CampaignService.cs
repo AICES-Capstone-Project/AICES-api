@@ -659,6 +659,19 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // Only allow updating campaigns that are Published
+                // Exception: Expired campaigns can be updated if extending EndDate (which auto-publishes)
+                bool isExpiredExtension = campaign.Status == CampaignStatusEnum.Expired && request.EndDate.HasValue && request.EndDate.Value > DateTime.UtcNow;
+                
+                if (campaign.Status != CampaignStatusEnum.Published && !isExpiredExtension)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = $"Campaigns can only be updated when they are Published. Current status: {campaign.Status}"
+                    };
+                }
+
                 // Check if title already exists in company (excluding current campaign)
                 if (request.Title != null && request.Title != campaign.Title)
                 {
@@ -680,16 +693,6 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.Validation,
                         Message = "End date must be at least one day after the existing start date."
-                    };
-                }
-
-                // Only allow modifying jobs for Published campaigns
-                if (request.Jobs != null && campaign.Status != CampaignStatusEnum.Published)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = "Jobs can only be modified for Published campaigns."
                     };
                 }
 
@@ -1105,13 +1108,23 @@ namespace BusinessObjectLayer.Services
 
                 var campaignRepo = _uow.GetRepository<ICampaignRepository>();
                 await MarkExpiredCampaignsAsync(campaignRepo, companyUser.CompanyId.Value);
-                var campaign = await campaignRepo.GetForUpdateAsync(id);
+                var campaign = await campaignRepo.GetForUpdateWithJobsAsync(id);
                 if (campaign == null)
                 {
                     return new ServiceResponse
                     {
                         Status = SRStatus.NotFound,
                         Message = "Campaign not found."
+                    };
+                }
+
+                // Prevent deleting campaign if there are any jobs associated with this campaign
+                if (campaign.JobCampaigns != null && campaign.JobCampaigns.Any())
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "Cannot delete this campaign because there are existing jobs associated with it."
                     };
                 }
 
