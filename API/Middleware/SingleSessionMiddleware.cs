@@ -30,7 +30,7 @@ namespace API.Middleware
                     && int.TryParse(userIdString, out var userId)
                     && !string.IsNullOrEmpty(sessionIdClaim))
                 {
-                    var dbUser = await authRepository.GetForUpdateByIdAsync(userId);
+                    var dbUser = await authRepository.GetByIdNoTrackingAsync(userId);
 
                     if (dbUser == null || !dbUser.IsActive ||
                         string.IsNullOrEmpty(dbUser.CurrentSessionId) ||
