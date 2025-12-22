@@ -58,54 +58,69 @@ namespace BusinessObjectLayer.Services.Auth
             }
         }
 
-        public async Task<AuthTokenResponse> GenerateTokensAsync(User user)
-        {
-            var userProvider = await GetUserProviderAsync(user.UserId);
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-                new Claim(ClaimTypes.Role, user.Role?.RoleName ?? string.Empty),
-                new Claim("provider", userProvider),
-                new Claim("fullName", user.Profile?.FullName ?? string.Empty),
-                new Claim("phoneNumber", user.Profile?.PhoneNumber ?? string.Empty),
-                new Claim("address", user.Profile?.Address ?? string.Empty),
-                new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? string.Empty),
-                new Claim("avatarUrl", user.Profile?.AvatarUrl ?? string.Empty),
-            };
+		public async Task<AuthTokenResponse> GenerateTokensAsync(User user)
+		{
+			var userProvider = await GetUserProviderAsync(user.UserId);
+			
+			// Generate a new session id for this login/refresh
+			var sessionId = Guid.NewGuid().ToString("N");
+			var expiryMins = int.Parse(GetEnvOrThrow("JWTCONFIG__TOKENVALIDITYMINS"));
+			var sessionExpiry = DateTime.UtcNow.AddMinutes(expiryMins);
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var issuer = GetEnvOrThrow("JWTCONFIG__ISSUERS__0");
-            var audience = GetEnvOrThrow("JWTCONFIG__AUDIENCES__0");
-            var expiryMins = int.Parse(GetEnvOrThrow("JWTCONFIG__TOKENVALIDITYMINS")); // 1 hour
+			var claims = new[]
+			{
+				new Claim(ClaimTypes.Email, user.Email),
+				new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+				new Claim(ClaimTypes.Role, user.Role?.RoleName ?? string.Empty),
+				new Claim("provider", userProvider),
+				new Claim("fullName", user.Profile?.FullName ?? string.Empty),
+				new Claim("phoneNumber", user.Profile?.PhoneNumber ?? string.Empty),
+				new Claim("address", user.Profile?.Address ?? string.Empty),
+				new Claim("dateOfBirth", user.Profile?.DateOfBirth?.ToString("yyyy-MM-dd") ?? string.Empty),
+				new Claim("avatarUrl", user.Profile?.AvatarUrl ?? string.Empty),
+				new Claim("sid", sessionId) // session id for single-login enforcement
+			};
 
-            var accessToken = new JwtSecurityToken(
-                issuer: issuer,
-                audience: audience,
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(expiryMins),
-                signingCredentials: creds
-            );
+			var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(GetEnvOrThrow("JWTCONFIG__KEY")));
+			var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+			var issuer = GetEnvOrThrow("JWTCONFIG__ISSUERS__0");
+			var audience = GetEnvOrThrow("JWTCONFIG__AUDIENCES__0");
+
+			var accessToken = new JwtSecurityToken(
+				issuer: issuer,
+				audience: audience,
+				claims: claims,
+				expires: sessionExpiry,
+				signingCredentials: creds
+			);
 
             var accessTokenString = new JwtSecurityTokenHandler().WriteToken(accessToken);
-            var refreshTokenString = GenerateRefreshToken();
+			var refreshTokenString = GenerateRefreshToken();
 
-            // Save refresh token to database
-            var refreshToken = new RefreshToken
-            {
-                UserId = user.UserId,
-                Token = refreshTokenString,
-                ExpiryDate = DateTime.UtcNow.AddDays(7) // 7 days
-            };
+			// Save refresh token to database
+			var refreshToken = new RefreshToken
+			{
+				UserId = user.UserId,
+				Token = refreshTokenString,
+				ExpiryDate = DateTime.UtcNow.AddDays(7) // 7 days
+			};
 
-            await _tokenRepository.AddRefreshTokenAsync(refreshToken);
+			await _tokenRepository.AddRefreshTokenAsync(refreshToken);
 
-            return new AuthTokenResponse
-            {
-                AccessToken = accessTokenString,
-                RefreshToken = refreshTokenString
-            };
+			// Update user's current session info so old tokens become invalid immediately
+			var userToUpdate = await _authRepository.GetForUpdateByIdAsync(user.UserId);
+			if (userToUpdate != null)
+			{
+				userToUpdate.CurrentSessionId = sessionId;
+				userToUpdate.CurrentSessionExpiry = sessionExpiry;
+				await _authRepository.UpdateAsync(userToUpdate);
+			}
+
+			return new AuthTokenResponse
+			{
+				AccessToken = accessTokenString,
+				RefreshToken = refreshTokenString
+			};
         }
 
         public async Task<ServiceResponse> RefreshTokensAsync(string refreshToken)
