@@ -109,7 +109,7 @@ namespace BusinessObjectLayer.Services
 
                 return new ServiceResponse
                 {
-                    Status = failCount == 0 ? SRStatus.Success : SRStatus.Error,
+                    Status = SRStatus.Success ,
                     Message = failCount == 0 
                         ? $"All {files.Count} resumes uploaded successfully."
                         : $"Uploaded {successCount} of {files.Count} resumes successfully. {failCount} failed.",
