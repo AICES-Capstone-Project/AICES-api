@@ -15,6 +15,7 @@ using Data.Models.Response;
 using DataAccessLayer.UnitOfWork;
 using DataAccessLayer.IRepositories;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BusinessObjectLayer.Services
 {
@@ -26,6 +27,7 @@ namespace BusinessObjectLayer.Services
         private readonly IRedisHelper _redisHelper;
         private readonly IResumeLimitService _resumeLimitService;
         private readonly IResumeApplicationRepository _resumeApplicationRepo;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         
         // ✅ IMPROVED: Allow 10 concurrent uploads per company (up from 1)
         private readonly ConcurrentDictionary<int, SemaphoreSlim> _companyLocks;
@@ -37,7 +39,8 @@ namespace BusinessObjectLayer.Services
             IStorageHelper storageHelper,
             IRedisHelper redisHelper,
             IResumeLimitService resumeLimitService,
-            IResumeApplicationRepository resumeApplicationRepo)
+            IResumeApplicationRepository resumeApplicationRepo,
+            IServiceScopeFactory serviceScopeFactory)
         {
             _uow = uow;
             _httpContextAccessor = httpContextAccessor;
@@ -45,6 +48,7 @@ namespace BusinessObjectLayer.Services
             _redisHelper = redisHelper;
             _resumeLimitService = resumeLimitService;
             _resumeApplicationRepo = resumeApplicationRepo;
+            _serviceScopeFactory = serviceScopeFactory;
             _companyLocks = new ConcurrentDictionary<int, SemaphoreSlim>();
         }
 
@@ -93,8 +97,9 @@ namespace BusinessObjectLayer.Services
                 // This is just a quick check to fail fast if clearly over limit
 
                 // Process all files in parallel (up to MAX_CONCURRENT_UPLOADS_PER_COMPANY)
+                // ✅ FIX: Create a new scope with fresh DbContext for each parallel upload
                 var uploadTasks = files.Select(file => 
-                    UploadSingleResumeAsync(campaignId, jobId, file, companyId)
+                    UploadSingleResumeWithScopeAsync(campaignId, jobId, file, companyId)
                 ).ToList();
 
                 var results = await Task.WhenAll(uploadTasks);
@@ -135,10 +140,38 @@ namespace BusinessObjectLayer.Services
         }
 
         /// <summary>
-        /// ✅ SIMPLIFIED: Single resume upload - extracted core logic
+        /// ✅ NEW: Single resume upload with isolated scope (for parallel batch uploads)
+        /// Creates a new service scope with fresh DbContext to avoid threading issues
         /// </summary>
-        private async Task<ServiceResponse> UploadSingleResumeAsync(int campaignId, int jobId, IFormFile file, int companyId)
+        private async Task<ServiceResponse> UploadSingleResumeWithScopeAsync(int campaignId, int jobId, IFormFile file, int companyId)
         {
+            // Create a new scope with fresh DbContext for this upload
+            using var scope = _serviceScopeFactory.CreateScope();
+            var scopedUow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var scopedResumeApplicationRepo = scope.ServiceProvider.GetRequiredService<IResumeApplicationRepository>();
+            var scopedResumeLimitService = scope.ServiceProvider.GetRequiredService<IResumeLimitService>();
+            
+            return await UploadSingleResumeAsync(campaignId, jobId, file, companyId, scopedUow, scopedResumeApplicationRepo, scopedResumeLimitService);
+        }
+
+        /// <summary>
+        /// ✅ SIMPLIFIED: Single resume upload - extracted core logic
+        /// Accepts optional scoped dependencies for parallel batch uploads
+        /// </summary>
+        private async Task<ServiceResponse> UploadSingleResumeAsync(
+            int campaignId, 
+            int jobId, 
+            IFormFile file, 
+            int companyId,
+            IUnitOfWork? uow = null,
+            IResumeApplicationRepository? resumeApplicationRepo = null,
+            IResumeLimitService? resumeLimitService = null)
+        {
+            // Use scoped or default dependencies
+            var unitOfWork = uow ?? _uow;
+            var resumeAppRepo = resumeApplicationRepo ?? _resumeApplicationRepo;
+            var resumeLimitSvc = resumeLimitService ?? _resumeLimitService;
+            
             if (file == null || file.Length == 0)
             {
                 return new ServiceResponse { Status = SRStatus.Validation, Message = "File is empty." };
@@ -151,7 +184,7 @@ namespace BusinessObjectLayer.Services
             {
                 // Step 1: Compute hash and check duplicates
                 var fileHash = HashUtils.ComputeFileHash(file);
-                var isDuplicate = await _resumeApplicationRepo.IsDuplicateResumeAsync(jobId, campaignId, fileHash);
+                var isDuplicate = await resumeAppRepo.IsDuplicateResumeAsync(jobId, campaignId, fileHash);
                 if (isDuplicate)
                 {
                     return new ServiceResponse
@@ -162,10 +195,10 @@ namespace BusinessObjectLayer.Services
                 }
 
                 // Step 2: Check for existing resume (reuse logic)
-                var resumeRepo = _uow.GetRepository<IResumeRepository>();
+                var resumeRepo = unitOfWork.GetRepository<IResumeRepository>();
                 var existingResume = await resumeRepo.GetByFileHashAndCompanyIdAsync(companyId, fileHash);
                 
-                var reuseDecision = DetermineReuseStrategy(existingResume, jobId);
+                var reuseDecision = DetermineReuseStrategy(existingResume, jobId, resumeAppRepo);
                 
                 // Step 3: Upload file FIRST (before DB transaction) with retry
                 string? fileUrl = null;
@@ -187,16 +220,16 @@ namespace BusinessObjectLayer.Services
                 int resumeId, applicationId;
                 string queueJobId = Guid.NewGuid().ToString();
 
-                await _uow.BeginTransactionAsync();
+                await unitOfWork.BeginTransactionAsync();
                 try
                 {
                     // Check and increment quota atomically
                     if (!reuseDecision.ShouldClone)
                     {
-                        var quotaCheck = await _resumeLimitService.CheckResumeLimitInTransactionAsync(companyId);
+                        var quotaCheck = await resumeLimitSvc.CheckResumeLimitInTransactionAsync(companyId);
                         if (quotaCheck.Status != SRStatus.Success)
                         {
-                            await _uow.RollbackTransactionAsync();
+                            await unitOfWork.RollbackTransactionAsync();
                             // Cleanup uploaded file if any
                             if (!string.IsNullOrEmpty(fileUrl))
                             {
@@ -208,16 +241,16 @@ namespace BusinessObjectLayer.Services
 
                     var createResult = await CreateResumeAndApplicationAsync(
                         reuseDecision, existingResume, fileUrl, fileHash, file.FileName,
-                        companyId, jobId, campaignId, queueJobId);
+                        companyId, jobId, campaignId, queueJobId, unitOfWork, resumeAppRepo);
 
                     resumeId = createResult.ResumeId;
                     applicationId = createResult.ApplicationId;
 
-                    await _uow.CommitTransactionAsync();
+                    await unitOfWork.CommitTransactionAsync();
                 }
                 catch
                 {
-                    await _uow.RollbackTransactionAsync();
+                    await unitOfWork.RollbackTransactionAsync();
                     // Cleanup uploaded file
                     if (!string.IsNullOrEmpty(fileUrl))
                     {
@@ -229,7 +262,22 @@ namespace BusinessObjectLayer.Services
                 // Step 5: Queue processing (async, non-blocking)
                 if (!reuseDecision.ShouldClone)
                 {
-                    _ = QueueResumeProcessingAsync(resumeId, applicationId, jobId, campaignId, companyId, queueJobId, reuseDecision, fileUrl);
+                    // ✅ FIX: Fetch job data BEFORE fire-and-forget task (while DbContext is alive)
+                    var jobRepo = unitOfWork.GetRepository<IJobRepository>();
+                    var jobForQueue = await jobRepo.GetJobByIdAsync(jobId);
+                    var skillsList = await jobRepo.GetSkillsByJobIdAsync(jobId);
+                    var employmentTypesList = await jobRepo.GetEmploymentTypesByJobIdAsync(jobId);
+                    var languagesList = await jobRepo.GetLanguagesByJobIdAsync(jobId);
+                    
+                    Resume? existingResumeForQueue = null;
+                    if (reuseDecision.ShouldReuse)
+                    {
+                        existingResumeForQueue = await resumeRepo.GetByIdAsync(resumeId);
+                    }
+                    
+                    _ = QueueResumeProcessingAsync(resumeId, applicationId, queueJobId, campaignId, companyId, 
+                        jobForQueue, skillsList, employmentTypesList, languagesList, 
+                        reuseDecision, fileUrl, existingResumeForQueue);
                 }
 
                 // Step 6: Send SignalR update (async, non-blocking)
@@ -369,8 +417,10 @@ namespace BusinessObjectLayer.Services
         /// <summary>
         /// ✅ SIMPLIFIED: Determine reuse strategy
         /// </summary>
-        private ReuseDecision DetermineReuseStrategy(Resume? existingResume, int jobId)
+        private ReuseDecision DetermineReuseStrategy(Resume? existingResume, int jobId, IResumeApplicationRepository? resumeAppRepo = null)
         {
+            var repo = resumeAppRepo ?? _resumeApplicationRepo;
+            
             if (existingResume == null)
             {
                 return new ReuseDecision { ShouldClone = false, ShouldReuse = false };
@@ -389,7 +439,7 @@ namespace BusinessObjectLayer.Services
             };
 
             // Check if there's an existing application for this resume + job
-            var existingApplication = _resumeApplicationRepo
+            var existingApplication = repo
                 .GetByResumeIdAndJobIdWithDetailsAsync(existingResume.ResumeId, jobId).Result;
 
             if (existingApplication != null && existingApplication.Status == ApplicationStatusEnum.Reviewed)
@@ -487,9 +537,13 @@ namespace BusinessObjectLayer.Services
         /// </summary>
         private async Task<(int ResumeId, int ApplicationId)> CreateResumeAndApplicationAsync(
             ReuseDecision decision, Resume? existingResume, string? fileUrl, string fileHash, string fileName,
-            int companyId, int jobId, int campaignId, string queueJobId)
+            int companyId, int jobId, int campaignId, string queueJobId,
+            IUnitOfWork? uow = null,
+            IResumeApplicationRepository? resumeApplicationRepo = null)
         {
-            var resumeRepo = _uow.GetRepository<IResumeRepository>();
+            var unitOfWork = uow ?? _uow;
+            var resumeAppRepo = resumeApplicationRepo ?? _resumeApplicationRepo;
+            var resumeRepo = unitOfWork.GetRepository<IResumeRepository>();
             int resumeId, applicationId;
 
             if (decision.ShouldClone && existingResume != null)
@@ -525,13 +579,13 @@ namespace BusinessObjectLayer.Services
                     clonedApp.ErrorMessage = decision.ExistingApplication?.ErrorMessage ?? $"Auto-rejected: {existingResume.Status}";
                 }
 
-                await _resumeApplicationRepo.CreateAsync(clonedApp);
-                await _uow.SaveChangesAsync();
+                await resumeAppRepo.CreateAsync(clonedApp);
+                await unitOfWork.SaveChangesAsync();
 
                 existingResume.ReuseCount++;
                 existingResume.LastReusedAt = DateTime.UtcNow;
                 await resumeRepo.UpdateAsync(existingResume);
-                await _uow.SaveChangesAsync();
+                await unitOfWork.SaveChangesAsync();
 
                 resumeId = existingResume.ResumeId;
                 applicationId = clonedApp.ApplicationId;
@@ -542,7 +596,7 @@ namespace BusinessObjectLayer.Services
                 existingResume.ReuseCount++;
                 existingResume.LastReusedAt = DateTime.UtcNow;
                 await resumeRepo.UpdateAsync(existingResume);
-                await _uow.SaveChangesAsync();
+                await unitOfWork.SaveChangesAsync();
 
                 var app = new ResumeApplication
                 {
@@ -553,8 +607,8 @@ namespace BusinessObjectLayer.Services
                     Status = ApplicationStatusEnum.Pending,
                     ProcessingMode = ProcessingModeEnum.Score
                 };
-                await _resumeApplicationRepo.CreateAsync(app);
-                await _uow.SaveChangesAsync();
+                await resumeAppRepo.CreateAsync(app);
+                await unitOfWork.SaveChangesAsync();
 
                 resumeId = existingResume.ResumeId;
                 applicationId = app.ApplicationId;
@@ -572,7 +626,7 @@ namespace BusinessObjectLayer.Services
                     ReuseCount = 0
                 };
                 await resumeRepo.CreateAsync(resume);
-                await _uow.SaveChangesAsync();
+                await unitOfWork.SaveChangesAsync();
 
                 var app = new ResumeApplication
                 {
@@ -583,8 +637,8 @@ namespace BusinessObjectLayer.Services
                     Status = ApplicationStatusEnum.Pending,
                     ProcessingMode = ProcessingModeEnum.Parse
                 };
-                await _resumeApplicationRepo.CreateAsync(app);
-                await _uow.SaveChangesAsync();
+                await resumeAppRepo.CreateAsync(app);
+                await unitOfWork.SaveChangesAsync();
 
                 resumeId = resume.ResumeId;
                 applicationId = app.ApplicationId;
@@ -594,39 +648,36 @@ namespace BusinessObjectLayer.Services
         }
 
         /// <summary>
-        /// ✅ SIMPLIFIED: Queue resume for AI processing
+        /// ✅ FIXED: Queue resume for AI processing (data pre-fetched, no DbContext access)
         /// </summary>
-        private async Task QueueResumeProcessingAsync(int resumeId, int applicationId, int jobId, int campaignId, 
-            int companyId, string queueJobId, ReuseDecision decision, string? fileUrl)
+        private async Task QueueResumeProcessingAsync(
+            int resumeId, 
+            int applicationId, 
+            string queueJobId, 
+            int campaignId, 
+            int companyId,
+            Job? job,
+            List<string> skillsList,
+            List<string> employmentTypesList,
+            List<string> languagesList,
+            ReuseDecision decision, 
+            string? fileUrl,
+            Resume? existingResume)
         {
             try
             {
-                var jobRepo = _uow.GetRepository<IJobRepository>();
-                var resumeRepo = _uow.GetRepository<IResumeRepository>();
-                
-                var job = await jobRepo.GetJobByIdAsync(jobId);
-                var skillsList = await jobRepo.GetSkillsByJobIdAsync(jobId);
-                var employmentTypesList = await jobRepo.GetEmploymentTypesByJobIdAsync(jobId);
-                var languagesList = await jobRepo.GetLanguagesByJobIdAsync(jobId);
-                
-                var criteriaData = job?.Criteria?.Select(c => new CriteriaQueueResponse
+                if (job == null)
+                {
+                    Console.WriteLine($"❌ Job is null during queue preparation for resumeId {resumeId}");
+                    return;
+                }
+
+                var criteriaData = job.Criteria?.Select(c => new CriteriaQueueResponse
                 {
                     criteriaId = c.CriteriaId,
                     name = c.Name,
                     weight = c.Weight
                 }).ToList() ?? new List<CriteriaQueueResponse>();
-
-                Resume? existingResume = null;
-                if (decision.ShouldReuse)
-                {
-                    existingResume = await resumeRepo.GetByIdAsync(resumeId);
-                }
-
-                if (job == null)
-                {
-                    Console.WriteLine($"❌ Job not found for jobId {jobId} during queue preparation");
-                    return;
-                }
 
                 var jobData = new ResumeQueueJobResponse
                 {
@@ -635,7 +686,7 @@ namespace BusinessObjectLayer.Services
                     applicationId = applicationId,
                     queueJobId = queueJobId,
                     campaignId = campaignId,
-                    jobId = jobId,
+                    jobId = job.JobId,
                     jobTitle = job.Title,
                     fileUrl = decision.ShouldReuse ? string.Empty : (fileUrl ?? string.Empty),
                     requirements = job.Requirements,
