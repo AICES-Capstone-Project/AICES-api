@@ -259,6 +259,8 @@ namespace BusinessObjectLayer.Services.UsageLimits
             DateTime periodEndDate;
             int? companySubscriptionId;
 
+            var now = DateTime.UtcNow;
+
             if (companySubscription == null)
             {
                 // Free plan: fixed window based on hours
@@ -275,28 +277,6 @@ namespace BusinessObjectLayer.Services.UsageLimits
                 compareLimit = freeSubscription.CompareLimit;  // Don't coalesce to 0!
                 compareHoursLimit = freeSubscription.CompareHoursLimit ?? 1;  // Default 24h if not set
                 companySubscriptionId = null;
-
-                // ✅ FIXED: Round period to start of hour/day to keep it consistent
-                var now = DateTime.UtcNow;
-                
-                if (compareHoursLimit >= 24)
-                {
-                    // Daily or longer: round to start of day
-                    periodStartDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
-                    periodEndDate = periodStartDate.AddHours(compareHoursLimit);
-                }
-                else if (compareHoursLimit > 0)
-                {
-                    // Hourly: round to start of current hour
-                    periodStartDate = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc);
-                    periodEndDate = periodStartDate.AddHours(compareHoursLimit);
-                }
-                else
-                {
-                    // No time limit configured, use a default window (e.g., 24 hours)
-                    periodStartDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
-                    periodEndDate = periodStartDate.AddHours(24);
-                }
             }
             else
             {
@@ -305,20 +285,26 @@ namespace BusinessObjectLayer.Services.UsageLimits
                 compareLimit = companySubscription.Subscription?.CompareLimit;  // Don't coalesce to 0!
                 compareHoursLimit = companySubscription.Subscription?.CompareHoursLimit ?? 24;  // Default 24h if not set
                 companySubscriptionId = companySubscription.ComSubId;
+            }
 
-                // ✅ FIXED: Round subscription start to start of hour for consistency
-                var subStart = companySubscription.StartDate;
-                periodStartDate = new DateTime(subStart.Year, subStart.Month, subStart.Day, subStart.Hour, 0, 0, DateTimeKind.Utc);
-                
-                if (compareHoursLimit > 0)
-                {
-                    periodEndDate = periodStartDate.AddHours(compareHoursLimit);
-                }
-                else
-                {
-                    // No time limit configured, use subscription duration
-                    periodEndDate = periodStartDate.AddHours(24);
-                }
+            // ✅ FIXED: Calculate period based on CURRENT time for both Free and Paid plans
+            if (compareHoursLimit >= 24)
+            {
+                // Daily or longer: round to start of day
+                periodStartDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
+                periodEndDate = periodStartDate.AddHours(compareHoursLimit);
+            }
+            else if (compareHoursLimit > 0)
+            {
+                // Hourly: round to start of current hour
+                periodStartDate = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc);
+                periodEndDate = periodStartDate.AddHours(compareHoursLimit);
+            }
+            else
+            {
+                // No time limit configured, use a default window (e.g., 24 hours)
+                periodStartDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
+                periodEndDate = periodStartDate.AddHours(24);
             }
 
             return (compareLimit, compareHoursLimit, periodStartDate, periodEndDate, companySubscriptionId);

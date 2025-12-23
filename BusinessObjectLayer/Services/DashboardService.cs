@@ -158,23 +158,33 @@ namespace BusinessObjectLayer.Services
 
                 // Get all metrics sequentially to avoid DbContext concurrency issues
                 var activeJobs = await dashboardRepo.GetActiveJobsCountAsync(companyId);
+                var totalCampaigns = await dashboardRepo.GetTotalCampaignsCountAsync(companyId);
+                var totalPublicCampaigns = await dashboardRepo.GetTotalPublicCampaignsCountAsync(companyId);
                 var totalMembers = await dashboardRepo.GetTotalMembersCountAsync(companyId);
                 var aiProcessed = await dashboardRepo.GetAiProcessedCountAsync(companyId);
 
                 // Calculate credits remaining
-                int creditsRemaining = 0;
+                int resumeCreditsRemaining = 0;
+                DateTime? resumeTimeRemaining = null;
+                int comparisonCreditsRemaining = 0;
+                DateTime? comparisonTimeRemaining = null;
+
                 var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
                 var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
 
                 int? resumeLimit;
                 int? hoursLimit;
-                DateTime? startDate;
+                int? compareLimit;
+                int? compareHoursLimit;
+                
+                DateTime now = DateTime.UtcNow;
 
                 if (companySubscription != null)
                 {
                     resumeLimit = companySubscription.Subscription?.ResumeLimit;
                     hoursLimit = companySubscription.Subscription?.HoursLimit;
-                    startDate = companySubscription.StartDate;
+                    compareLimit = companySubscription.Subscription?.CompareLimit;
+                    compareHoursLimit = companySubscription.Subscription?.CompareHoursLimit;
                 }
                 else
                 {
@@ -186,37 +196,111 @@ namespace BusinessObjectLayer.Services
                     {
                         resumeLimit = freeSubscription.ResumeLimit;
                         hoursLimit = freeSubscription.HoursLimit;
-                        startDate = null; // Free subscription không có StartDate
+                        compareLimit = freeSubscription.CompareLimit;
+                        compareHoursLimit = freeSubscription.CompareHoursLimit;
                     }
                     else
                     {
                         resumeLimit = null;
                         hoursLimit = null;
-                        startDate = null;
+                        compareLimit = null;
+                        compareHoursLimit = null;
                     }
                 }
 
+                var usageCounterRepo = _uow.GetRepository<IUsageCounterRepository>();
+
+                // 1. Calculate Resume Credits
                 if (resumeLimit.HasValue && resumeLimit.Value > 0)
                 {
-                    var resumeRepo = _uow.GetRepository<IResumeRepository>();
-                    var resumeCount = startDate.HasValue
-                        ? await resumeRepo.CountResumesSinceDateAsync(companyId, startDate.Value, hoursLimit ?? 0)
-                        : await resumeRepo.CountResumesInLastHoursAsync(companyId, hoursLimit ?? 0);
+                    // Tính thời gian reset
+                    DateTime periodStartDate;
+                    DateTime periodEndDate;
+                    int hLimit = hoursLimit ?? 24;
 
-                    creditsRemaining = Math.Max(0, resumeLimit.Value - resumeCount);
+                    if (hLimit >= 24)
+                    {
+                        periodStartDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
+                        periodEndDate = periodStartDate.AddHours(hLimit);
+                    }
+                    else
+                    {
+                        periodStartDate = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc);
+                        periodEndDate = periodStartDate.AddHours(hLimit);
+                    }
+
+                    resumeTimeRemaining = periodEndDate;
+
+                    // Lấy số lượng đã dùng từ UsageCounter
+                    var currentUsage = await usageCounterRepo.GetCurrentUsageAsync(
+                        companyId,
+                        UsageTypeEnum.Resume,
+                        periodStartDate,
+                        periodEndDate);
+
+                    resumeCreditsRemaining = Math.Max(0, resumeLimit.Value - currentUsage);
                 }
                 else
                 {
-                    // No limit set, return a large number or -1 to indicate unlimited
-                    creditsRemaining = -1; // -1 means unlimited
+                    // No limit set or limit <= 0
+                    resumeCreditsRemaining = -1; // -1 means unlimited
+                    resumeTimeRemaining = null;
+                }
+
+                // 2. Calculate Comparison Credits
+                if (compareLimit.HasValue && compareLimit.Value > 0)
+                {
+                    // Tính thời gian reset
+                    DateTime periodStartDate;
+                    DateTime periodEndDate;
+                    int hLimit = compareHoursLimit ?? 24;
+
+                    if (hLimit >= 24)
+                    {
+                        periodStartDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
+                        periodEndDate = periodStartDate.AddHours(hLimit);
+                    }
+                    else
+                    {
+                        periodStartDate = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc);
+                        periodEndDate = periodStartDate.AddHours(hLimit);
+                    }
+
+                    comparisonTimeRemaining = periodEndDate;
+
+                    // Lấy số lượng đã dùng từ UsageCounter
+                    var currentUsage = await usageCounterRepo.GetCurrentUsageAsync(
+                        companyId,
+                        UsageTypeEnum.Comparison,
+                        periodStartDate,
+                        periodEndDate);
+
+                    comparisonCreditsRemaining = Math.Max(0, compareLimit.Value - currentUsage);
+                }
+                else if (!compareLimit.HasValue) 
+                {
+                    // Null means unlimited
+                    comparisonCreditsRemaining = -1;
+                    comparisonTimeRemaining = null;
+                }
+                else
+                {
+                    // 0 means no access
+                    comparisonCreditsRemaining = 0;
+                    comparisonTimeRemaining = null;
                 }
 
                 var response = new DashboardSummaryResponse
                 {
                     ActiveJobs = activeJobs,
+                    TotalCampaigns = totalCampaigns,
+                    TotalPublicCampaigns = totalPublicCampaigns,
                     TotalMembers = totalMembers,
                     AiProcessed = aiProcessed,
-                    CreditsRemaining = creditsRemaining
+                    ResumeCreditsRemaining = resumeCreditsRemaining,
+                    ResumeTimeRemaining = resumeTimeRemaining,
+                    ComparisonCreditsRemaining = comparisonCreditsRemaining,
+                    ComparisonTimeRemaining = comparisonTimeRemaining
                 };
 
                 return new ServiceResponse

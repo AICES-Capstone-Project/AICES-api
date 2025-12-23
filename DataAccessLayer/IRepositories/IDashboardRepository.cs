@@ -12,6 +12,8 @@ namespace DataAccessLayer.IRepositories
     {
         Task<List<(int CategoryId, string CategoryName, int SpecializationId, string SpecializationName, int ResumeCount)>> GetTopCategorySpecByResumeCountAsync(int companyId, int top = 10);
         Task<int> GetActiveJobsCountAsync(int companyId);
+        Task<int> GetTotalCampaignsCountAsync(int companyId); // Tổng campaign của công ty
+        Task<int> GetTotalPublicCampaignsCountAsync(int companyId); // Tổng campaign public
         Task<int> GetTotalCandidatesCountAsync(int companyId);
         Task<int> GetTotalMembersCountAsync(int companyId);
         Task<int> GetAiProcessedCountAsync(int companyId);

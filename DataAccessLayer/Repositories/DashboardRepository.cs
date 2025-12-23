@@ -54,6 +54,24 @@ namespace DataAccessLayer.Repositories
                 .CountAsync();
         }
 
+        public async Task<int> GetTotalCampaignsCountAsync(int companyId)
+        {
+            return await _context.Campaigns
+                .AsNoTracking()
+                .Where(c => c.CompanyId == companyId && c.IsActive)
+                .CountAsync();
+        }
+
+        public async Task<int> GetTotalPublicCampaignsCountAsync(int companyId)
+        {
+            return await _context.Campaigns
+                .AsNoTracking()
+                .Where(c => c.CompanyId == companyId 
+                         && c.IsActive 
+                         && c.Job.JobStatus == JobStatusEnum.Published)
+                .CountAsync();
+        }
+
         public async Task<int> GetTotalCandidatesCountAsync(int companyId)
         {
             // Count unique candidates (1 người chỉ được tính 1 lần) dựa trên email trong Candidates,
