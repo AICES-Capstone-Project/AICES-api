@@ -9,8 +9,8 @@ namespace Data.Models.Response
         public string QueueJobId { get; set; } = string.Empty;
         public string FileUrl { get; set; } = string.Empty;
         public string? OriginalFileName { get; set; }
-        public ResumeStatusEnum ResumeStatus { get; set; }
-        public ApplicationStatusEnum ApplicationStatus { get; set; } = ApplicationStatusEnum.Pending;
+        public ResumeStatusEnum? ResumeStatus { get; set; }
+        public ApplicationStatusEnum? ApplicationStatus { get; set; }
         public ApplicationErrorEnum? ApplicationErrorType { get; set; }
         public int? CampaignId { get; set; }
         public DateTime? CreatedAt { get; set; }

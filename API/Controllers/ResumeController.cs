@@ -104,32 +104,6 @@ namespace API.Controllers
         }
         
         /// <summary>
-        /// GET /api/campaigns/{campaignId}/jobs/{jobId}/resumes
-        /// Get list of resumes for a specific job in a campaign
-        /// Returns: resumeId, status, fullName, totalResumeScore
-        /// </summary>
-        [HttpGet("/api/campaigns/{campaignId}/jobs/{jobId}/resumes")]
-        [Authorize(Roles = "HR_Manager, HR_Recruiter")] 
-        public async Task<IActionResult> GetJobResumes(int campaignId, int jobId)
-        {
-            var serviceResponse = await _resumeService.GetJobResumesAsync(jobId, campaignId);
-            return ControllerResponse.Response(serviceResponse);
-        }
-
-        /// <summary>
-        /// GET /api/campaigns/{campaignId}/jobs/{jobId}/resumes/{applicationId}
-        /// Get detailed information about a specific resume application in a campaign
-        /// Returns: resume details, candidate info, AI scores, and score details
-        /// </summary>
-        [HttpGet("/api/campaigns/{campaignId}/jobs/{jobId}/resumes/{applicationId}")]
-        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> GetJobResumeDetail(int campaignId, int jobId, int applicationId)
-        {
-            var serviceResponse = await _resumeService.GetJobResumeDetailAsync(jobId, applicationId, campaignId);
-            return ControllerResponse.Response(serviceResponse);
-        }
-
-        /// <summary>
         /// POST /api/resume/{resumeId}/retry
         /// Retry a failed resume by re-pushing it to the Redis queue
         /// Flow: Check status = Failed -> Re-push to Redis with new queueJobId -> Update status = Pending

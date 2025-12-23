@@ -453,10 +453,19 @@ namespace BusinessObjectLayer.Services
             }
         }
 
-        public async Task<ServiceResponse> GetResumeApplicationsAsync(int resumeId)
+        public async Task<ServiceResponse> GetResumeApplicationsAsync(int resumeId, GetResumeApplicationsRequest request)
         {
             try
             {
+                if (request.Page <= 0 || request.PageSize <= 0)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Page and pageSize must be greater than zero."
+                    };
+                }
+
                 // Get company ID from current user
                 var companyIdResult = await GetCurrentUserCompanyIdAsync();
                 if (companyIdResult.errorResponse != null)
@@ -485,9 +494,11 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var applications = await _resumeApplicationRepo.GetByResumeIdWithJobAndCompanyAsync(resumeId, companyId);
+                var (applications, totalCount) = await _resumeApplicationRepo.GetByResumeIdWithJobAndCompanyPagedAsync(
+                    resumeId, companyId, request.Page, request.PageSize,
+                    request.Search, request.MinScore, request.MaxScore, request.ApplicationStatus);
 
-                var response = applications.Select(a => new CandidateApplicationResponse
+                var applicationList = applications.Select(a => new CandidateApplicationResponse
                     {
                         ApplicationId = a.ApplicationId,
                         ResumeId = a.ResumeId,
@@ -509,11 +520,20 @@ namespace BusinessObjectLayer.Services
                         CreatedAt = a.CreatedAt
                     }).ToList();
 
+                var paginatedResponse = new PaginatedCandidateApplicationResponse
+                {
+                    Applications = applicationList,
+                    TotalCount = totalCount,
+                    CurrentPage = request.Page,
+                    PageSize = request.PageSize,
+                    TotalPages = (int)Math.Ceiling((double)totalCount / request.PageSize)
+                };
+
                 return new ServiceResponse
                 {
                     Status = SRStatus.Success,
                     Message = "Applications retrieved successfully.",
-                    Data = response
+                    Data = paginatedResponse
                 };
             }
             catch (Exception ex)

@@ -340,5 +340,192 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        /// <summary>
+        /// Get list of resumes for a specific job in a campaign with pagination and filtering
+        /// </summary>
+        public async Task<ServiceResponse> GetJobResumesAsync(int jobId, int campaignId, GetJobResumesRequest request)
+        {
+            try
+            {
+                if (request.Page <= 0 || request.PageSize <= 0)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = "Page and pageSize must be greater than zero."
+                    };
+                }
+
+                var (errorResponse, companyId) = await GetCurrentUserCompanyIdAsync();
+                if (errorResponse != null) return errorResponse;
+
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var resumeApplicationRepo = _uow.GetRepository<IResumeApplicationRepository>();
+
+                var job = await jobRepo.GetJobByIdAsync(jobId);
+                if (job == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Job not found."
+                    };
+                }
+
+                if (job.CompanyId != companyId)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You do not have permission to view resumes for this job."
+                    };
+                }
+
+                var (resumeApplications, totalCount) = await resumeApplicationRepo.GetByJobIdAndCampaignWithResumePagedAsync(
+                    jobId, campaignId, request.Page, request.PageSize, 
+                    request.Search, request.MinScore, request.MaxScore, request.ApplicationStatus);
+
+                var resumeList = resumeApplications
+                    .Select(application => new JobResumeListResponse
+                    {
+                        ResumeId = application.ResumeId,
+                        ApplicationId = application.ApplicationId,
+                        ResumeStatus = application.Resume?.Status,
+                        ApplicationStatus = application.Status,
+                        ApplicationErrorType = application.ErrorType,
+                        FullName = application.Resume?.Candidate?.FullName ?? "Unknown",
+                        TotalScore = application.TotalScore,
+                        AdjustedScore = application.AdjustedScore,
+                        Note = application.Note
+                    })
+                    .ToList();
+
+                var paginatedResponse = new PaginatedJobResumeListResponse
+                {
+                    Resumes = resumeList,
+                    TotalCount = totalCount,
+                    CurrentPage = request.Page,
+                    PageSize = request.PageSize,
+                    TotalPages = (int)Math.Ceiling((double)totalCount / request.PageSize)
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Job resumes retrieved successfully.",
+                    Data = paginatedResponse
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error getting job resumes: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving job resumes."
+                };
+            }
+        }
+
+        /// <summary>
+        /// Get detailed information about a specific resume application
+        /// </summary>
+        public async Task<ServiceResponse> GetJobResumeDetailAsync(int jobId, int applicationId, int campaignId)
+        {
+            try
+            {
+                var (errorResponse, companyId) = await GetCurrentUserCompanyIdAsync();
+                if (errorResponse != null) return errorResponse;
+
+                var jobRepo = _uow.GetRepository<IJobRepository>();
+                var resumeApplicationRepo = _uow.GetRepository<IResumeApplicationRepository>();
+
+                var job = await jobRepo.GetJobByIdAsync(jobId);
+                if (job == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Job not found."
+                    };
+                }
+
+                if (job.CompanyId != companyId)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Forbidden,
+                        Message = "You do not have permission to view this resume."
+                    };
+                }
+
+                var resumeApplication = await resumeApplicationRepo.GetByApplicationIdWithDetailsAsync(applicationId);
+
+                if (resumeApplication == null || resumeApplication.JobId != jobId || resumeApplication.CampaignId != campaignId)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.NotFound,
+                        Message = "Resume application not found for this job and campaign."
+                    };
+                }
+
+                var resume = resumeApplication.Resume;
+                var candidate = resume?.Candidate;
+                
+                var scoreDetailsResponse = resumeApplication?.ScoreDetails?
+                    .Select(detail => new ResumeScoreDetailResponse
+                    {
+                        CriteriaId = detail.CriteriaId,
+                        CriteriaName = detail.Criteria?.Name ?? "",
+                        Matched = detail.Matched,
+                        Score = detail.Score,
+                        AINote = detail.AINote
+                    }).ToList() ?? new List<ResumeScoreDetailResponse>();
+
+                var response = new JobResumeDetailResponse
+                {
+                    ResumeId = resume?.ResumeId,
+                    ApplicationId = resumeApplication?.ApplicationId,
+                    QueueJobId = resumeApplication?.QueueJobId ?? string.Empty,
+                    FileUrl = resume?.FileUrl ?? string.Empty,
+                    OriginalFileName = resume?.OriginalFileName,
+                    ResumeStatus = resume?.Status,
+                    ApplicationStatus = resumeApplication?.Status,
+                    ApplicationErrorType = resumeApplication?.ErrorType,
+                    CampaignId = resumeApplication?.CampaignId,
+                    CreatedAt = resume?.CreatedAt,
+                    CandidateId = resumeApplication?.CandidateId ?? candidate?.CandidateId ?? 0,
+                    FullName = candidate?.FullName ?? "Unknown",
+                    Email = candidate?.Email ?? "N/A",
+                    PhoneNumber = candidate?.PhoneNumber,
+                    MatchSkills = resumeApplication?.MatchSkills,
+                    MissingSkills = resumeApplication?.MissingSkills,
+                    TotalScore = resumeApplication?.TotalScore,
+                    AdjustedScore = resumeApplication?.AdjustedScore,
+                    AIExplanation = resumeApplication?.AIExplanation,
+                    ErrorMessage = resumeApplication?.ErrorMessage,
+                    Note = resumeApplication?.Note,
+                    ScoreDetails = scoreDetailsResponse
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Resume detail retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error getting job resume detail: {ex.Message}");
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving resume detail."
+                };
+            }
+        }
     }
 }

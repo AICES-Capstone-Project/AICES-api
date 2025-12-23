@@ -57,11 +57,32 @@ namespace API.Controllers
             return ControllerResponse.Response(response);
         }
 
+        /// <summary>
+        /// GET /api/candidates/resumes/{resumeId}/applications
+        /// Get all applications for a specific resume with pagination and filtering
+        /// Query params: page, pageSize, search (job title, company name, campaign title), minScore, maxScore, applicationStatus
+        /// </summary>
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         [HttpGet("resumes/{resumeId}/applications")]
-        public async Task<IActionResult> GetResumeApplications(int resumeId)
+        public async Task<IActionResult> GetResumeApplications(
+            int resumeId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? search = null,
+            [FromQuery] decimal? minScore = null,
+            [FromQuery] decimal? maxScore = null,
+            [FromQuery] Data.Enum.ApplicationStatusEnum? applicationStatus = null)
         {
-            var response = await _candidateService.GetResumeApplicationsAsync(resumeId);
+            var request = new GetResumeApplicationsRequest
+            {
+                Page = page,
+                PageSize = pageSize,
+                Search = search,
+                MinScore = minScore,
+                MaxScore = maxScore,
+                ApplicationStatus = applicationStatus
+            };
+            var response = await _candidateService.GetResumeApplicationsAsync(resumeId, request);
             return ControllerResponse.Response(response);
         }
 

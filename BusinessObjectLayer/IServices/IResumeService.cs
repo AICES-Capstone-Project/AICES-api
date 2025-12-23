@@ -9,8 +9,6 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> UploadResumeAsync(int campaignId, int jobId, IFormFile file);
         Task<ServiceResponse> UploadResumeBatchAsync(int campaignId, int jobId, IFormFileCollection files);
         Task<ServiceResponse> ProcessAIResultAsync(AIResultRequest request);
-        Task<ServiceResponse> GetJobResumesAsync(int jobId, int campaignId);
-        Task<ServiceResponse> GetJobResumeDetailAsync(int jobId, int applicationId, int campaignId);
         // Task<ServiceResponse> RetryFailedResumeAsync(int resumeId);
         Task<ServiceResponse> SoftDeleteResumeAsync(int applicationId);
         // Task<ServiceResponse> ResendResumeAsync(int jobId, int resumeId);

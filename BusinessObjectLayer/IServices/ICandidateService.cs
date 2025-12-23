@@ -12,7 +12,7 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> CreateAsync(CandidateCreateRequest request);
         Task<ServiceResponse> UpdateAsync(int id, CandidateUpdateRequest request);
         Task<ServiceResponse> DeleteAsync(int id);
-        Task<ServiceResponse> GetResumeApplicationsAsync(int resumeId);
+        Task<ServiceResponse> GetResumeApplicationsAsync(int resumeId, GetResumeApplicationsRequest request);
         Task<ServiceResponse> GetResumeApplicationDetailAsync(int resumeId, int applicationId);
         Task<ServiceResponse> GetResumesByCandidateAsync(int candidateId);
     }
