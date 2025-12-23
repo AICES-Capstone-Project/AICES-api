@@ -96,6 +96,378 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
+        #region Export Endpoints for System Reports
+
+        /// <summary>
+        /// Export executive summary to Excel
+        /// </summary>
+        [HttpGet("executive-summary/excel")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportExecutiveSummaryToExcel()
+        {
+            var serviceResponse = await _reportService.ExportExecutiveSummaryToExcelAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var excelData = serviceResponse.Data as ExcelExportResponse;
+            if (excelData == null)
+            {
+                return StatusCode(500, "Failed to generate Excel file.");
+            }
+
+            return File(excelData.FileBytes, excelData.ContentType, excelData.FileName);
+        }
+
+        /// <summary>
+        /// Export executive summary to PDF
+        /// </summary>
+        [HttpGet("executive-summary/pdf")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportExecutiveSummaryToPdf()
+        {
+            var serviceResponse = await _reportService.ExportExecutiveSummaryToPdfAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var pdfData = serviceResponse.Data as PdfExportResponse;
+            if (pdfData == null)
+            {
+                return StatusCode(500, "Failed to generate PDF report.");
+            }
+
+            return File(pdfData.FileBytes, pdfData.ContentType, pdfData.FileName);
+        }
+
+        /// <summary>
+        /// Export companies overview to Excel
+        /// </summary>
+        [HttpGet("companies/overview/excel")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportCompaniesOverviewToExcel()
+        {
+            var serviceResponse = await _reportService.ExportCompaniesOverviewToExcelAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var excelData = serviceResponse.Data as ExcelExportResponse;
+            if (excelData == null)
+            {
+                return StatusCode(500, "Failed to generate Excel file.");
+            }
+
+            return File(excelData.FileBytes, excelData.ContentType, excelData.FileName);
+        }
+
+        /// <summary>
+        /// Export companies overview to PDF
+        /// </summary>
+        [HttpGet("companies/overview/pdf")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportCompaniesOverviewToPdf()
+        {
+            var serviceResponse = await _reportService.ExportCompaniesOverviewToPdfAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var pdfData = serviceResponse.Data as PdfExportResponse;
+            if (pdfData == null)
+            {
+                return StatusCode(500, "Failed to generate PDF report.");
+            }
+
+            return File(pdfData.FileBytes, pdfData.ContentType, pdfData.FileName);
+        }
+
+        /// <summary>
+        /// Export companies usage to Excel
+        /// </summary>
+        [HttpGet("companies/usage/excel")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportCompaniesUsageToExcel()
+        {
+            var serviceResponse = await _reportService.ExportCompaniesUsageToExcelAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var excelData = serviceResponse.Data as ExcelExportResponse;
+            if (excelData == null)
+            {
+                return StatusCode(500, "Failed to generate Excel file.");
+            }
+
+            return File(excelData.FileBytes, excelData.ContentType, excelData.FileName);
+        }
+
+        /// <summary>
+        /// Export companies usage to PDF
+        /// </summary>
+        [HttpGet("companies/usage/pdf")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportCompaniesUsageToPdf()
+        {
+            var serviceResponse = await _reportService.ExportCompaniesUsageToPdfAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var pdfData = serviceResponse.Data as PdfExportResponse;
+            if (pdfData == null)
+            {
+                return StatusCode(500, "Failed to generate PDF report.");
+            }
+
+            return File(pdfData.FileBytes, pdfData.ContentType, pdfData.FileName);
+        }
+
+        /// <summary>
+        /// Export jobs statistics to Excel
+        /// </summary>
+        [HttpGet("jobs/statistics/excel")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportJobsStatisticsToExcel()
+        {
+            var serviceResponse = await _reportService.ExportJobsStatisticsToExcelAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var excelData = serviceResponse.Data as ExcelExportResponse;
+            if (excelData == null)
+            {
+                return StatusCode(500, "Failed to generate Excel file.");
+            }
+
+            return File(excelData.FileBytes, excelData.ContentType, excelData.FileName);
+        }
+
+        /// <summary>
+        /// Export jobs statistics to PDF
+        /// </summary>
+        [HttpGet("jobs/statistics/pdf")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportJobsStatisticsToPdf()
+        {
+            var serviceResponse = await _reportService.ExportJobsStatisticsToPdfAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var pdfData = serviceResponse.Data as PdfExportResponse;
+            if (pdfData == null)
+            {
+                return StatusCode(500, "Failed to generate PDF report.");
+            }
+
+            return File(pdfData.FileBytes, pdfData.ContentType, pdfData.FileName);
+        }
+
+        /// <summary>
+        /// Export jobs effectiveness to Excel
+        /// </summary>
+        [HttpGet("jobs/effectiveness/excel")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportJobsEffectivenessToExcel()
+        {
+            var serviceResponse = await _reportService.ExportJobsEffectivenessToExcelAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var excelData = serviceResponse.Data as ExcelExportResponse;
+            if (excelData == null)
+            {
+                return StatusCode(500, "Failed to generate Excel file.");
+            }
+
+            return File(excelData.FileBytes, excelData.ContentType, excelData.FileName);
+        }
+
+        /// <summary>
+        /// Export jobs effectiveness to PDF
+        /// </summary>
+        [HttpGet("jobs/effectiveness/pdf")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportJobsEffectivenessToPdf()
+        {
+            var serviceResponse = await _reportService.ExportJobsEffectivenessToPdfAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var pdfData = serviceResponse.Data as PdfExportResponse;
+            if (pdfData == null)
+            {
+                return StatusCode(500, "Failed to generate PDF report.");
+            }
+
+            return File(pdfData.FileBytes, pdfData.ContentType, pdfData.FileName);
+        }
+
+        /// <summary>
+        /// Export AI parsing quality to Excel
+        /// </summary>
+        [HttpGet("ai/parsing/excel")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportAiParsingQualityToExcel()
+        {
+            var serviceResponse = await _reportService.ExportAiParsingQualityToExcelAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var excelData = serviceResponse.Data as ExcelExportResponse;
+            if (excelData == null)
+            {
+                return StatusCode(500, "Failed to generate Excel file.");
+            }
+
+            return File(excelData.FileBytes, excelData.ContentType, excelData.FileName);
+        }
+
+        /// <summary>
+        /// Export AI parsing quality to PDF
+        /// </summary>
+        [HttpGet("ai/parsing/pdf")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportAiParsingQualityToPdf()
+        {
+            var serviceResponse = await _reportService.ExportAiParsingQualityToPdfAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var pdfData = serviceResponse.Data as PdfExportResponse;
+            if (pdfData == null)
+            {
+                return StatusCode(500, "Failed to generate PDF report.");
+            }
+
+            return File(pdfData.FileBytes, pdfData.ContentType, pdfData.FileName);
+        }
+
+        /// <summary>
+        /// Export AI scoring distribution to Excel
+        /// </summary>
+        [HttpGet("ai/scoring/excel")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportAiScoringDistributionToExcel()
+        {
+            var serviceResponse = await _reportService.ExportAiScoringDistributionToExcelAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var excelData = serviceResponse.Data as ExcelExportResponse;
+            if (excelData == null)
+            {
+                return StatusCode(500, "Failed to generate Excel file.");
+            }
+
+            return File(excelData.FileBytes, excelData.ContentType, excelData.FileName);
+        }
+
+        /// <summary>
+        /// Export AI scoring distribution to PDF
+        /// </summary>
+        [HttpGet("ai/scoring/pdf")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportAiScoringDistributionToPdf()
+        {
+            var serviceResponse = await _reportService.ExportAiScoringDistributionToPdfAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var pdfData = serviceResponse.Data as PdfExportResponse;
+            if (pdfData == null)
+            {
+                return StatusCode(500, "Failed to generate PDF report.");
+            }
+
+            return File(pdfData.FileBytes, pdfData.ContentType, pdfData.FileName);
+        }
+
+        /// <summary>
+        /// Export subscription revenue to Excel
+        /// </summary>
+        [HttpGet("subscriptions/excel")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportSubscriptionRevenueToExcel()
+        {
+            var serviceResponse = await _reportService.ExportSubscriptionRevenueToExcelAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var excelData = serviceResponse.Data as ExcelExportResponse;
+            if (excelData == null)
+            {
+                return StatusCode(500, "Failed to generate Excel file.");
+            }
+
+            return File(excelData.FileBytes, excelData.ContentType, excelData.FileName);
+        }
+
+        /// <summary>
+        /// Export subscription revenue to PDF
+        /// </summary>
+        [HttpGet("subscriptions/pdf")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> ExportSubscriptionRevenueToPdf()
+        {
+            var serviceResponse = await _reportService.ExportSubscriptionRevenueToPdfAsync();
+
+            if (serviceResponse.Status != SRStatus.Success)
+            {
+                return ControllerResponse.Response(serviceResponse);
+            }
+
+            var pdfData = serviceResponse.Data as PdfExportResponse;
+            if (pdfData == null)
+            {
+                return StatusCode(500, "Failed to generate PDF report.");
+            }
+
+            return File(pdfData.FileBytes, pdfData.ContentType, pdfData.FileName);
+        }
+
+        #endregion
+
         
         [HttpGet("campaigns/{campaignId}/job/{jobId}/excel")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]

@@ -68,13 +68,7 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        [HttpGet("total-jobs")]
-        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
-        public async Task<IActionResult> GetTotalJobsCount()
-        {
-            var serviceResponse = await _dashboardService.GetTotalJobsCountAsync();
-            return ControllerResponse.Response(serviceResponse);
-        }
+        
     }
 
     [Route("api/system/dashboard")]
