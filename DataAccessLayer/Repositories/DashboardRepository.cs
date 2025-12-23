@@ -68,7 +68,7 @@ namespace DataAccessLayer.Repositories
                 .AsNoTracking()
                 .Where(c => c.CompanyId == companyId 
                          && c.IsActive 
-                         && c.Job.JobStatus == JobStatusEnum.Published)
+                         && c.Status == CampaignStatusEnum.Published)
                 .CountAsync();
         }
 
