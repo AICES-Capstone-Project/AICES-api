@@ -88,7 +88,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<(List<ResumeApplication> applications, int totalCount)> GetByJobIdAndCampaignWithResumePagedAsync(
             int jobId, int campaignId, int page, int pageSize, string? search,
-            decimal? minScore, decimal? maxScore, Data.Enum.ApplicationStatusEnum? status)
+            decimal? minScore, decimal? maxScore, Data.Enum.ApplicationStatusEnum? status, Data.Enum.ResumeSortByEnum sortBy)
         {
             var query = _context.ResumeApplications
                 .AsNoTracking()
@@ -130,9 +130,19 @@ namespace DataAccessLayer.Repositories
 
             var totalCount = await query.CountAsync();
 
+            // Apply sorting
+            query = sortBy switch
+            {
+                Data.Enum.ResumeSortByEnum.NewestCreated => query.OrderByDescending(ra => ra.CreatedAt),
+                Data.Enum.ResumeSortByEnum.HighestScore => query
+                    .OrderByDescending(ra => ra.AdjustedScore ?? ra.TotalScore ?? 0)
+                    .ThenByDescending(ra => ra.CreatedAt),
+                _ => query
+                    .OrderByDescending(ra => ra.AdjustedScore ?? ra.TotalScore ?? 0)
+                    .ThenByDescending(ra => ra.CreatedAt)
+            };
+
             var applications = await query
-                .OrderByDescending(ra => ra.AdjustedScore ?? ra.TotalScore ?? 0)
-                .ThenByDescending(ra => ra.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -223,7 +233,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<(List<ResumeApplication> applications, int totalCount)> GetByResumeIdWithJobAndCompanyPagedAsync(
             int resumeId, int companyId, int page, int pageSize, string? search,
-            decimal? minScore, decimal? maxScore, Data.Enum.ApplicationStatusEnum? status)
+            decimal? minScore, decimal? maxScore, Data.Enum.ApplicationStatusEnum? status, Data.Enum.ResumeSortByEnum sortBy)
         {
             var query = _context.ResumeApplications
                 .AsNoTracking()
@@ -266,9 +276,19 @@ namespace DataAccessLayer.Repositories
 
             var totalCount = await query.CountAsync();
 
+            // Apply sorting
+            query = sortBy switch
+            {
+                Data.Enum.ResumeSortByEnum.NewestCreated => query.OrderByDescending(ra => ra.CreatedAt),
+                Data.Enum.ResumeSortByEnum.HighestScore => query
+                    .OrderByDescending(ra => ra.AdjustedScore ?? ra.TotalScore ?? 0)
+                    .ThenByDescending(ra => ra.CreatedAt),
+                _ => query
+                    .OrderByDescending(ra => ra.AdjustedScore ?? ra.TotalScore ?? 0)
+                    .ThenByDescending(ra => ra.CreatedAt)
+            };
+
             var applications = await query
-                .OrderByDescending(ra => ra.AdjustedScore ?? ra.TotalScore ?? 0)
-                .ThenByDescending(ra => ra.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();

@@ -590,6 +590,28 @@ namespace BusinessObjectLayer.Services
                 await resumeAppRepo.CreateAsync(clonedApp);
                 await unitOfWork.SaveChangesAsync();
 
+                // Clone ScoreDetails if the existing application was successfully reviewed
+                if (decision.ExistingApplication != null && decision.ExistingApplication.Status == ApplicationStatusEnum.Reviewed)
+                {
+                    var scoreDetailRepo = unitOfWork.GetRepository<IScoreDetailRepository>();
+                    var existingScoreDetails = decision.ExistingApplication.ScoreDetails;
+                    
+                    if (existingScoreDetails != null && existingScoreDetails.Any())
+                    {
+                        var clonedScoreDetails = existingScoreDetails.Select(detail => new ScoreDetail
+                        {
+                            CriteriaId = detail.CriteriaId,
+                            ApplicationId = clonedApp.ApplicationId,
+                            Matched = detail.Matched,
+                            Score = detail.Score,
+                            AINote = detail.AINote
+                        }).ToList();
+
+                        await scoreDetailRepo.CreateRangeAsync(clonedScoreDetails);
+                        await unitOfWork.SaveChangesAsync();
+                    }
+                }
+
                 existingResume.ReuseCount++;
                 existingResume.LastReusedAt = DateTime.UtcNow;
                 await resumeRepo.UpdateAsync(existingResume);

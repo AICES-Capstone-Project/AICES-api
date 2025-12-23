@@ -60,7 +60,7 @@ namespace API.Controllers
         /// <summary>
         /// GET /api/candidates/resumes/{resumeId}/applications
         /// Get all applications for a specific resume with pagination and filtering
-        /// Query params: page, pageSize, search (job title, company name, campaign title), minScore, maxScore, applicationStatus
+        /// Query params: page, pageSize, search (job title, company name, campaign title), minScore, maxScore, applicationStatus, sortBy (HighestScore/NewestCreated)
         /// </summary>
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         [HttpGet("resumes/{resumeId}/applications")]
@@ -71,7 +71,8 @@ namespace API.Controllers
             [FromQuery] string? search = null,
             [FromQuery] decimal? minScore = null,
             [FromQuery] decimal? maxScore = null,
-            [FromQuery] Data.Enum.ApplicationStatusEnum? applicationStatus = null)
+            [FromQuery] Data.Enum.ApplicationStatusEnum? applicationStatus = null,
+            [FromQuery] Data.Enum.ResumeSortByEnum sortBy = Data.Enum.ResumeSortByEnum.HighestScore)
         {
             var request = new GetResumeApplicationsRequest
             {
@@ -80,7 +81,8 @@ namespace API.Controllers
                 Search = search,
                 MinScore = minScore,
                 MaxScore = maxScore,
-                ApplicationStatus = applicationStatus
+                ApplicationStatus = applicationStatus,
+                SortBy = sortBy
             };
             var response = await _candidateService.GetResumeApplicationsAsync(resumeId, request);
             return ControllerResponse.Response(response);

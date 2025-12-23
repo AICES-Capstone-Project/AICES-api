@@ -35,7 +35,7 @@ namespace API.Controllers
         /// <summary>
         /// GET /api/campaigns/{campaignId}/jobs/{jobId}/resumes
         /// Get list of resumes for a specific job in a campaign with pagination and filtering
-        /// Query params: page, pageSize, search (name, email, phone), minScore, maxScore, applicationStatus
+        /// Query params: page, pageSize, search (name, email, phone), minScore, maxScore, applicationStatus, sortBy (HighestScore/NewestCreated)
         /// Returns: paginated list of resumes with resumeId, status, fullName, totalResumeScore
         /// </summary>
         [HttpGet("/api/campaigns/{campaignId}/jobs/{jobId}/resumes")]
@@ -47,7 +47,8 @@ namespace API.Controllers
             [FromQuery] string? search = null,
             [FromQuery] decimal? minScore = null,
             [FromQuery] decimal? maxScore = null,
-            [FromQuery] Data.Enum.ApplicationStatusEnum? applicationStatus = null)
+            [FromQuery] Data.Enum.ApplicationStatusEnum? applicationStatus = null,
+            [FromQuery] Data.Enum.ResumeSortByEnum sortBy = Data.Enum.ResumeSortByEnum.HighestScore)
         {
             var request = new GetJobResumesRequest
             {
@@ -56,7 +57,8 @@ namespace API.Controllers
                 Search = search,
                 MinScore = minScore,
                 MaxScore = maxScore,
-                ApplicationStatus = applicationStatus
+                ApplicationStatus = applicationStatus,
+                SortBy = sortBy
             };
             var serviceResponse = await _resumeApplicationService.GetJobResumesAsync(jobId, campaignId, request);
             return ControllerResponse.Response(serviceResponse);
