@@ -32,5 +32,15 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> ExportAiScoringDistributionToPdfAsync();
         Task<ServiceResponse> ExportSubscriptionRevenueToExcelAsync();
         Task<ServiceResponse> ExportSubscriptionRevenueToPdfAsync();
+
+        /// <summary>
+        /// Export all system reports into a single Excel file with multiple sheets.
+        /// </summary>
+        Task<ServiceResponse> ExportAllSystemReportsToExcelAsync();
+
+        /// <summary>
+        /// Export all system reports into a single, formatted PDF document.
+        /// </summary>
+        Task<ServiceResponse> ExportAllSystemReportsToPdfAsync();
     }
 }
