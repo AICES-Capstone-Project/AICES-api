@@ -147,6 +147,7 @@ namespace DataAccessLayer.Repositories
             return await _context.Resumes
                 .AsNoTracking()
                 .Where(r => r.CompanyId == companyId
+                    && (r.Status == ResumeStatusEnum.Completed || r.Status == ResumeStatusEnum.Pending)
                     && r.CreatedAt.HasValue
                     && r.CreatedAt.Value >= effectiveStartDate)
                 .CountAsync();
@@ -164,6 +165,30 @@ namespace DataAccessLayer.Repositories
                     && r.CreatedAt.HasValue
                     && r.CreatedAt.Value >= effectiveStartDate)
                 .CountAsync();
+        }
+
+        public async Task<int> CountResumesFromDateAsync(int companyId, DateTime fromDate)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .Where(r => r.CompanyId == companyId
+                    && (r.Status == ResumeStatusEnum.Completed || r.Status == ResumeStatusEnum.Pending)
+                    && r.CreatedAt.HasValue
+                    && r.CreatedAt.Value >= fromDate)
+                .CountAsync();
+        }
+
+        public async Task<DateTime?> GetOldestResumeCreatedSinceAsync(int companyId, DateTime date)
+        {
+            return await _context.Resumes
+                .AsNoTracking()
+                .Where(r => r.CompanyId == companyId
+                    && (r.Status == ResumeStatusEnum.Completed || r.Status == ResumeStatusEnum.Pending)
+                    && r.CreatedAt.HasValue
+                    && r.CreatedAt.Value >= date)
+                .OrderBy(r => r.CreatedAt)
+                .Select(r => r.CreatedAt)
+                .FirstOrDefaultAsync();
         }
 
         public async Task<List<Resume>> GetByCandidateIdAndCompanyIdAsync(int candidateId, int companyId)

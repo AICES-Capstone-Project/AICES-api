@@ -18,6 +18,8 @@ namespace DataAccessLayer.IRepositories
         Task<int> CountResumesInLastHoursInTransactionAsync(int companyId, int hours);
         Task<int> CountResumesSinceDateAsync(int companyId, DateTime startDate, int hours);
         Task<int> CountResumesSinceDateInTransactionAsync(int companyId, DateTime startDate, int hours);
+        Task<int> CountResumesFromDateAsync(int companyId, DateTime fromDate);
+        Task<DateTime?> GetOldestResumeCreatedSinceAsync(int companyId, DateTime date);
         Task<List<Resume>> GetByCandidateIdAndCompanyIdAsync(int candidateId, int companyId);
         Task<bool> HasResumeInCompanyAsync(int candidateId, int companyId);
     }

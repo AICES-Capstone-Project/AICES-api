@@ -1439,5 +1439,2018 @@ namespace BusinessObjectLayer.Services
                 };
             }
         }
+
+        #region Export Methods for System Reports
+
+        public async Task<ServiceResponse> ExportExecutiveSummaryToExcelAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetExecutiveSummaryAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as ExecutiveSummaryResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve executive summary data."
+                    };
+                }
+
+                using var package = new ExcelPackage();
+                var ws = package.Workbook.Worksheets.Add("Executive Summary");
+
+                // Title
+                ws.Cells[1, 1].Value = "Executive Summary Report";
+                ws.Cells[1, 1, 1, 2].Merge = true;
+                using (var range = ws.Cells[1, 1, 1, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Font.Size = 16;
+                    range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                }
+
+                // Report Date
+                ws.Cells[2, 1].Value = "Generated Date:";
+                ws.Cells[2, 2].Value = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC");
+                ws.Cells[2, 1].Style.Font.Bold = true;
+
+                int row = 4;
+                var reportData = new Dictionary<string, object>
+                {
+                    { "Total Companies", data.TotalCompanies },
+                    { "Active Companies", data.ActiveCompanies },
+                    { "Total Jobs", data.TotalJobs },
+                    { "AI Processed Resumes", data.AiProcessedResumes },
+                    { "Total Revenue", data.TotalRevenue },
+                    { "Company Retention Rate", $"{data.CompanyRetentionRate:P2}" }
+                };
+
+                // Headers
+                ws.Cells[row, 1].Value = "Metric";
+                ws.Cells[row, 2].Value = "Value";
+                using (var range = ws.Cells[row, 1, row, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(70, 180, 77));
+                    range.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                }
+
+                row++;
+                foreach (var item in reportData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
+                using (var range = ws.Cells[4, 1, row - 1, 2])
+                {
+                    range.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                }
+
+                var fileBytes = package.GetAsByteArray();
+                var fileName = $"Executive_Summary_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Excel file generated successfully.",
+                    Data = new ExcelExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to Excel: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportExecutiveSummaryToPdfAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetExecutiveSummaryAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as ExecutiveSummaryResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve executive summary data."
+                    };
+                }
+
+                var pdfDocument = Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(40);
+                        page.DefaultTextStyle(x => x.FontSize(11));
+
+                        page.Header().Element(c => ComposeReportHeader(c, "Executive Summary Report"));
+
+                        page.Content().Element(c =>
+                        {
+                            c.Column(column =>
+                            {
+                                column.Item().PaddingBottom(10).Text("Generated Date: " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC")).FontSize(10).FontColor(Colors.Grey.Medium);
+
+                                column.Item().PaddingTop(20).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Element(CellStyle).Text("Metric").Bold();
+                                        header.Cell().Element(CellStyle).Text("Value").Bold();
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Total Companies");
+                                    table.Cell().Element(CellStyle).Text(data.TotalCompanies.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Active Companies");
+                                    table.Cell().Element(CellStyle).Text(data.ActiveCompanies.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Total Jobs");
+                                    table.Cell().Element(CellStyle).Text(data.TotalJobs.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("AI Processed Resumes");
+                                    table.Cell().Element(CellStyle).Text(data.AiProcessedResumes.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Total Revenue");
+                                    table.Cell().Element(CellStyle).Text($"${data.TotalRevenue:N2}");
+
+                                    table.Cell().Element(CellStyle).Text("Company Retention Rate");
+                                    table.Cell().Element(CellStyle).Text($"{data.CompanyRetentionRate:P2}");
+                                });
+                            });
+                        });
+
+                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                    });
+                });
+
+                var fileBytes = pdfDocument.GeneratePdf();
+                var fileName = $"Executive_Summary_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "PDF report generated successfully.",
+                    Data = new PdfExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/pdf"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to PDF: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportCompaniesOverviewToExcelAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetCompaniesOverviewAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as CompanyOverviewResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve companies overview data."
+                    };
+                }
+
+                using var package = new ExcelPackage();
+                var ws = package.Workbook.Worksheets.Add("Companies Overview");
+
+                // Title
+                ws.Cells[1, 1].Value = "Companies Overview Report";
+                ws.Cells[1, 1, 1, 2].Merge = true;
+                using (var range = ws.Cells[1, 1, 1, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Font.Size = 16;
+                    range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                }
+
+                ws.Cells[2, 1].Value = "Generated Date:";
+                ws.Cells[2, 2].Value = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC");
+                ws.Cells[2, 1].Style.Font.Bold = true;
+
+                int row = 4;
+                var mainData = new Dictionary<string, object>
+                {
+                    { "Total Companies", data.TotalCompanies },
+                    { "Active Companies", data.ActiveCompanies },
+                    { "Inactive Companies", data.InactiveCompanies },
+                    { "New Companies This Month", data.NewCompaniesThisMonth }
+                };
+
+                ws.Cells[row, 1].Value = "Metric";
+                ws.Cells[row, 2].Value = "Value";
+                using (var range = ws.Cells[row, 1, row, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(70, 180, 77));
+                    range.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                }
+
+                row++;
+                foreach (var item in mainData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                row += 2;
+                ws.Cells[row, 1].Value = "Subscription Breakdown";
+                ws.Cells[row, 1, row, 2].Merge = true;
+                ws.Cells[row, 1].Style.Font.Bold = true;
+                row++;
+
+                var subscriptionData = new Dictionary<string, int>
+                {
+                    { "With Active Subscription", data.SubscriptionBreakdown.WithActiveSubscription },
+                    { "With Expired Subscription", data.SubscriptionBreakdown.WithExpiredSubscription },
+                    { "Without Subscription", data.SubscriptionBreakdown.WithoutSubscription }
+                };
+
+                foreach (var item in subscriptionData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                row += 2;
+                ws.Cells[row, 1].Value = "Verification Breakdown";
+                ws.Cells[row, 1, row, 2].Merge = true;
+                ws.Cells[row, 1].Style.Font.Bold = true;
+                row++;
+
+                var verificationData = new Dictionary<string, int>
+                {
+                    { "Verified", data.VerificationBreakdown.Verified },
+                    { "Pending", data.VerificationBreakdown.Pending },
+                    { "Rejected", data.VerificationBreakdown.Rejected }
+                };
+
+                foreach (var item in verificationData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
+                using (var range = ws.Cells[4, 1, row - 1, 2])
+                {
+                    range.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                }
+
+                var fileBytes = package.GetAsByteArray();
+                var fileName = $"Companies_Overview_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Excel file generated successfully.",
+                    Data = new ExcelExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to Excel: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportCompaniesOverviewToPdfAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetCompaniesOverviewAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as CompanyOverviewResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve companies overview data."
+                    };
+                }
+
+                var pdfDocument = Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(40);
+                        page.DefaultTextStyle(x => x.FontSize(11));
+
+                        page.Header().Element(c => ComposeReportHeader(c, "Companies Overview Report"));
+
+                        page.Content().Element(c =>
+                        {
+                            c.Column(column =>
+                            {
+                                column.Item().PaddingBottom(10).Text("Generated Date: " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC")).FontSize(10).FontColor(Colors.Grey.Medium);
+
+                                column.Item().PaddingTop(20).Text("Overview").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Total Companies");
+                                    table.Cell().Element(CellStyle).Text(data.TotalCompanies.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Active Companies");
+                                    table.Cell().Element(CellStyle).Text(data.ActiveCompanies.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Inactive Companies");
+                                    table.Cell().Element(CellStyle).Text(data.InactiveCompanies.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("New Companies This Month");
+                                    table.Cell().Element(CellStyle).Text(data.NewCompaniesThisMonth.ToString());
+                                });
+
+                                column.Item().PaddingTop(20).Text("Subscription Breakdown").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("With Active Subscription");
+                                    table.Cell().Element(CellStyle).Text(data.SubscriptionBreakdown.WithActiveSubscription.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("With Expired Subscription");
+                                    table.Cell().Element(CellStyle).Text(data.SubscriptionBreakdown.WithExpiredSubscription.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Without Subscription");
+                                    table.Cell().Element(CellStyle).Text(data.SubscriptionBreakdown.WithoutSubscription.ToString());
+                                });
+
+                                column.Item().PaddingTop(20).Text("Verification Breakdown").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Verified");
+                                    table.Cell().Element(CellStyle).Text(data.VerificationBreakdown.Verified.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Pending");
+                                    table.Cell().Element(CellStyle).Text(data.VerificationBreakdown.Pending.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Rejected");
+                                    table.Cell().Element(CellStyle).Text(data.VerificationBreakdown.Rejected.ToString());
+                                });
+                            });
+                        });
+
+                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                    });
+                });
+
+                var fileBytes = pdfDocument.GeneratePdf();
+                var fileName = $"Companies_Overview_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "PDF report generated successfully.",
+                    Data = new PdfExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/pdf"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to PDF: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportCompaniesUsageToExcelAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetCompaniesUsageAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as CompanyUsageResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve companies usage data."
+                    };
+                }
+
+                using var package = new ExcelPackage();
+                var ws = package.Workbook.Worksheets.Add("Companies Usage");
+
+                ws.Cells[1, 1].Value = "Companies Usage Report";
+                ws.Cells[1, 1, 1, 2].Merge = true;
+                using (var range = ws.Cells[1, 1, 1, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Font.Size = 16;
+                    range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                }
+
+                ws.Cells[2, 1].Value = "Generated Date:";
+                ws.Cells[2, 2].Value = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC");
+                ws.Cells[2, 1].Style.Font.Bold = true;
+
+                int row = 4;
+                var usageData = new Dictionary<string, object>
+                {
+                    { "Registered Only", data.RegisteredOnly },
+                    { "Active Companies", data.ActiveCompanies },
+                    { "Frequent Companies", data.FrequentCompanies }
+                };
+
+                ws.Cells[row, 1].Value = "Metric";
+                ws.Cells[row, 2].Value = "Value";
+                using (var range = ws.Cells[row, 1, row, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(70, 180, 77));
+                    range.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                }
+
+                row++;
+                foreach (var item in usageData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                row += 2;
+                ws.Cells[row, 1].Value = "KPIs";
+                ws.Cells[row, 1, row, 2].Merge = true;
+                ws.Cells[row, 1].Style.Font.Bold = true;
+                row++;
+
+                var kpiData = new Dictionary<string, string>
+                {
+                    { "Active Rate", $"{data.Kpis.ActiveRate:P2}" },
+                    { "AI Usage Rate", $"{data.Kpis.AiUsageRate:P2}" },
+                    { "Returning Rate", $"{data.Kpis.ReturningRate:P2}" }
+                };
+
+                foreach (var item in kpiData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
+                using (var range = ws.Cells[4, 1, row - 1, 2])
+                {
+                    range.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                }
+
+                var fileBytes = package.GetAsByteArray();
+                var fileName = $"Companies_Usage_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Excel file generated successfully.",
+                    Data = new ExcelExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to Excel: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportCompaniesUsageToPdfAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetCompaniesUsageAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as CompanyUsageResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve companies usage data."
+                    };
+                }
+
+                var pdfDocument = Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(40);
+                        page.DefaultTextStyle(x => x.FontSize(11));
+
+                        page.Header().Element(c => ComposeReportHeader(c, "Companies Usage Report"));
+
+                        page.Content().Element(c =>
+                        {
+                            c.Column(column =>
+                            {
+                                column.Item().PaddingBottom(10).Text("Generated Date: " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC")).FontSize(10).FontColor(Colors.Grey.Medium);
+
+                                column.Item().PaddingTop(20).Text("Usage Statistics").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Registered Only");
+                                    table.Cell().Element(CellStyle).Text(data.RegisteredOnly.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Active Companies");
+                                    table.Cell().Element(CellStyle).Text(data.ActiveCompanies.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Frequent Companies");
+                                    table.Cell().Element(CellStyle).Text(data.FrequentCompanies.ToString());
+                                });
+
+                                column.Item().PaddingTop(20).Text("Key Performance Indicators").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Active Rate");
+                                    table.Cell().Element(CellStyle).Text($"{data.Kpis.ActiveRate:P2}");
+
+                                    table.Cell().Element(CellStyle).Text("AI Usage Rate");
+                                    table.Cell().Element(CellStyle).Text($"{data.Kpis.AiUsageRate:P2}");
+
+                                    table.Cell().Element(CellStyle).Text("Returning Rate");
+                                    table.Cell().Element(CellStyle).Text($"{data.Kpis.ReturningRate:P2}");
+                                });
+                            });
+                        });
+
+                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                    });
+                });
+
+                var fileBytes = pdfDocument.GeneratePdf();
+                var fileName = $"Companies_Usage_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "PDF report generated successfully.",
+                    Data = new PdfExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/pdf"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to PDF: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportJobsStatisticsToExcelAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetJobsStatisticsAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as JobStatisticsResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve jobs statistics data."
+                    };
+                }
+
+                using var package = new ExcelPackage();
+                var ws = package.Workbook.Worksheets.Add("Jobs Statistics");
+
+                ws.Cells[1, 1].Value = "Jobs Statistics Report";
+                ws.Cells[1, 1, 1, 2].Merge = true;
+                using (var range = ws.Cells[1, 1, 1, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Font.Size = 16;
+                    range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                }
+
+                ws.Cells[2, 1].Value = "Generated Date:";
+                ws.Cells[2, 2].Value = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC");
+                ws.Cells[2, 1].Style.Font.Bold = true;
+
+                int row = 4;
+                var mainData = new Dictionary<string, object>
+                {
+                    { "Total Jobs", data.TotalJobs },
+                    { "Active Jobs", data.ActiveJobs },
+                    { "Draft Jobs", data.DraftJobs },
+                    { "Closed Jobs", data.ClosedJobs },
+                    { "New Jobs This Month", data.NewJobsThisMonth },
+                    { "Average Applications Per Job", data.AverageApplicationsPerJob }
+                };
+
+                ws.Cells[row, 1].Value = "Metric";
+                ws.Cells[row, 2].Value = "Value";
+                using (var range = ws.Cells[row, 1, row, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(70, 180, 77));
+                    range.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                }
+
+                row++;
+                foreach (var item in mainData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                row += 2;
+                ws.Cells[row, 1].Value = "Status Breakdown";
+                ws.Cells[row, 1, row, 2].Merge = true;
+                ws.Cells[row, 1].Style.Font.Bold = true;
+                row++;
+
+                var statusData = new Dictionary<string, int>
+                {
+                    { "Published", data.StatusBreakdown.Published },
+                    { "Draft", data.StatusBreakdown.Draft },
+                    { "Closed", data.StatusBreakdown.Closed }
+                };
+
+                foreach (var item in statusData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                if (data.TopCategories != null && data.TopCategories.Any())
+                {
+                    row += 2;
+                    ws.Cells[row, 1].Value = "Top Categories";
+                    ws.Cells[row, 1, row, 2].Merge = true;
+                    ws.Cells[row, 1].Style.Font.Bold = true;
+                    row++;
+
+                    ws.Cells[row, 1].Value = "Category Name";
+                    ws.Cells[row, 2].Value = "Job Count";
+                    using (var range = ws.Cells[row, 1, row, 2])
+                    {
+                        range.Style.Font.Bold = true;
+                        range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(70, 180, 77));
+                        range.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    }
+                    row++;
+
+                    foreach (var category in data.TopCategories)
+                    {
+                        ws.Cells[row, 1].Value = category.CategoryName;
+                        ws.Cells[row, 2].Value = category.JobCount;
+                        row++;
+                    }
+                }
+
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
+                using (var range = ws.Cells[4, 1, row - 1, 2])
+                {
+                    range.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                }
+
+                var fileBytes = package.GetAsByteArray();
+                var fileName = $"Jobs_Statistics_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Excel file generated successfully.",
+                    Data = new ExcelExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to Excel: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportJobsStatisticsToPdfAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetJobsStatisticsAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as JobStatisticsResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve jobs statistics data."
+                    };
+                }
+
+                var pdfDocument = Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(40);
+                        page.DefaultTextStyle(x => x.FontSize(11));
+
+                        page.Header().Element(c => ComposeReportHeader(c, "Jobs Statistics Report"));
+
+                        page.Content().Element(c =>
+                        {
+                            c.Column(column =>
+                            {
+                                column.Item().PaddingBottom(10).Text("Generated Date: " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC")).FontSize(10).FontColor(Colors.Grey.Medium);
+
+                                column.Item().PaddingTop(20).Text("Statistics").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Total Jobs");
+                                    table.Cell().Element(CellStyle).Text(data.TotalJobs.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Active Jobs");
+                                    table.Cell().Element(CellStyle).Text(data.ActiveJobs.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Draft Jobs");
+                                    table.Cell().Element(CellStyle).Text(data.DraftJobs.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Closed Jobs");
+                                    table.Cell().Element(CellStyle).Text(data.ClosedJobs.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("New Jobs This Month");
+                                    table.Cell().Element(CellStyle).Text(data.NewJobsThisMonth.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Average Applications Per Job");
+                                    table.Cell().Element(CellStyle).Text(data.AverageApplicationsPerJob.ToString("F2"));
+                                });
+
+                                column.Item().PaddingTop(20).Text("Status Breakdown").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Published");
+                                    table.Cell().Element(CellStyle).Text(data.StatusBreakdown.Published.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Draft");
+                                    table.Cell().Element(CellStyle).Text(data.StatusBreakdown.Draft.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Closed");
+                                    table.Cell().Element(CellStyle).Text(data.StatusBreakdown.Closed.ToString());
+                                });
+
+                                if (data.TopCategories != null && data.TopCategories.Any())
+                                {
+                                    column.Item().PaddingTop(20).Text("Top Categories").FontSize(14).Bold();
+                                    column.Item().PaddingTop(10).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(columns =>
+                                        {
+                                            columns.RelativeColumn(2);
+                                            columns.RelativeColumn(3);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Category Name").Bold();
+                                            header.Cell().Element(CellStyle).Text("Job Count").Bold();
+                                        });
+
+                                        foreach (var category in data.TopCategories)
+                                        {
+                                            table.Cell().Element(CellStyle).Text(category.CategoryName);
+                                            table.Cell().Element(CellStyle).Text(category.JobCount.ToString());
+                                        }
+                                    });
+                                }
+                            });
+                        });
+
+                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                    });
+                });
+
+                var fileBytes = pdfDocument.GeneratePdf();
+                var fileName = $"Jobs_Statistics_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "PDF report generated successfully.",
+                    Data = new PdfExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/pdf"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to PDF: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportJobsEffectivenessToExcelAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetJobsEffectivenessAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as JobEffectivenessResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve jobs effectiveness data."
+                    };
+                }
+
+                using var package = new ExcelPackage();
+                var ws = package.Workbook.Worksheets.Add("Jobs Effectiveness");
+
+                ws.Cells[1, 1].Value = "Jobs Effectiveness Report";
+                ws.Cells[1, 1, 1, 2].Merge = true;
+                using (var range = ws.Cells[1, 1, 1, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Font.Size = 16;
+                    range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                }
+
+                ws.Cells[2, 1].Value = "Generated Date:";
+                ws.Cells[2, 2].Value = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC");
+                ws.Cells[2, 1].Style.Font.Bold = true;
+
+                int row = 4;
+                var effectivenessData = new Dictionary<string, string>
+                {
+                    { "Average Resumes Per Job", data.AverageResumesPerJob.ToString("F2") },
+                    { "Qualified Rate", $"{data.QualifiedRate:P2}" },
+                    { "Success Hiring Rate", $"{data.SuccessHiringRate:P2}" }
+                };
+
+                ws.Cells[row, 1].Value = "Metric";
+                ws.Cells[row, 2].Value = "Value";
+                using (var range = ws.Cells[row, 1, row, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(70, 180, 77));
+                    range.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                }
+
+                row++;
+                foreach (var item in effectivenessData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
+                using (var range = ws.Cells[4, 1, row - 1, 2])
+                {
+                    range.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                }
+
+                var fileBytes = package.GetAsByteArray();
+                var fileName = $"Jobs_Effectiveness_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Excel file generated successfully.",
+                    Data = new ExcelExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to Excel: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportJobsEffectivenessToPdfAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetJobsEffectivenessAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as JobEffectivenessResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve jobs effectiveness data."
+                    };
+                }
+
+                var pdfDocument = Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(40);
+                        page.DefaultTextStyle(x => x.FontSize(11));
+
+                        page.Header().Element(c => ComposeReportHeader(c, "Jobs Effectiveness Report"));
+
+                        page.Content().Element(c =>
+                        {
+                            c.Column(column =>
+                            {
+                                column.Item().PaddingBottom(10).Text("Generated Date: " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC")).FontSize(10).FontColor(Colors.Grey.Medium);
+
+                                column.Item().PaddingTop(20).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Average Resumes Per Job");
+                                    table.Cell().Element(CellStyle).Text(data.AverageResumesPerJob.ToString("F2"));
+
+                                    table.Cell().Element(CellStyle).Text("Qualified Rate");
+                                    table.Cell().Element(CellStyle).Text($"{data.QualifiedRate:P2}");
+
+                                    table.Cell().Element(CellStyle).Text("Success Hiring Rate");
+                                    table.Cell().Element(CellStyle).Text($"{data.SuccessHiringRate:P2}");
+                                });
+                            });
+                        });
+
+                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                    });
+                });
+
+                var fileBytes = pdfDocument.GeneratePdf();
+                var fileName = $"Jobs_Effectiveness_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "PDF report generated successfully.",
+                    Data = new PdfExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/pdf"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to PDF: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportAiParsingQualityToExcelAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetAiParsingQualityAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as AiParsingQualityResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve AI parsing quality data."
+                    };
+                }
+
+                using var package = new ExcelPackage();
+                var ws = package.Workbook.Worksheets.Add("AI Parsing Quality");
+
+                ws.Cells[1, 1].Value = "AI Parsing Quality Report";
+                ws.Cells[1, 1, 1, 2].Merge = true;
+                using (var range = ws.Cells[1, 1, 1, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Font.Size = 16;
+                    range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                }
+
+                ws.Cells[2, 1].Value = "Generated Date:";
+                ws.Cells[2, 2].Value = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC");
+                ws.Cells[2, 1].Style.Font.Bold = true;
+
+                int row = 4;
+                var mainData = new Dictionary<string, object>
+                {
+                    { "Total Resumes", data.TotalResumes },
+                    { "Successful Parsing", data.SuccessfulParsing },
+                    { "Failed Parsing", data.FailedParsing },
+                    { "Success Rate", $"{data.SuccessRate:P2}" },
+                    { "Average Processing Time (ms)", data.AverageProcessingTimeMs.ToString("F2") }
+                };
+
+                ws.Cells[row, 1].Value = "Metric";
+                ws.Cells[row, 2].Value = "Value";
+                using (var range = ws.Cells[row, 1, row, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(70, 180, 77));
+                    range.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                }
+
+                row++;
+                foreach (var item in mainData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                if (data.CommonErrors != null && data.CommonErrors.Any())
+                {
+                    row += 2;
+                    ws.Cells[row, 1].Value = "Common Errors";
+                    ws.Cells[row, 1, row, 3].Merge = true;
+                    ws.Cells[row, 1].Style.Font.Bold = true;
+                    row++;
+
+                    ws.Cells[row, 1].Value = "Error Type";
+                    ws.Cells[row, 2].Value = "Count";
+                    ws.Cells[row, 3].Value = "Percentage";
+                    using (var range = ws.Cells[row, 1, row, 3])
+                    {
+                        range.Style.Font.Bold = true;
+                        range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(70, 180, 77));
+                        range.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    }
+                    row++;
+
+                    foreach (var error in data.CommonErrors)
+                    {
+                        ws.Cells[row, 1].Value = error.ErrorType;
+                        ws.Cells[row, 2].Value = error.Count;
+                        ws.Cells[row, 3].Value = $"{error.Percentage:P2}";
+                        row++;
+                    }
+                }
+
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
+                using (var range = ws.Cells[4, 1, row - 1, data.CommonErrors != null && data.CommonErrors.Any() ? 3 : 2])
+                {
+                    range.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                }
+
+                var fileBytes = package.GetAsByteArray();
+                var fileName = $"AI_Parsing_Quality_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Excel file generated successfully.",
+                    Data = new ExcelExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to Excel: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportAiParsingQualityToPdfAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetAiParsingQualityAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as AiParsingQualityResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve AI parsing quality data."
+                    };
+                }
+
+                var pdfDocument = Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(40);
+                        page.DefaultTextStyle(x => x.FontSize(11));
+
+                        page.Header().Element(c => ComposeReportHeader(c, "AI Parsing Quality Report"));
+
+                        page.Content().Element(c =>
+                        {
+                            c.Column(column =>
+                            {
+                                column.Item().PaddingBottom(10).Text("Generated Date: " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC")).FontSize(10).FontColor(Colors.Grey.Medium);
+
+                                column.Item().PaddingTop(20).Text("Quality Metrics").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Total Resumes");
+                                    table.Cell().Element(CellStyle).Text(data.TotalResumes.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Successful Parsing");
+                                    table.Cell().Element(CellStyle).Text(data.SuccessfulParsing.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Failed Parsing");
+                                    table.Cell().Element(CellStyle).Text(data.FailedParsing.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Success Rate");
+                                    table.Cell().Element(CellStyle).Text($"{data.SuccessRate:P2}");
+
+                                    table.Cell().Element(CellStyle).Text("Average Processing Time (ms)");
+                                    table.Cell().Element(CellStyle).Text(data.AverageProcessingTimeMs.ToString("F2"));
+                                });
+
+                                if (data.CommonErrors != null && data.CommonErrors.Any())
+                                {
+                                    column.Item().PaddingTop(20).Text("Common Errors").FontSize(14).Bold();
+                                    column.Item().PaddingTop(10).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(columns =>
+                                        {
+                                            columns.RelativeColumn(2);
+                                            columns.RelativeColumn(1);
+                                            columns.RelativeColumn(1);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Error Type").Bold();
+                                            header.Cell().Element(CellStyle).Text("Count").Bold();
+                                            header.Cell().Element(CellStyle).Text("Percentage").Bold();
+                                        });
+
+                                        foreach (var error in data.CommonErrors)
+                                        {
+                                            table.Cell().Element(CellStyle).Text(error.ErrorType);
+                                            table.Cell().Element(CellStyle).Text(error.Count.ToString());
+                                            table.Cell().Element(CellStyle).Text($"{error.Percentage:P2}");
+                                        }
+                                    });
+                                }
+                            });
+                        });
+
+                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                    });
+                });
+
+                var fileBytes = pdfDocument.GeneratePdf();
+                var fileName = $"AI_Parsing_Quality_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "PDF report generated successfully.",
+                    Data = new PdfExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/pdf"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to PDF: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportAiScoringDistributionToExcelAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetAiScoringDistributionAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as AiScoringDistributionResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve AI scoring distribution data."
+                    };
+                }
+
+                using var package = new ExcelPackage();
+                var ws = package.Workbook.Worksheets.Add("AI Scoring Distribution");
+
+                ws.Cells[1, 1].Value = "AI Scoring Distribution Report";
+                ws.Cells[1, 1, 1, 2].Merge = true;
+                using (var range = ws.Cells[1, 1, 1, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Font.Size = 16;
+                    range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                }
+
+                ws.Cells[2, 1].Value = "Generated Date:";
+                ws.Cells[2, 2].Value = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC");
+                ws.Cells[2, 1].Style.Font.Bold = true;
+
+                int row = 4;
+                var mainData = new Dictionary<string, object>
+                {
+                    { "Success Rate", $"{data.SuccessRate:P2}" },
+                    { "Average Processing Time (ms)", data.AverageProcessingTimeMs.ToString("F2") }
+                };
+
+                ws.Cells[row, 1].Value = "Metric";
+                ws.Cells[row, 2].Value = "Value";
+                using (var range = ws.Cells[row, 1, row, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(70, 180, 77));
+                    range.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                }
+
+                row++;
+                foreach (var item in mainData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                row += 2;
+                ws.Cells[row, 1].Value = "Score Distribution";
+                ws.Cells[row, 1, row, 2].Merge = true;
+                ws.Cells[row, 1].Style.Font.Bold = true;
+                row++;
+
+                var distributionData = new Dictionary<string, string>
+                {
+                    { "High (>75)", $"{data.ScoreDistribution.High:P2}" },
+                    { "Medium (50-75)", $"{data.ScoreDistribution.Medium:P2}" },
+                    { "Low (<50)", $"{data.ScoreDistribution.Low:P2}" }
+                };
+
+                foreach (var item in distributionData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                row += 2;
+                ws.Cells[row, 1].Value = "Statistics";
+                ws.Cells[row, 1, row, 2].Merge = true;
+                ws.Cells[row, 1].Style.Font.Bold = true;
+                row++;
+
+                var statsData = new Dictionary<string, object>
+                {
+                    { "Total Scored", data.Statistics.TotalScored },
+                    { "Average Score", data.Statistics.AverageScore.ToString("F2") },
+                    { "Median Score", data.Statistics.MedianScore.ToString("F2") }
+                };
+
+                foreach (var item in statsData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                if (data.CommonErrors != null && data.CommonErrors.Any())
+                {
+                    row += 2;
+                    ws.Cells[row, 1].Value = "Common Errors";
+                    ws.Cells[row, 1, row, 1].Merge = true;
+                    ws.Cells[row, 1].Style.Font.Bold = true;
+                    row++;
+
+                    foreach (var error in data.CommonErrors)
+                    {
+                        ws.Cells[row, 1].Value = error;
+                        row++;
+                    }
+                }
+
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
+                using (var range = ws.Cells[4, 1, row - 1, 2])
+                {
+                    range.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                }
+
+                var fileBytes = package.GetAsByteArray();
+                var fileName = $"AI_Scoring_Distribution_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Excel file generated successfully.",
+                    Data = new ExcelExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to Excel: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportAiScoringDistributionToPdfAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetAiScoringDistributionAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as AiScoringDistributionResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve AI scoring distribution data."
+                    };
+                }
+
+                var pdfDocument = Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(40);
+                        page.DefaultTextStyle(x => x.FontSize(11));
+
+                        page.Header().Element(c => ComposeReportHeader(c, "AI Scoring Distribution Report"));
+
+                        page.Content().Element(c =>
+                        {
+                            c.Column(column =>
+                            {
+                                column.Item().PaddingBottom(10).Text("Generated Date: " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC")).FontSize(10).FontColor(Colors.Grey.Medium);
+
+                                column.Item().PaddingTop(20).Text("Overview").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Success Rate");
+                                    table.Cell().Element(CellStyle).Text($"{data.SuccessRate:P2}");
+
+                                    table.Cell().Element(CellStyle).Text("Average Processing Time (ms)");
+                                    table.Cell().Element(CellStyle).Text(data.AverageProcessingTimeMs.ToString("F2"));
+                                });
+
+                                column.Item().PaddingTop(20).Text("Score Distribution").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("High (>75)");
+                                    table.Cell().Element(CellStyle).Text($"{data.ScoreDistribution.High:P2}");
+
+                                    table.Cell().Element(CellStyle).Text("Medium (50-75)");
+                                    table.Cell().Element(CellStyle).Text($"{data.ScoreDistribution.Medium:P2}");
+
+                                    table.Cell().Element(CellStyle).Text("Low (<50)");
+                                    table.Cell().Element(CellStyle).Text($"{data.ScoreDistribution.Low:P2}");
+                                });
+
+                                column.Item().PaddingTop(20).Text("Statistics").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Total Scored");
+                                    table.Cell().Element(CellStyle).Text(data.Statistics.TotalScored.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Average Score");
+                                    table.Cell().Element(CellStyle).Text(data.Statistics.AverageScore.ToString("F2"));
+
+                                    table.Cell().Element(CellStyle).Text("Median Score");
+                                    table.Cell().Element(CellStyle).Text(data.Statistics.MedianScore.ToString("F2"));
+                                });
+
+                                if (data.CommonErrors != null && data.CommonErrors.Any())
+                                {
+                                    column.Item().PaddingTop(20).Text("Common Errors").FontSize(14).Bold();
+                                    column.Item().PaddingTop(10).Column(column =>
+                                    {
+                                        foreach (var error in data.CommonErrors)
+                                        {
+                                            column.Item().PaddingBottom(5).Text($"• {error}").FontSize(10);
+                                        }
+                                    });
+                                }
+                            });
+                        });
+
+                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                    });
+                });
+
+                var fileBytes = pdfDocument.GeneratePdf();
+                var fileName = $"AI_Scoring_Distribution_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "PDF report generated successfully.",
+                    Data = new PdfExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/pdf"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to PDF: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportSubscriptionRevenueToExcelAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetSubscriptionRevenueAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as SubscriptionRevenueResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve subscription revenue data."
+                    };
+                }
+
+                using var package = new ExcelPackage();
+                var ws = package.Workbook.Worksheets.Add("Subscription Revenue");
+
+                ws.Cells[1, 1].Value = "Subscription Revenue Report";
+                ws.Cells[1, 1, 1, 2].Merge = true;
+                using (var range = ws.Cells[1, 1, 1, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Font.Size = 16;
+                    range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                }
+
+                ws.Cells[2, 1].Value = "Generated Date:";
+                ws.Cells[2, 2].Value = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC");
+                ws.Cells[2, 1].Style.Font.Bold = true;
+
+                int row = 4;
+                var mainData = new Dictionary<string, object>
+                {
+                    { "Free Companies", data.FreeCompanies },
+                    { "Paid Companies", data.PaidCompanies },
+                    { "Monthly Revenue", $"${data.MonthlyRevenue:N2}" },
+                    { "Renewal Rate", $"{data.RenewalRate:P2}" },
+                    { "Popular Plan", data.PopularPlan }
+                };
+
+                ws.Cells[row, 1].Value = "Metric";
+                ws.Cells[row, 2].Value = "Value";
+                using (var range = ws.Cells[row, 1, row, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(70, 180, 77));
+                    range.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                }
+
+                row++;
+                foreach (var item in mainData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                row += 2;
+                ws.Cells[row, 1].Value = "Breakdown";
+                ws.Cells[row, 1, row, 2].Merge = true;
+                ws.Cells[row, 1].Style.Font.Bold = true;
+                row++;
+
+                var breakdownData = new Dictionary<string, string>
+                {
+                    { "Total Revenue", $"${data.Breakdown.TotalRevenue:N2}" },
+                    { "Average Revenue Per Company", $"${data.Breakdown.AverageRevenuePerCompany:N2}" }
+                };
+
+                foreach (var item in breakdownData)
+                {
+                    ws.Cells[row, 1].Value = item.Key;
+                    ws.Cells[row, 2].Value = item.Value;
+                    row++;
+                }
+
+                if (data.Breakdown.PlanStatistics != null && data.Breakdown.PlanStatistics.Any())
+                {
+                    row += 2;
+                    ws.Cells[row, 1].Value = "Plan Statistics";
+                    ws.Cells[row, 1, row, 4].Merge = true;
+                    ws.Cells[row, 1].Style.Font.Bold = true;
+                    row++;
+
+                    ws.Cells[row, 1].Value = "Plan Name";
+                    ws.Cells[row, 2].Value = "Company Count";
+                    ws.Cells[row, 3].Value = "Revenue";
+                    using (var range = ws.Cells[row, 1, row, 3])
+                    {
+                        range.Style.Font.Bold = true;
+                        range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(70, 180, 77));
+                        range.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    }
+                    row++;
+
+                    foreach (var plan in data.Breakdown.PlanStatistics)
+                    {
+                        ws.Cells[row, 1].Value = plan.PlanName;
+                        ws.Cells[row, 2].Value = plan.CompanyCount;
+                        ws.Cells[row, 3].Value = $"${plan.Revenue:N2}";
+                        row++;
+                    }
+                }
+
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
+                var lastCol = data.Breakdown.PlanStatistics != null && data.Breakdown.PlanStatistics.Any() ? 3 : 2;
+                using (var range = ws.Cells[4, 1, row - 1, lastCol])
+                {
+                    range.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                }
+
+                var fileBytes = package.GetAsByteArray();
+                var fileName = $"Subscription_Revenue_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Excel file generated successfully.",
+                    Data = new ExcelExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to Excel: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<ServiceResponse> ExportSubscriptionRevenueToPdfAsync()
+        {
+            try
+            {
+                var serviceResponse = await GetSubscriptionRevenueAsync();
+                if (serviceResponse.Status != SRStatus.Success || serviceResponse.Data == null)
+                {
+                    return serviceResponse;
+                }
+
+                var data = serviceResponse.Data as SubscriptionRevenueResponse;
+                if (data == null)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = "Failed to retrieve subscription revenue data."
+                    };
+                }
+
+                var pdfDocument = Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(40);
+                        page.DefaultTextStyle(x => x.FontSize(11));
+
+                        page.Header().Element(c => ComposeReportHeader(c, "Subscription Revenue Report"));
+
+                        page.Content().Element(c =>
+                        {
+                            c.Column(column =>
+                            {
+                                column.Item().PaddingBottom(10).Text("Generated Date: " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC")).FontSize(10).FontColor(Colors.Grey.Medium);
+
+                                column.Item().PaddingTop(20).Text("Overview").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Free Companies");
+                                    table.Cell().Element(CellStyle).Text(data.FreeCompanies.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Paid Companies");
+                                    table.Cell().Element(CellStyle).Text(data.PaidCompanies.ToString());
+
+                                    table.Cell().Element(CellStyle).Text("Monthly Revenue");
+                                    table.Cell().Element(CellStyle).Text($"${data.MonthlyRevenue:N2}");
+
+                                    table.Cell().Element(CellStyle).Text("Renewal Rate");
+                                    table.Cell().Element(CellStyle).Text($"{data.RenewalRate:P2}");
+
+                                    table.Cell().Element(CellStyle).Text("Popular Plan");
+                                    table.Cell().Element(CellStyle).Text(data.PopularPlan);
+                                });
+
+                                column.Item().PaddingTop(20).Text("Breakdown").FontSize(14).Bold();
+                                column.Item().PaddingTop(10).Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Cell().Element(CellStyle).Text("Total Revenue");
+                                    table.Cell().Element(CellStyle).Text($"${data.Breakdown.TotalRevenue:N2}");
+
+                                    table.Cell().Element(CellStyle).Text("Average Revenue Per Company");
+                                    table.Cell().Element(CellStyle).Text($"${data.Breakdown.AverageRevenuePerCompany:N2}");
+                                });
+
+                                if (data.Breakdown.PlanStatistics != null && data.Breakdown.PlanStatistics.Any())
+                                {
+                                    column.Item().PaddingTop(20).Text("Plan Statistics").FontSize(14).Bold();
+                                    column.Item().PaddingTop(10).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(columns =>
+                                        {
+                                            columns.RelativeColumn(2);
+                                            columns.RelativeColumn(1);
+                                            columns.RelativeColumn(1);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Plan Name").Bold();
+                                            header.Cell().Element(CellStyle).Text("Company Count").Bold();
+                                            header.Cell().Element(CellStyle).Text("Revenue").Bold();
+                                        });
+
+                                        foreach (var plan in data.Breakdown.PlanStatistics)
+                                        {
+                                            table.Cell().Element(CellStyle).Text(plan.PlanName);
+                                            table.Cell().Element(CellStyle).Text(plan.CompanyCount.ToString());
+                                            table.Cell().Element(CellStyle).Text($"${plan.Revenue:N2}");
+                                        }
+                                    });
+                                }
+                            });
+                        });
+
+                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                    });
+                });
+
+                var fileBytes = pdfDocument.GeneratePdf();
+                var fileName = $"Subscription_Revenue_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "PDF report generated successfully.",
+                    Data = new PdfExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/pdf"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting to PDF: {ex.Message}"
+                };
+            }
+        }
+
+        #endregion
+
+        #region PDF Helper Methods
+
+        private static void ComposeReportHeader(IContainer container, string title)
+        {
+            container
+                .PaddingBottom(10)
+                .BorderBottom(1)
+                .BorderColor(Colors.Grey.Lighten1)
+                .Row(row =>
+                {
+                    row.RelativeItem().Column(column =>
+                    {
+                        column.Item().Text(title).FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                        column.Item().Text(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC")).FontSize(9).FontColor(Colors.Grey.Medium);
+                    });
+                });
+        }
+
+        private static void ComposeReportFooter(IContainer container, int pageNumber)
+        {
+            container
+                .PaddingTop(10)
+                .BorderTop(1)
+                .BorderColor(Colors.Grey.Lighten1)
+                .Row(row =>
+                {
+                    row.RelativeItem().AlignCenter().Text($"Page {pageNumber}").FontSize(9).FontColor(Colors.Grey.Medium);
+                });
+        }
+
+        private static IContainer CellStyle(IContainer container)
+        {
+            return container
+                .Border(1)
+                .BorderColor(Colors.Grey.Lighten2)
+                .Padding(8)
+                .Background(Colors.White);
+        }
+
+        #endregion
     }
 }

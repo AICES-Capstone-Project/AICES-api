@@ -214,6 +214,8 @@ namespace BusinessObjectLayer.Services.UsageLimits
             DateTime periodEndDate;
             int? companySubscriptionId;
 
+            var now = DateTime.UtcNow;
+
             if (companySubscription == null)
             {
                 // Free plan: fixed window based on hours
@@ -228,33 +230,27 @@ namespace BusinessObjectLayer.Services.UsageLimits
                 resumeLimit = freeSubscription.ResumeLimit;
                 hoursLimit = freeSubscription.HoursLimit;
                 companySubscriptionId = null;
-
-                // ✅ FIXED: Round period to start of hour/day to keep it consistent
-                var now = DateTime.UtcNow;
-                
-                if (hoursLimit >= 24)
-                {
-                    // Daily or longer: round to start of day
-                    periodStartDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
-                    periodEndDate = periodStartDate.AddHours(hoursLimit);
-                }
-                else
-                {
-                    // Hourly: round to start of current hour
-                    periodStartDate = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc);
-                    periodEndDate = periodStartDate.AddHours(hoursLimit);
-                }
             }
             else
             {
-                // Paid plan: fixed period from subscription start
+                // Paid plan
                 resumeLimit = companySubscription.Subscription?.ResumeLimit ?? 0;
                 hoursLimit = companySubscription.Subscription?.HoursLimit ?? 0;
                 companySubscriptionId = companySubscription.ComSubId;
+            }
 
-                // ✅ FIXED: Round subscription start to start of hour for consistency
-                var subStart = companySubscription.StartDate;
-                periodStartDate = new DateTime(subStart.Year, subStart.Month, subStart.Day, subStart.Hour, 0, 0, DateTimeKind.Utc);
+            // ✅ FIXED: Calculate period based on CURRENT time for both Free and Paid plans
+            // This ensures limits reset every hour/day regardless of when subscription started
+            if (hoursLimit >= 24)
+            {
+                // Daily or longer: round to start of day
+                periodStartDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
+                periodEndDate = periodStartDate.AddHours(hoursLimit);
+            }
+            else
+            {
+                // Hourly: round to start of current hour
+                periodStartDate = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc);
                 periodEndDate = periodStartDate.AddHours(hoursLimit);
             }
 
