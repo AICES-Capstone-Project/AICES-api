@@ -63,9 +63,7 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        /// <summary>
-        /// Get AI resume parsing quality report
-        /// </summary>
+        
         [HttpGet("ai/parsing")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetAiParsingQuality()
@@ -74,9 +72,7 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        /// <summary>
-        /// Get AI scoring distribution report
-        /// </summary>
+        
         [HttpGet("ai/scoring")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetAiScoringDistribution()
@@ -85,14 +81,41 @@ namespace API.Controllers
             return ControllerResponse.Response(serviceResponse);
         }
 
-        /// <summary>
-        /// Get subscription and revenue report
-        /// </summary>
+       
         [HttpGet("subscriptions")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> GetSubscriptionRevenue()
         {
             var serviceResponse = await _reportService.GetSubscriptionRevenueAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+       
+        [HttpGet("ai/health")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetAiSystemHealthReport()
+        {
+            var serviceResponse = await _reportService.GetAiSystemHealthReportAsync();
+            return ControllerResponse.Response(serviceResponse);
+        }
+
+        
+        [HttpGet("client-engagement")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+        public async Task<IActionResult> GetClientEngagementReport()
+        {
+            var serviceResponse = await _reportService.GetClientEngagementReportAsync();
+
+                    
+         
+            return ControllerResponse.Response(serviceResponse);
+        }
+        [HttpGet("saas-metrics")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
+
+        public async Task<IActionResult> GetSaasAdminMetricsReport()
+        {
+            var serviceResponse = await _reportService.GetSaasAdminMetricsReportAsync();
             return ControllerResponse.Response(serviceResponse);
         }
 

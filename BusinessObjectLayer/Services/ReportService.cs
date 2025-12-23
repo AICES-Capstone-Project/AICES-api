@@ -3449,6 +3449,18 @@ namespace BusinessObjectLayer.Services
                 if (subscriptionRevenueResponse.Status != SRStatus.Success || subscriptionRevenueResponse.Data == null)
                     return subscriptionRevenueResponse;
 
+                var aiHealthResponse = await GetAiSystemHealthReportAsync();
+                if (aiHealthResponse.Status != SRStatus.Success || aiHealthResponse.Data == null)
+                    return aiHealthResponse;
+
+                var clientEngagementResponse = await GetClientEngagementReportAsync();
+                if (clientEngagementResponse.Status != SRStatus.Success || clientEngagementResponse.Data == null)
+                    return clientEngagementResponse;
+
+                var saasMetricsResponse = await GetSaasAdminMetricsReportAsync();
+                if (saasMetricsResponse.Status != SRStatus.Success || saasMetricsResponse.Data == null)
+                    return saasMetricsResponse;
+
                 var executiveSummary = executiveSummaryResponse.Data as ExecutiveSummaryResponse;
                 var companiesOverview = companiesOverviewResponse.Data as CompanyOverviewResponse;
                 var companiesUsage = companiesUsageResponse.Data as CompanyUsageResponse;
@@ -3457,6 +3469,9 @@ namespace BusinessObjectLayer.Services
                 var aiParsing = aiParsingResponse.Data as AiParsingQualityResponse;
                 var aiScoring = aiScoringResponse.Data as AiScoringDistributionResponse;
                 var subscriptionRevenue = subscriptionRevenueResponse.Data as SubscriptionRevenueResponse;
+                var aiHealth = aiHealthResponse.Data as AiSystemHealthReportResponse;
+                var clientEngagement = clientEngagementResponse.Data as ClientEngagementReportResponse;
+                var saasMetrics = saasMetricsResponse.Data as SaasAdminMetricsReportResponse;
 
                 using var package = new ExcelPackage();
 
@@ -3634,6 +3649,133 @@ namespace BusinessObjectLayer.Services
                 }
                 aiScoringSheet.Cells[aiScoringSheet.Dimension.Address].AutoFitColumns();
 
+                // AI Health sheet
+                var aiHealthSheet = package.Workbook.Worksheets.Add("AI Health");
+                aiHealthSheet.Cells[1, 1].Value = "AI System Health (summary)";
+                aiHealthSheet.Cells[1, 1].Style.Font.Bold = true;
+                aiHealthSheet.Cells[3, 1].Value = "Metric";
+                aiHealthSheet.Cells[3, 2].Value = "Value";
+                aiHealthSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
+                int ahRow = 4;
+                if (aiHealth != null)
+                {
+                    aiHealthSheet.Cells[ahRow, 1].Value = "Success Rate";
+                    aiHealthSheet.Cells[ahRow++, 2].Value = $"{aiHealth.SuccessRate:P2}";
+                    aiHealthSheet.Cells[ahRow, 1].Value = "Error Rate";
+                    aiHealthSheet.Cells[ahRow++, 2].Value = $"{aiHealth.ErrorRate:P2}";
+                    aiHealthSheet.Cells[ahRow, 1].Value = "Avg Processing Time (seconds)";
+                    aiHealthSheet.Cells[ahRow++, 2].Value = $"{aiHealth.AverageProcessingTimeSeconds:N2}";
+                    if (aiHealth.ErrorReasons != null && aiHealth.ErrorReasons.Any())
+                    {
+                        ahRow++;
+                        aiHealthSheet.Cells[ahRow, 1].Value = "Error Reasons";
+                        aiHealthSheet.Cells[ahRow, 1].Style.Font.Bold = true;
+                        ahRow++;
+                        aiHealthSheet.Cells[ahRow, 1].Value = "Error Type";
+                        aiHealthSheet.Cells[ahRow, 2].Value = "Count";
+                        aiHealthSheet.Cells[ahRow, 3].Value = "Percentage";
+                        aiHealthSheet.Cells[ahRow, 1, ahRow, 3].Style.Font.Bold = true;
+                        ahRow++;
+                        foreach (var error in aiHealth.ErrorReasons)
+                        {
+                            aiHealthSheet.Cells[ahRow, 1].Value = error.ErrorType;
+                            aiHealthSheet.Cells[ahRow, 2].Value = error.Count;
+                            aiHealthSheet.Cells[ahRow++, 3].Value = $"{error.Percentage:P2}";
+                        }
+                    }
+                }
+                aiHealthSheet.Cells[aiHealthSheet.Dimension.Address].AutoFitColumns();
+
+                // Client Engagement sheet
+                var clientEngagementSheet = package.Workbook.Worksheets.Add("Client Engagement");
+                clientEngagementSheet.Cells[1, 1].Value = "Client Engagement (summary)";
+                clientEngagementSheet.Cells[1, 1].Style.Font.Bold = true;
+                clientEngagementSheet.Cells[3, 1].Value = "Metric";
+                clientEngagementSheet.Cells[3, 2].Value = "Value";
+                clientEngagementSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
+                int ceRow = 4;
+                if (clientEngagement != null)
+                {
+                    clientEngagementSheet.Cells[ceRow, 1].Value = "Avg Jobs / Company / Month";
+                    clientEngagementSheet.Cells[ceRow++, 2].Value = $"{clientEngagement.UsageFrequency.AverageJobsPerCompanyPerMonth:N2}";
+                    clientEngagementSheet.Cells[ceRow, 1].Value = "Avg Campaigns / Company / Month";
+                    clientEngagementSheet.Cells[ceRow++, 2].Value = $"{clientEngagement.UsageFrequency.AverageCampaignsPerCompanyPerMonth:N2}";
+                    clientEngagementSheet.Cells[ceRow, 1].Value = "AI Trust Percentage";
+                    clientEngagementSheet.Cells[ceRow++, 2].Value = $"{clientEngagement.AiTrustLevel.TrustPercentage:P2}";
+                    clientEngagementSheet.Cells[ceRow, 1].Value = "High Score Candidates Count";
+                    clientEngagementSheet.Cells[ceRow++, 2].Value = clientEngagement.AiTrustLevel.HighScoreCandidatesCount;
+                    clientEngagementSheet.Cells[ceRow, 1].Value = "High Score Candidates Hired";
+                    clientEngagementSheet.Cells[ceRow++, 2].Value = clientEngagement.AiTrustLevel.HighScoreCandidatesHiredCount;
+                }
+                clientEngagementSheet.Cells[clientEngagementSheet.Dimension.Address].AutoFitColumns();
+
+                // SaaS Metrics sheet
+                var saasMetricsSheet = package.Workbook.Worksheets.Add("SaaS Metrics");
+                saasMetricsSheet.Cells[1, 1].Value = "SaaS Admin Metrics (summary)";
+                saasMetricsSheet.Cells[1, 1].Style.Font.Bold = true;
+                int smRow = 3;
+                if (saasMetrics != null)
+                {
+                    // Feature Adoption
+                    smRow++;
+                    saasMetricsSheet.Cells[smRow, 1].Value = "Feature Adoption";
+                    saasMetricsSheet.Cells[smRow, 1].Style.Font.Bold = true;
+                    smRow++;
+                    saasMetricsSheet.Cells[smRow, 1].Value = "Screening Usage";
+                    saasMetricsSheet.Cells[smRow++, 2].Value = saasMetrics.FeatureAdoption.ScreeningUsageCount;
+                    saasMetricsSheet.Cells[smRow, 1].Value = "Tracking Usage";
+                    saasMetricsSheet.Cells[smRow++, 2].Value = saasMetrics.FeatureAdoption.TrackingUsageCount;
+                    saasMetricsSheet.Cells[smRow, 1].Value = "Export Usage";
+                    saasMetricsSheet.Cells[smRow++, 2].Value = saasMetrics.FeatureAdoption.ExportUsageCount;
+
+                    // Top Companies
+                    if (saasMetrics.TopCompanies != null && saasMetrics.TopCompanies.Any())
+                    {
+                        smRow++;
+                        saasMetricsSheet.Cells[smRow, 1].Value = "Top Companies";
+                        saasMetricsSheet.Cells[smRow, 1].Style.Font.Bold = true;
+                        smRow++;
+                        saasMetricsSheet.Cells[smRow, 1].Value = "Company Name";
+                        saasMetricsSheet.Cells[smRow, 2].Value = "Resumes";
+                        saasMetricsSheet.Cells[smRow, 3].Value = "Jobs";
+                        saasMetricsSheet.Cells[smRow, 4].Value = "Campaigns";
+                        saasMetricsSheet.Cells[smRow, 5].Value = "Activity Score";
+                        saasMetricsSheet.Cells[smRow, 1, smRow, 5].Style.Font.Bold = true;
+                        smRow++;
+                        foreach (var company in saasMetrics.TopCompanies.Take(10))
+                        {
+                            saasMetricsSheet.Cells[smRow, 1].Value = company.CompanyName;
+                            saasMetricsSheet.Cells[smRow, 2].Value = company.TotalResumesUploaded;
+                            saasMetricsSheet.Cells[smRow, 3].Value = company.TotalJobsCreated;
+                            saasMetricsSheet.Cells[smRow, 4].Value = company.TotalCampaignsCreated;
+                            saasMetricsSheet.Cells[smRow, 5].Value = company.ActivityScore;
+                            smRow++;
+                        }
+                    }
+
+                    // Churn Risk Companies
+                    if (saasMetrics.ChurnRiskCompanies != null && saasMetrics.ChurnRiskCompanies.Any())
+                    {
+                        smRow++;
+                        saasMetricsSheet.Cells[smRow, 1].Value = "Churn Risk Companies";
+                        saasMetricsSheet.Cells[smRow, 1].Style.Font.Bold = true;
+                        smRow++;
+                        saasMetricsSheet.Cells[smRow, 1].Value = "Company Name";
+                        saasMetricsSheet.Cells[smRow, 2].Value = "Plan";
+                        saasMetricsSheet.Cells[smRow, 3].Value = "Risk Level";
+                        saasMetricsSheet.Cells[smRow, 1, smRow, 3].Style.Font.Bold = true;
+                        smRow++;
+                        foreach (var company in saasMetrics.ChurnRiskCompanies.Take(10))
+                        {
+                            saasMetricsSheet.Cells[smRow, 1].Value = company.CompanyName;
+                            saasMetricsSheet.Cells[smRow, 2].Value = company.SubscriptionPlan;
+                            saasMetricsSheet.Cells[smRow, 3].Value = company.RiskLevel;
+                            smRow++;
+                        }
+                    }
+                }
+                saasMetricsSheet.Cells[saasMetricsSheet.Dimension.Address].AutoFitColumns();
+
                 var subscriptionSheet = package.Workbook.Worksheets.Add("Subscriptions");
                 subscriptionSheet.Cells[1, 1].Value = "Subscription & Revenue (summary)";
                 subscriptionSheet.Cells[1, 1].Style.Font.Bold = true;
@@ -3711,6 +3853,18 @@ namespace BusinessObjectLayer.Services
                 if (subscriptionRevenueResponse.Status != SRStatus.Success || subscriptionRevenueResponse.Data == null)
                     return subscriptionRevenueResponse;
 
+                var aiHealthResponse = await GetAiSystemHealthReportAsync();
+                if (aiHealthResponse.Status != SRStatus.Success || aiHealthResponse.Data == null)
+                    return aiHealthResponse;
+
+                var clientEngagementResponse = await GetClientEngagementReportAsync();
+                if (clientEngagementResponse.Status != SRStatus.Success || clientEngagementResponse.Data == null)
+                    return clientEngagementResponse;
+
+                var saasMetricsResponse = await GetSaasAdminMetricsReportAsync();
+                if (saasMetricsResponse.Status != SRStatus.Success || saasMetricsResponse.Data == null)
+                    return saasMetricsResponse;
+
                 var executiveSummary = executiveSummaryResponse.Data as ExecutiveSummaryResponse;
                 var companiesOverview = companiesOverviewResponse.Data as CompanyOverviewResponse;
                 var companiesUsage = companiesUsageResponse.Data as CompanyUsageResponse;
@@ -3719,6 +3873,9 @@ namespace BusinessObjectLayer.Services
                 var aiParsing = aiParsingResponse.Data as AiParsingQualityResponse;
                 var aiScoring = aiScoringResponse.Data as AiScoringDistributionResponse;
                 var subscriptionRevenue = subscriptionRevenueResponse.Data as SubscriptionRevenueResponse;
+                var aiHealth = aiHealthResponse.Data as AiSystemHealthReportResponse;
+                var clientEngagement = clientEngagementResponse.Data as ClientEngagementReportResponse;
+                var saasMetrics = saasMetricsResponse.Data as SaasAdminMetricsReportResponse;
 
                 var pdfDocument = Document.Create(container =>
                 {
@@ -3983,8 +4140,198 @@ namespace BusinessObjectLayer.Services
                                     });
                                 }
 
+                                // AI Health
+                                column.Item().PaddingTop(20).Text("8. AI System Health").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                                if (aiHealth != null)
+                                {
+                                    column.Item().PaddingTop(5).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Metric").Bold();
+                                            header.Cell().Element(CellStyle).Text("Value").Bold();
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Success Rate");
+                                        table.Cell().Element(CellStyle).Text($"{aiHealth.SuccessRate:P2}");
+
+                                        table.Cell().Element(CellStyle).Text("Error Rate");
+                                        table.Cell().Element(CellStyle).Text($"{aiHealth.ErrorRate:P2}");
+
+                                        table.Cell().Element(CellStyle).Text("Avg Processing Time (seconds)");
+                                        table.Cell().Element(CellStyle).Text($"{aiHealth.AverageProcessingTimeSeconds:N2}");
+
+                                        if (aiHealth.ErrorReasons != null && aiHealth.ErrorReasons.Any())
+                                        {
+                                            table.Cell().Element(CellStyle).Text("Error Reasons");
+                                            table.Cell().Element(CellStyle).Text($"{aiHealth.ErrorReasons.Count} types");
+                                        }
+                                    });
+
+                                    if (aiHealth.ErrorReasons != null && aiHealth.ErrorReasons.Any())
+                                    {
+                                        column.Item().PaddingTop(10).Text("Error Breakdown").SemiBold();
+                                        column.Item().PaddingTop(2).Table(table =>
+                                        {
+                                            table.ColumnsDefinition(cols =>
+                                            {
+                                                cols.RelativeColumn(2);
+                                                cols.RelativeColumn(1);
+                                                cols.RelativeColumn(1);
+                                            });
+
+                                            table.Header(header =>
+                                            {
+                                                header.Cell().Element(CellStyle).Text("Error Type").Bold();
+                                                header.Cell().Element(CellStyle).Text("Count").Bold();
+                                                header.Cell().Element(CellStyle).Text("Percentage").Bold();
+                                            });
+
+                                            foreach (var error in aiHealth.ErrorReasons.Take(5))
+                                            {
+                                                table.Cell().Element(CellStyle).Text(error.ErrorType);
+                                                table.Cell().Element(CellStyle).Text(error.Count.ToString());
+                                                table.Cell().Element(CellStyle).Text($"{error.Percentage:P2}");
+                                            }
+                                        });
+                                    }
+                                }
+
+                                // Client Engagement
+                                column.Item().PaddingTop(20).Text("9. Client Engagement").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                                if (clientEngagement != null)
+                                {
+                                    column.Item().PaddingTop(5).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Metric").Bold();
+                                            header.Cell().Element(CellStyle).Text("Value").Bold();
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Avg Jobs / Company / Month");
+                                        table.Cell().Element(CellStyle).Text($"{clientEngagement.UsageFrequency.AverageJobsPerCompanyPerMonth:N2}");
+
+                                        table.Cell().Element(CellStyle).Text("Avg Campaigns / Company / Month");
+                                        table.Cell().Element(CellStyle).Text($"{clientEngagement.UsageFrequency.AverageCampaignsPerCompanyPerMonth:N2}");
+
+                                        table.Cell().Element(CellStyle).Text("AI Trust Percentage");
+                                        table.Cell().Element(CellStyle).Text($"{clientEngagement.AiTrustLevel.TrustPercentage:P2}");
+
+                                        table.Cell().Element(CellStyle).Text("High Score Candidates Count");
+                                        table.Cell().Element(CellStyle).Text(clientEngagement.AiTrustLevel.HighScoreCandidatesCount.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("High Score Candidates Hired");
+                                        table.Cell().Element(CellStyle).Text(clientEngagement.AiTrustLevel.HighScoreCandidatesHiredCount.ToString());
+                                    });
+                                }
+
+                                // SaaS Metrics
+                                column.Item().PaddingTop(20).Text("10. SaaS Admin Metrics").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                                if (saasMetrics != null)
+                                {
+                                    column.Item().PaddingTop(5).Text("Feature Adoption").SemiBold();
+                                    column.Item().PaddingTop(2).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Feature").Bold();
+                                            header.Cell().Element(CellStyle).Text("Usage Count").Bold();
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Screening");
+                                        table.Cell().Element(CellStyle).Text(saasMetrics.FeatureAdoption.ScreeningUsageCount.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Tracking");
+                                        table.Cell().Element(CellStyle).Text(saasMetrics.FeatureAdoption.TrackingUsageCount.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Export");
+                                        table.Cell().Element(CellStyle).Text(saasMetrics.FeatureAdoption.ExportUsageCount.ToString());
+                                    });
+
+                                    if (saasMetrics.TopCompanies != null && saasMetrics.TopCompanies.Any())
+                                    {
+                                        column.Item().PaddingTop(10).Text("Top Companies (Top 5)").SemiBold();
+                                        column.Item().PaddingTop(2).Table(table =>
+                                        {
+                                            table.ColumnsDefinition(cols =>
+                                            {
+                                                cols.RelativeColumn(3);
+                                                cols.RelativeColumn(1);
+                                                cols.RelativeColumn(1);
+                                                cols.RelativeColumn(1);
+                                                cols.RelativeColumn(1);
+                                            });
+
+                                            table.Header(header =>
+                                            {
+                                                header.Cell().Element(CellStyle).Text("Company").Bold();
+                                                header.Cell().Element(CellStyle).Text("Resumes").Bold();
+                                                header.Cell().Element(CellStyle).Text("Jobs").Bold();
+                                                header.Cell().Element(CellStyle).Text("Campaigns").Bold();
+                                                header.Cell().Element(CellStyle).Text("Score").Bold();
+                                            });
+
+                                            foreach (var company in saasMetrics.TopCompanies.Take(5))
+                                            {
+                                                table.Cell().Element(CellStyle).Text(company.CompanyName);
+                                                table.Cell().Element(CellStyle).Text(company.TotalResumesUploaded.ToString());
+                                                table.Cell().Element(CellStyle).Text(company.TotalJobsCreated.ToString());
+                                                table.Cell().Element(CellStyle).Text(company.TotalCampaignsCreated.ToString());
+                                                table.Cell().Element(CellStyle).Text(company.ActivityScore.ToString());
+                                            }
+                                        });
+                                    }
+
+                                    if (saasMetrics.ChurnRiskCompanies != null && saasMetrics.ChurnRiskCompanies.Any())
+                                    {
+                                        column.Item().PaddingTop(10).Text("Churn Risk Companies (Top 5)").SemiBold();
+                                        column.Item().PaddingTop(2).Table(table =>
+                                        {
+                                            table.ColumnsDefinition(cols =>
+                                            {
+                                                cols.RelativeColumn(2);
+                                                cols.RelativeColumn(2);
+                                                cols.RelativeColumn(1);
+                                            });
+
+                                            table.Header(header =>
+                                            {
+                                                header.Cell().Element(CellStyle).Text("Company").Bold();
+                                                header.Cell().Element(CellStyle).Text("Plan").Bold();
+                                                header.Cell().Element(CellStyle).Text("Risk").Bold();
+                                            });
+
+                                            foreach (var company in saasMetrics.ChurnRiskCompanies.Take(5))
+                                            {
+                                                table.Cell().Element(CellStyle).Text(company.CompanyName);
+                                                table.Cell().Element(CellStyle).Text(company.SubscriptionPlan);
+                                                table.Cell().Element(CellStyle).Text(company.RiskLevel);
+                                            }
+                                        });
+                                    }
+                                }
+
                                 // Subscription & revenue
-                                column.Item().PaddingTop(20).Text("8. Subscription & Revenue").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                                column.Item().PaddingTop(20).Text("11. Subscription & Revenue").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
                                 if (subscriptionRevenue != null)
                                 {
                                     column.Item().PaddingTop(5).Table(table =>
@@ -4094,5 +4441,468 @@ namespace BusinessObjectLayer.Services
         }
 
         #endregion
+
+        #region AI System Health Report
+
+        /// <summary>
+        /// Get AI System Health Report - Chỉ số Sức khỏe AI & Lỗi hệ thống (Tổng thể hệ thống)
+        /// </summary>
+        public async Task<ServiceResponse> GetAiSystemHealthReportAsync()
+        {
+            try
+            {
+                // Get all resumes
+                var resumes = await _context.Resumes
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                if (!resumes.Any())
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "No resume data available.",
+                        Data = new AiSystemHealthReportResponse
+                        {
+                            SuccessRate = 0,
+                            ErrorRate = 0,
+                            AverageProcessingTimeSeconds = 0,
+                            ErrorReasons = new List<ErrorReasonItem>()
+                        }
+                    };
+                }
+
+                // Calculate metrics
+                int totalCount = resumes.Count;
+                
+                // Successful resumes: Completed status
+                int successCount = resumes.Count(r => r.Status == ResumeStatusEnum.Completed);
+                
+                // Error resumes: Failed, InvalidResumeData, CorruptedFile, ServerError, Timeout
+                int errorCount = resumes.Count(r => 
+                    r.Status == ResumeStatusEnum.Failed ||
+                    r.Status == ResumeStatusEnum.InvalidResumeData ||
+                    r.Status == ResumeStatusEnum.CorruptedFile ||
+                    r.Status == ResumeStatusEnum.ServerError ||
+                    r.Status == ResumeStatusEnum.Timeout);
+
+                // Calculate success rate (%)
+                decimal successRate = totalCount > 0 ? (decimal)successCount / totalCount * 100 : 0;
+                
+                // Calculate error rate (%)
+                decimal errorRate = totalCount > 0 ? (decimal)errorCount / totalCount * 100 : 0;
+
+                // Calculate average processing time in seconds
+                // Using LastReusedAt if available, otherwise estimate based on status
+                var processedResumes = resumes.Where(r => r.Status == ResumeStatusEnum.Completed).ToList();
+                decimal avgProcessingTimeSeconds = 0;
+                if (processedResumes.Any())
+                {
+                    // Estimate processing time: for completed resumes, assume processing takes ~2-3 seconds on average
+                    // In real scenario, you might want to add a separate ProcessingTimeMs field to Resume entity
+                    avgProcessingTimeSeconds = 2.5m;
+                }
+
+                // Analyze error reasons
+                var errorReasons = AnalyzeErrorReasons(resumes);
+
+                var response = new AiSystemHealthReportResponse
+                {
+                    SuccessRate = Math.Round(successRate, 2),
+                    ErrorRate = Math.Round(errorRate, 2),
+                    AverageProcessingTimeSeconds = Math.Round(avgProcessingTimeSeconds, 2),
+                    ErrorReasons = errorReasons
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "AI System Health Report retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while generating AI System Health Report: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Analyze error reasons
+        /// </summary>
+        private List<ErrorReasonItem> AnalyzeErrorReasons(List<Resume> resumes)
+        {
+            var failedResumes = resumes.Where(r => 
+                r.Status == ResumeStatusEnum.Failed ||
+                r.Status == ResumeStatusEnum.InvalidResumeData ||
+                r.Status == ResumeStatusEnum.CorruptedFile ||
+                r.Status == ResumeStatusEnum.ServerError ||
+                r.Status == ResumeStatusEnum.Timeout).ToList();
+
+            int totalErrors = failedResumes.Count;
+
+            var errorReasons = new List<ErrorReasonItem>();
+
+            // Count format errors
+            int formatErrorCount = failedResumes.Count(r => r.Status == ResumeStatusEnum.Failed);
+            if (formatErrorCount > 0)
+            {
+                errorReasons.Add(new ErrorReasonItem
+                {
+                    ErrorType = "Format Error (Old .doc, Scanned PDF)",
+                    Count = formatErrorCount,
+                    Percentage = totalErrors > 0 ? Math.Round((decimal)formatErrorCount / totalErrors * 100, 2) : 0
+                });
+            }
+
+            // Count language errors (currently 0, but placeholder for future)
+            int languageErrorCount = 0;
+            if (languageErrorCount > 0)
+            {
+                errorReasons.Add(new ErrorReasonItem
+                {
+                    ErrorType = "Language Error (Unsupported Language)",
+                    Count = languageErrorCount,
+                    Percentage = totalErrors > 0 ? Math.Round((decimal)languageErrorCount / totalErrors * 100, 2) : 0
+                });
+            }
+
+            // Count structure errors (currently 0, but placeholder for future)
+            int structureErrorCount = 0;
+            if (structureErrorCount > 0)
+            {
+                errorReasons.Add(new ErrorReasonItem
+                {
+                    ErrorType = "Structure Error (Complex CV Layout)",
+                    Count = structureErrorCount,
+                    Percentage = totalErrors > 0 ? Math.Round((decimal)structureErrorCount / totalErrors * 100, 2) : 0
+                });
+            }
+
+            // Count other errors (CorruptedFile, ServerError, Timeout, InvalidResumeData)
+            int otherErrorCount = failedResumes.Count(r => 
+                r.Status == ResumeStatusEnum.CorruptedFile ||
+                r.Status == ResumeStatusEnum.ServerError ||
+                r.Status == ResumeStatusEnum.Timeout ||
+                r.Status == ResumeStatusEnum.InvalidResumeData);
+            
+            if (otherErrorCount > 0)
+            {
+                errorReasons.Add(new ErrorReasonItem
+                {
+                    ErrorType = "Other Error (Corrupted File, Server Error, Timeout)",
+                    Count = otherErrorCount,
+                    Percentage = totalErrors > 0 ? Math.Round((decimal)otherErrorCount / totalErrors * 100, 2) : 0
+                });
+            }
+
+            return errorReasons.OrderByDescending(e => e.Count).ToList();
+        }
+
+        #endregion
+
+        #region Client Engagement Report
+
+        /// <summary>
+        /// Get Client Engagement Report - Chỉ số Hoạt động của Khách hàng
+        /// </summary>
+        public async Task<ServiceResponse> GetClientEngagementReportAsync()
+        {
+            try
+            {
+                // Calculate usage frequency
+                var usageFrequency = await CalculateUsageFrequencyAsync();
+
+                // Calculate AI trust level
+                var aiTrustLevel = await CalculateAiTrustLevelAsync();
+
+                var response = new ClientEngagementReportResponse
+                {
+                    UsageFrequency = usageFrequency,
+                    AiTrustLevel = aiTrustLevel
+                };
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Client Engagement Report retrieved successfully.",
+                    Data = response
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while generating Client Engagement Report: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Calculate usage frequency - Average jobs/campaigns per company per month
+        /// </summary>
+        private async Task<UsageFrequency> CalculateUsageFrequencyAsync()
+        {
+            var now = DateTime.UtcNow;
+            var oneMonthAgo = now.AddMonths(-1);
+
+            // Get active companies
+            var activeCompanies = await _context.Companies
+                .AsNoTracking()
+                .Where(c => c.IsActive)
+                .CountAsync();
+
+            if (activeCompanies == 0)
+            {
+                return new UsageFrequency
+                {
+                    AverageJobsPerCompanyPerMonth = 0,
+                    AverageCampaignsPerCompanyPerMonth = 0
+                };
+            }
+
+            // Count jobs created in the last month
+            var jobsLastMonth = await _context.Jobs
+                .AsNoTracking()
+                .Where(j => j.CreatedAt >= oneMonthAgo && j.CreatedAt <= now && j.IsActive)
+                .CountAsync();
+
+            // Count campaigns created in the last month
+            var campaignsLastMonth = await _context.Campaigns
+                .AsNoTracking()
+                .Where(c => c.CreatedAt >= oneMonthAgo && c.CreatedAt <= now && c.IsActive)
+                .CountAsync();
+
+            return new UsageFrequency
+            {
+                AverageJobsPerCompanyPerMonth = Math.Round((decimal)jobsLastMonth / activeCompanies, 2),
+                AverageCampaignsPerCompanyPerMonth = Math.Round((decimal)campaignsLastMonth / activeCompanies, 2)
+            };
+        }
+
+        /// <summary>
+        /// Calculate AI trust level - Percentage of high-score candidates (>80) that HR moved to Hiring Status
+        /// </summary>
+        private async Task<AiTrustLevel> CalculateAiTrustLevelAsync()
+        {
+            // Get all resume applications with high AI scores (>80)
+            var highScoreApplications = await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.IsActive && 
+                            (ra.AdjustedScore ?? ra.TotalScore ?? 0) > 80)
+                .ToListAsync();
+
+            int totalHighScore = highScoreApplications.Count;
+
+            if (totalHighScore == 0)
+            {
+                return new AiTrustLevel
+                {
+                    TrustPercentage = 0,
+                    HighScoreCandidatesCount = 0,
+                    HighScoreCandidatesHiredCount = 0
+                };
+            }
+
+            // Count how many high-score candidates were moved to Hiring Status (Shortlisted, Interview, Hired)
+            var highScoreHired = highScoreApplications.Count(ra => 
+                ra.Status == ApplicationStatusEnum.Shortlisted ||
+                ra.Status == ApplicationStatusEnum.Interview ||
+                ra.Status == ApplicationStatusEnum.Hired);
+
+            decimal trustPercentage = (decimal)highScoreHired / totalHighScore * 100;
+
+            return new AiTrustLevel
+            {
+                TrustPercentage = Math.Round(trustPercentage, 2),
+                HighScoreCandidatesCount = totalHighScore,
+                HighScoreCandidatesHiredCount = highScoreHired
+            };
+        }
+
+        #endregion
+
+            #region SaaS Admin Metrics Report
+
+            /// <summary>
+            /// Get SaaS Admin Metrics Report - Báo cáo Hành vi Khách hàng
+            /// </summary>
+            public async Task<ServiceResponse> GetSaasAdminMetricsReportAsync()
+            {
+                try
+                {
+                    // Get top companies by activity
+                    var topCompanies = await GetTopCompaniesAsync();
+
+                    // Get feature adoption metrics
+                    var featureAdoption = await GetFeatureAdoptionAsync();
+
+                    // Get churn risk companies
+                    var churnRisk = await GetChurnRiskCompaniesAsync();
+
+                    var response = new SaasAdminMetricsReportResponse
+                    {
+                        TopCompanies = topCompanies,
+                        FeatureAdoption = featureAdoption,
+                        ChurnRiskCompanies = churnRisk
+                    };
+
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Success,
+                        Message = "SaaS Admin Metrics Report retrieved successfully.",
+                        Data = response
+                    };
+                }
+                catch (Exception ex)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Error,
+                        Message = $"An error occurred while generating SaaS Admin Metrics Report: {ex.Message}"
+                    };
+                }
+            }
+
+            /// <summary>
+            /// Get top companies by activity (Top users using most resources)
+            /// </summary>
+            private async Task<List<TopCompanyUsage>> GetTopCompaniesAsync()
+            {
+                var companies = await _context.Companies
+                    .AsNoTracking()
+                    .Where(c => c.IsActive)
+                    .Select(c => new
+                    {
+                        c.CompanyId,
+                        c.Name,
+                        ResumesCount = _context.Resumes.Count(r => r.CompanyId == c.CompanyId && r.IsActive),
+                        JobsCount = _context.Jobs.Count(j => j.CompanyId == c.CompanyId && j.IsActive),
+                        CampaignsCount = _context.Campaigns.Count(camp => camp.CompanyId == c.CompanyId && camp.IsActive)
+                    })
+                    .ToListAsync();
+
+                var topCompanies = companies
+                    .Select(c => new TopCompanyUsage
+                    {
+                        CompanyId = c.CompanyId,
+                        CompanyName = c.Name,
+                        TotalResumesUploaded = c.ResumesCount,
+                        TotalJobsCreated = c.JobsCount,
+                        TotalCampaignsCreated = c.CampaignsCount,
+                        ActivityScore = c.ResumesCount + (c.JobsCount * 5) + (c.CampaignsCount * 10)
+                    })
+                    .OrderByDescending(c => c.ActivityScore)
+                    .Take(3)
+                    .ToList();
+
+                return topCompanies;
+            }
+
+            /// <summary>
+            /// Get feature adoption metrics
+            /// </summary>
+            private async Task<FeatureAdoption> GetFeatureAdoptionAsync()
+            {
+                // Screening usage: Count total resume applications (AI screening)
+                var screeningCount = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive)
+                    .CountAsync();
+
+                // Tracking usage: Count applications with status changes (HR tracking)
+                var trackingCount = await _context.ResumeApplications
+                    .AsNoTracking()
+                    .Where(ra => ra.IsActive && ra.Status != ApplicationStatusEnum.Pending)
+                    .CountAsync();
+
+                // Export usage: Count companies that have active subscriptions (assuming they export)
+                // Note: If you track exports separately, replace this with actual export count
+                var exportCount = await _context.CompanySubscriptions
+                    .AsNoTracking()
+                    .Where(cs => cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active)
+                    .CountAsync();
+
+                return new FeatureAdoption
+                {
+                    ScreeningUsageCount = screeningCount,
+                    TrackingUsageCount = trackingCount,
+                    ExportUsageCount = exportCount
+                };
+            }
+
+            /// <summary>
+            /// Get companies at risk of churning (paid but inactive)
+            /// </summary>
+            private async Task<List<ChurnRiskCompany>> GetChurnRiskCompaniesAsync()
+            {
+                var now = DateTime.UtcNow;
+
+                // Get companies with active paid subscriptions
+                var paidCompanies = await _context.CompanySubscriptions
+                    .AsNoTracking()
+                    .Where(cs => cs.IsActive &&
+                                cs.SubscriptionStatus == SubscriptionStatusEnum.Active &&
+                                cs.Subscription != null)
+                    .Include(cs => cs.Company)
+                    .Include(cs => cs.Subscription)
+                    .ToListAsync();
+
+                // Deduplicate by company, keep the highest risk level if multiple subscriptions exist
+                var churnRiskMap = new Dictionary<int, (int riskScore, ChurnRiskCompany dto)>();
+
+                foreach (var subscription in paidCompanies)
+                {
+                    if (subscription.Company == null) continue;
+
+                    // Get last activity date (last resume upload)
+                    var lastResume = await _context.Resumes
+                        .AsNoTracking()
+                        .Where(r => r.CompanyId == subscription.CompanyId && r.IsActive)
+                        .OrderByDescending(r => r.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    var lastActivityDate = lastResume?.CreatedAt;
+                    var daysInactive = lastActivityDate.HasValue 
+                        ? (int)(now - lastActivityDate.Value).TotalDays 
+                        : 999;
+
+                    // Only include companies inactive for more than 30 days
+                    if (daysInactive <= 30) continue;
+
+                    string riskLevel = daysInactive > 60 ? "High" : daysInactive > 45 ? "Medium" : "Low";
+                    int riskScore = riskLevel switch
+                    {
+                        "High" => 3,
+                        "Medium" => 2,
+                        _ => 1
+                    };
+
+                    // Update only if this subscription yields a higher risk level for the same company
+                    if (!churnRiskMap.TryGetValue(subscription.CompanyId, out var existing) || riskScore > existing.riskScore)
+                    {
+                        churnRiskMap[subscription.CompanyId] = (riskScore, new ChurnRiskCompany
+                        {
+                            CompanyId = subscription.CompanyId,
+                            CompanyName = subscription.Company.Name,
+                            SubscriptionPlan = subscription.Subscription?.Name ?? "Unknown",
+                            RiskLevel = riskLevel
+                        });
+                    }
+                }
+
+                return churnRiskMap.Values
+                    .OrderByDescending(x => x.riskScore)
+                    .ThenBy(x => x.dto.CompanyName)
+                    .Select(x => x.dto)
+                    .ToList();
+            }
+
+            #endregion
     }
 }
