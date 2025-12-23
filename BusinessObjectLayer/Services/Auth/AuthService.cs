@@ -733,6 +733,7 @@ namespace BusinessObjectLayer.Services.Auth
             try
             {
                 var tokenRepo = _uow.GetRepository<ITokenRepository>();
+				var authRepo = _uow.GetRepository<IAuthRepository>();
                 var storedToken = await tokenRepo.GetRefreshTokenForUpdateAsync(refreshToken);
                 if (storedToken == null)
                 {
@@ -745,6 +746,20 @@ namespace BusinessObjectLayer.Services.Auth
 
                 storedToken.IsActive = false;
                 await tokenRepo.UpdateRefreshTokenAsync(storedToken);
+
+				// Clear current session if this refresh token belongs to the active session user
+				var user = storedToken.User;
+				if (user != null)
+				{
+					var userForUpdate = await authRepo.GetForUpdateByIdAsync(user.UserId);
+					if (userForUpdate != null)
+					{
+						userForUpdate.CurrentSessionId = null;
+						userForUpdate.CurrentSessionExpiry = null;
+						await authRepo.UpdateAsync(userForUpdate);
+					}
+				}
+
                 await _uow.SaveChangesAsync();
 
                 return new ServiceResponse

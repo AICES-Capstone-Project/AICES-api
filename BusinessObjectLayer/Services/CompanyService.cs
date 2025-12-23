@@ -1243,6 +1243,24 @@ namespace BusinessObjectLayer.Services
                                     // Log email error but don't fail the approval
                                     Console.WriteLine($"Failed to send approval email: {ex.Message}");
                                 }
+
+                                // Force logout: clear session to require re-login
+                                try
+                                {
+                                    var userRepo = _uow.GetRepository<IUserRepository>();
+                                    var creatorUser = await userRepo.GetForUpdateAsync(creatorUserId.Value);
+                                    if (creatorUser != null)
+                                    {
+                                        creatorUser.CurrentSessionId = null;
+                                        creatorUser.CurrentSessionExpiry = null;
+                                        await userRepo.UpdateAsync(creatorUser);
+                                        await _uow.SaveChangesAsync();
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"Failed to logout user: {ex.Message}");
+                                }
                             }
 
                             return new ServiceResponse

@@ -24,6 +24,7 @@ using StackExchange.Redis;
 using Stripe;
 using System.Text;
 using System.Text.Json;
+using API.Middleware;
 
 
 // ------------------------
@@ -374,42 +375,42 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.SaveToken = true;
-    options.RequireHttpsMetadata = false; // Set true when deploy
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = false, //set true when deployment
-        ValidateAudience = false, //set true when deployment
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuers = new[] { Environment.GetEnvironmentVariable("JWTCONFIG__ISSUERS__0") },
-        ValidAudiences = new[]
-        {
-            Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__0"),
-            Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__1")
-        },
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey ?? "DEFAULT_KEY")),
-        ClockSkew = TimeSpan.Zero
-    };
+	options.SaveToken = true;
+	options.RequireHttpsMetadata = false; // Set true when deploy
+	options.TokenValidationParameters = new TokenValidationParameters
+	{
+		ValidateIssuer = false, //set true when deployment
+		ValidateAudience = false, //set true when deployment
+		ValidateLifetime = true,
+		ValidateIssuerSigningKey = true,
+		ValidIssuers = new[] { Environment.GetEnvironmentVariable("JWTCONFIG__ISSUERS__0") },
+		ValidAudiences = new[]
+		{
+			Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__0"),
+			Environment.GetEnvironmentVariable("JWTCONFIG__AUDIENCES__1")
+		},
+		IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey ?? "DEFAULT_KEY")),
+		ClockSkew = TimeSpan.Zero
+	};
 
-    // Add query string for SignalR
-    options.Events = new JwtBearerEvents
-    {
-        OnMessageReceived = context =>
-        {
-            var accessToken = context.Request.Query["access_token"];
-            var path = context.HttpContext.Request.Path;
+	// Add query string for SignalR
+	options.Events = new JwtBearerEvents
+	{
+		OnMessageReceived = context =>
+		{
+			var accessToken = context.Request.Query["access_token"];
+			var path = context.HttpContext.Request.Path;
 
-            // If request is SignalR, get token from query string
-            if (!string.IsNullOrEmpty(accessToken) && 
-                (path.StartsWithSegments("/hubs/notification") || path.StartsWithSegments("/hubs/resume")))
-            {
-                context.Token = accessToken;
-            }
+			// If request is SignalR, get token from query string
+			if (!string.IsNullOrEmpty(accessToken) && 
+				(path.StartsWithSegments("/hubs/notification") || path.StartsWithSegments("/hubs/resume")))
+			{
+				context.Token = accessToken;
+			}
 
-            return Task.CompletedTask;
-        }
-    };
+			return Task.CompletedTask;
+		}
+	};
 });
     
 // ------------------------
@@ -463,6 +464,7 @@ app.UseCors("Cors");
 app.UseHttpsRedirection();
 app.UseStaticFiles(); 
 app.UseAuthentication();
+app.UseMiddleware<SingleSessionMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notification");
