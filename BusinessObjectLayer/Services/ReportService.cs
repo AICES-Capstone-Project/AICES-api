@@ -3410,6 +3410,648 @@ namespace BusinessObjectLayer.Services
             }
         }
 
+        /// <summary>
+        /// Export all system reports into a single Excel file (multiple sheets).
+        /// </summary>
+        public async Task<ServiceResponse> ExportAllSystemReportsToExcelAsync()
+        {
+            try
+            {
+                var executiveSummaryResponse = await GetExecutiveSummaryAsync();
+                if (executiveSummaryResponse.Status != SRStatus.Success || executiveSummaryResponse.Data == null)
+                    return executiveSummaryResponse;
+
+                var companiesOverviewResponse = await GetCompaniesOverviewAsync();
+                if (companiesOverviewResponse.Status != SRStatus.Success || companiesOverviewResponse.Data == null)
+                    return companiesOverviewResponse;
+
+                var companiesUsageResponse = await GetCompaniesUsageAsync();
+                if (companiesUsageResponse.Status != SRStatus.Success || companiesUsageResponse.Data == null)
+                    return companiesUsageResponse;
+
+                var jobsStatisticsResponse = await GetJobsStatisticsAsync();
+                if (jobsStatisticsResponse.Status != SRStatus.Success || jobsStatisticsResponse.Data == null)
+                    return jobsStatisticsResponse;
+
+                var jobsEffectivenessResponse = await GetJobsEffectivenessAsync();
+                if (jobsEffectivenessResponse.Status != SRStatus.Success || jobsEffectivenessResponse.Data == null)
+                    return jobsEffectivenessResponse;
+
+                var aiParsingResponse = await GetAiParsingQualityAsync();
+                if (aiParsingResponse.Status != SRStatus.Success || aiParsingResponse.Data == null)
+                    return aiParsingResponse;
+
+                var aiScoringResponse = await GetAiScoringDistributionAsync();
+                if (aiScoringResponse.Status != SRStatus.Success || aiScoringResponse.Data == null)
+                    return aiScoringResponse;
+
+                var subscriptionRevenueResponse = await GetSubscriptionRevenueAsync();
+                if (subscriptionRevenueResponse.Status != SRStatus.Success || subscriptionRevenueResponse.Data == null)
+                    return subscriptionRevenueResponse;
+
+                var executiveSummary = executiveSummaryResponse.Data as ExecutiveSummaryResponse;
+                var companiesOverview = companiesOverviewResponse.Data as CompanyOverviewResponse;
+                var companiesUsage = companiesUsageResponse.Data as CompanyUsageResponse;
+                var jobsStatistics = jobsStatisticsResponse.Data as JobStatisticsResponse;
+                var jobsEffectiveness = jobsEffectivenessResponse.Data as JobEffectivenessResponse;
+                var aiParsing = aiParsingResponse.Data as AiParsingQualityResponse;
+                var aiScoring = aiScoringResponse.Data as AiScoringDistributionResponse;
+                var subscriptionRevenue = subscriptionRevenueResponse.Data as SubscriptionRevenueResponse;
+
+                using var package = new ExcelPackage();
+
+                var execSheet = package.Workbook.Worksheets.Add("Executive Summary");
+                execSheet.Cells[1, 1].Value = "Executive Summary";
+                execSheet.Cells[1, 1, 1, 2].Merge = true;
+                execSheet.Cells[1, 1].Style.Font.Bold = true;
+                execSheet.Cells[1, 1].Style.Font.Size = 16;
+
+                execSheet.Cells[2, 1].Value = "Generated Date";
+                execSheet.Cells[2, 2].Value = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC");
+                execSheet.Cells[2, 1].Style.Font.Bold = true;
+
+                int row = 4;
+                execSheet.Cells[row, 1].Value = "Metric";
+                execSheet.Cells[row, 2].Value = "Value";
+                execSheet.Cells[row, 1, row, 2].Style.Font.Bold = true;
+                row++;
+                if (executiveSummary != null)
+                {
+                    execSheet.Cells[row, 1].Value = "Total Companies";
+                    execSheet.Cells[row++, 2].Value = executiveSummary.TotalCompanies;
+                    execSheet.Cells[row, 1].Value = "Active Companies";
+                    execSheet.Cells[row++, 2].Value = executiveSummary.ActiveCompanies;
+                    execSheet.Cells[row, 1].Value = "Total Jobs";
+                    execSheet.Cells[row++, 2].Value = executiveSummary.TotalJobs;
+                    execSheet.Cells[row, 1].Value = "AI Processed Resumes";
+                    execSheet.Cells[row++, 2].Value = executiveSummary.AiProcessedResumes;
+                    execSheet.Cells[row, 1].Value = "Total Revenue";
+                    execSheet.Cells[row++, 2].Value = executiveSummary.TotalRevenue;
+                    execSheet.Cells[row, 1].Value = "Company Retention Rate";
+                    execSheet.Cells[row++, 2].Value = $"{executiveSummary.CompanyRetentionRate:P2}";
+                }
+                execSheet.Cells[execSheet.Dimension.Address].AutoFitColumns();
+
+                var overviewSheet = package.Workbook.Worksheets.Add("Companies Overview");
+                overviewSheet.Cells[1, 1].Value = "Companies Overview";
+                overviewSheet.Cells[1, 1, 1, 2].Merge = true;
+                overviewSheet.Cells[1, 1].Style.Font.Bold = true;
+                overviewSheet.Cells[1, 1].Style.Font.Size = 16;
+
+                overviewSheet.Cells[2, 1].Value = "Metric";
+                overviewSheet.Cells[2, 2].Value = "Value";
+                overviewSheet.Cells[2, 1, 2, 2].Style.Font.Bold = true;
+                int oRow = 3;
+                if (companiesOverview != null)
+                {
+                    overviewSheet.Cells[oRow, 1].Value = "Total Companies";
+                    overviewSheet.Cells[oRow++, 2].Value = companiesOverview.TotalCompanies;
+                    overviewSheet.Cells[oRow, 1].Value = "Active Companies";
+                    overviewSheet.Cells[oRow++, 2].Value = companiesOverview.ActiveCompanies;
+                    overviewSheet.Cells[oRow, 1].Value = "Inactive Companies";
+                    overviewSheet.Cells[oRow++, 2].Value = companiesOverview.InactiveCompanies;
+                    overviewSheet.Cells[oRow, 1].Value = "New Companies This Month";
+                    overviewSheet.Cells[oRow++, 2].Value = companiesOverview.NewCompaniesThisMonth;
+                }
+                overviewSheet.Cells[overviewSheet.Dimension.Address].AutoFitColumns();
+
+                // Companies Usage sheet
+                var usageSheet = package.Workbook.Worksheets.Add("Companies Usage");
+                usageSheet.Cells[1, 1].Value = "Companies Usage (summary)";
+                usageSheet.Cells[1, 1].Style.Font.Bold = true;
+                usageSheet.Cells[3, 1].Value = "Metric";
+                usageSheet.Cells[3, 2].Value = "Value";
+                usageSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
+                int uRow = 4;
+                if (companiesUsage != null)
+                {
+                    usageSheet.Cells[uRow, 1].Value = "Registered Only";
+                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.RegisteredOnly;
+                    usageSheet.Cells[uRow, 1].Value = "Active Companies";
+                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.ActiveCompanies;
+                    usageSheet.Cells[uRow, 1].Value = "Frequent Companies";
+                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.FrequentCompanies;
+                    usageSheet.Cells[uRow, 1].Value = "Active Rate";
+                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.Kpis.ActiveRate;
+                    usageSheet.Cells[uRow, 1].Value = "AI Usage Rate";
+                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.Kpis.AiUsageRate;
+                    usageSheet.Cells[uRow, 1].Value = "Returning Rate";
+                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.Kpis.ReturningRate;
+                }
+                usageSheet.Cells[usageSheet.Dimension.Address].AutoFitColumns();
+
+                // Jobs Statistics sheet
+                var jobsStatsSheet = package.Workbook.Worksheets.Add("Jobs Statistics");
+                jobsStatsSheet.Cells[1, 1].Value = "Jobs Statistics (summary)";
+                jobsStatsSheet.Cells[1, 1].Style.Font.Bold = true;
+                jobsStatsSheet.Cells[3, 1].Value = "Metric";
+                jobsStatsSheet.Cells[3, 2].Value = "Value";
+                jobsStatsSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
+                int jsRow = 4;
+                if (jobsStatistics != null)
+                {
+                    jobsStatsSheet.Cells[jsRow, 1].Value = "Total Jobs";
+                    jobsStatsSheet.Cells[jsRow++, 2].Value = jobsStatistics.TotalJobs;
+                    jobsStatsSheet.Cells[jsRow, 1].Value = "Active Jobs";
+                    jobsStatsSheet.Cells[jsRow++, 2].Value = jobsStatistics.ActiveJobs;
+                    jobsStatsSheet.Cells[jsRow, 1].Value = "Draft Jobs";
+                    jobsStatsSheet.Cells[jsRow++, 2].Value = jobsStatistics.DraftJobs;
+                    jobsStatsSheet.Cells[jsRow, 1].Value = "Closed Jobs";
+                    jobsStatsSheet.Cells[jsRow++, 2].Value = jobsStatistics.ClosedJobs;
+                    jobsStatsSheet.Cells[jsRow, 1].Value = "New Jobs This Month";
+                    jobsStatsSheet.Cells[jsRow++, 2].Value = jobsStatistics.NewJobsThisMonth;
+                    jobsStatsSheet.Cells[jsRow, 1].Value = "Avg Applications / Job";
+                    jobsStatsSheet.Cells[jsRow++, 2].Value = jobsStatistics.AverageApplicationsPerJob;
+                }
+                jobsStatsSheet.Cells[jobsStatsSheet.Dimension.Address].AutoFitColumns();
+
+                // Jobs Effectiveness sheet
+                var jobsEffSheet = package.Workbook.Worksheets.Add("Jobs Effectiveness");
+                jobsEffSheet.Cells[1, 1].Value = "Jobs Effectiveness (summary)";
+                jobsEffSheet.Cells[1, 1].Style.Font.Bold = true;
+                jobsEffSheet.Cells[3, 1].Value = "Metric";
+                jobsEffSheet.Cells[3, 2].Value = "Value";
+                jobsEffSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
+                int jeRow = 4;
+                if (jobsEffectiveness != null)
+                {
+                    jobsEffSheet.Cells[jeRow, 1].Value = "Avg Resumes / Job";
+                    jobsEffSheet.Cells[jeRow++, 2].Value = jobsEffectiveness.AverageResumesPerJob;
+                    jobsEffSheet.Cells[jeRow, 1].Value = "Qualified Rate";
+                    jobsEffSheet.Cells[jeRow++, 2].Value = jobsEffectiveness.QualifiedRate;
+                    jobsEffSheet.Cells[jeRow, 1].Value = "Success Hiring Rate";
+                    jobsEffSheet.Cells[jeRow++, 2].Value = jobsEffectiveness.SuccessHiringRate;
+                }
+                jobsEffSheet.Cells[jobsEffSheet.Dimension.Address].AutoFitColumns();
+
+                // AI Parsing sheet
+                var aiParsingSheet = package.Workbook.Worksheets.Add("AI Parsing");
+                aiParsingSheet.Cells[1, 1].Value = "AI Parsing Quality (summary)";
+                aiParsingSheet.Cells[1, 1].Style.Font.Bold = true;
+                aiParsingSheet.Cells[3, 1].Value = "Metric";
+                aiParsingSheet.Cells[3, 2].Value = "Value";
+                aiParsingSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
+                int apRow = 4;
+                if (aiParsing != null)
+                {
+                    aiParsingSheet.Cells[apRow, 1].Value = "Success Rate";
+                    aiParsingSheet.Cells[apRow++, 2].Value = aiParsing.SuccessRate;
+                    aiParsingSheet.Cells[apRow, 1].Value = "Total Resumes";
+                    aiParsingSheet.Cells[apRow++, 2].Value = aiParsing.TotalResumes;
+                    aiParsingSheet.Cells[apRow, 1].Value = "Successful Parsing";
+                    aiParsingSheet.Cells[apRow++, 2].Value = aiParsing.SuccessfulParsing;
+                    aiParsingSheet.Cells[apRow, 1].Value = "Failed Parsing";
+                    aiParsingSheet.Cells[apRow++, 2].Value = aiParsing.FailedParsing;
+                    aiParsingSheet.Cells[apRow, 1].Value = "Avg Processing Time (ms)";
+                    aiParsingSheet.Cells[apRow++, 2].Value = aiParsing.AverageProcessingTimeMs;
+                }
+                aiParsingSheet.Cells[aiParsingSheet.Dimension.Address].AutoFitColumns();
+
+                // AI Scoring sheet
+                var aiScoringSheet = package.Workbook.Worksheets.Add("AI Scoring");
+                aiScoringSheet.Cells[1, 1].Value = "AI Scoring Distribution (summary)";
+                aiScoringSheet.Cells[1, 1].Style.Font.Bold = true;
+                aiScoringSheet.Cells[3, 1].Value = "Metric";
+                aiScoringSheet.Cells[3, 2].Value = "Value";
+                aiScoringSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
+                int asRow = 4;
+                if (aiScoring != null)
+                {
+                    aiScoringSheet.Cells[asRow, 1].Value = "Success Rate";
+                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.SuccessRate;
+                    aiScoringSheet.Cells[asRow, 1].Value = "High Scores (>75)";
+                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.ScoreDistribution.High;
+                    aiScoringSheet.Cells[asRow, 1].Value = "Medium Scores (50-75)";
+                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.ScoreDistribution.Medium;
+                    aiScoringSheet.Cells[asRow, 1].Value = "Low Scores (<50)";
+                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.ScoreDistribution.Low;
+                    aiScoringSheet.Cells[asRow, 1].Value = "Total Scored";
+                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.Statistics.TotalScored;
+                    aiScoringSheet.Cells[asRow, 1].Value = "Average Score";
+                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.Statistics.AverageScore;
+                    aiScoringSheet.Cells[asRow, 1].Value = "Median Score";
+                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.Statistics.MedianScore;
+                }
+                aiScoringSheet.Cells[aiScoringSheet.Dimension.Address].AutoFitColumns();
+
+                var subscriptionSheet = package.Workbook.Worksheets.Add("Subscriptions");
+                subscriptionSheet.Cells[1, 1].Value = "Subscription & Revenue (summary)";
+                subscriptionSheet.Cells[1, 1].Style.Font.Bold = true;
+                if (subscriptionRevenue != null)
+                {
+                    subscriptionSheet.Cells[3, 1].Value = "Total Revenue";
+                    subscriptionSheet.Cells[3, 2].Value = subscriptionRevenue.Breakdown.TotalRevenue;
+
+                    subscriptionSheet.Cells[4, 1].Value = "Number of Plans";
+                    subscriptionSheet.Cells[4, 2].Value = subscriptionRevenue.Breakdown.PlanStatistics?.Count ?? 0;
+                }
+                subscriptionSheet.Cells[subscriptionSheet.Dimension.Address].AutoFitColumns();
+
+                var fileBytes = package.GetAsByteArray();
+                var fileName = $"System_Reports_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Excel file for all system reports generated successfully.",
+                    Data = new ExcelExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting all system reports to Excel: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Export all system reports into a single, nicely formatted PDF.
+        /// </summary>
+        public async Task<ServiceResponse> ExportAllSystemReportsToPdfAsync()
+        {
+            try
+            {
+                var executiveSummaryResponse = await GetExecutiveSummaryAsync();
+                if (executiveSummaryResponse.Status != SRStatus.Success || executiveSummaryResponse.Data == null)
+                    return executiveSummaryResponse;
+
+                var companiesOverviewResponse = await GetCompaniesOverviewAsync();
+                if (companiesOverviewResponse.Status != SRStatus.Success || companiesOverviewResponse.Data == null)
+                    return companiesOverviewResponse;
+
+                var companiesUsageResponse = await GetCompaniesUsageAsync();
+                if (companiesUsageResponse.Status != SRStatus.Success || companiesUsageResponse.Data == null)
+                    return companiesUsageResponse;
+
+                var jobsStatisticsResponse = await GetJobsStatisticsAsync();
+                if (jobsStatisticsResponse.Status != SRStatus.Success || jobsStatisticsResponse.Data == null)
+                    return jobsStatisticsResponse;
+
+                var jobsEffectivenessResponse = await GetJobsEffectivenessAsync();
+                if (jobsEffectivenessResponse.Status != SRStatus.Success || jobsEffectivenessResponse.Data == null)
+                    return jobsEffectivenessResponse;
+
+                var aiParsingResponse = await GetAiParsingQualityAsync();
+                if (aiParsingResponse.Status != SRStatus.Success || aiParsingResponse.Data == null)
+                    return aiParsingResponse;
+
+                var aiScoringResponse = await GetAiScoringDistributionAsync();
+                if (aiScoringResponse.Status != SRStatus.Success || aiScoringResponse.Data == null)
+                    return aiScoringResponse;
+
+                var subscriptionRevenueResponse = await GetSubscriptionRevenueAsync();
+                if (subscriptionRevenueResponse.Status != SRStatus.Success || subscriptionRevenueResponse.Data == null)
+                    return subscriptionRevenueResponse;
+
+                var executiveSummary = executiveSummaryResponse.Data as ExecutiveSummaryResponse;
+                var companiesOverview = companiesOverviewResponse.Data as CompanyOverviewResponse;
+                var companiesUsage = companiesUsageResponse.Data as CompanyUsageResponse;
+                var jobsStatistics = jobsStatisticsResponse.Data as JobStatisticsResponse;
+                var jobsEffectiveness = jobsEffectivenessResponse.Data as JobEffectivenessResponse;
+                var aiParsing = aiParsingResponse.Data as AiParsingQualityResponse;
+                var aiScoring = aiScoringResponse.Data as AiScoringDistributionResponse;
+                var subscriptionRevenue = subscriptionRevenueResponse.Data as SubscriptionRevenueResponse;
+
+                var pdfDocument = Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(40);
+                        page.DefaultTextStyle(x => x.FontSize(11));
+
+                        page.Header().Element(c => ComposeReportHeader(c, "System Reports Overview"));
+
+                        page.Content().Element(c =>
+                        {
+                            c.Column(column =>
+                            {
+                                column.Item().PaddingTop(10).Text("1. Executive Summary").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                                if (executiveSummary != null)
+                                {
+                                    column.Item().PaddingTop(5).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Metric").Bold();
+                                            header.Cell().Element(CellStyle).Text("Value").Bold();
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Total Companies");
+                                        table.Cell().Element(CellStyle).Text(executiveSummary.TotalCompanies.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Active Companies");
+                                        table.Cell().Element(CellStyle).Text(executiveSummary.ActiveCompanies.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Total Jobs");
+                                        table.Cell().Element(CellStyle).Text(executiveSummary.TotalJobs.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("AI Processed Resumes");
+                                        table.Cell().Element(CellStyle).Text(executiveSummary.AiProcessedResumes.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Total Revenue");
+                                        table.Cell().Element(CellStyle).Text($"${executiveSummary.TotalRevenue:N2}");
+
+                                        table.Cell().Element(CellStyle).Text("Company Retention Rate");
+                                        table.Cell().Element(CellStyle).Text($"{executiveSummary.CompanyRetentionRate:P2}");
+                                    });
+                                }
+
+                                column.Item().PaddingTop(20).Text("2. Companies Overview").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                                if (companiesOverview != null)
+                                {
+                                    column.Item().PaddingTop(5).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Metric").Bold();
+                                            header.Cell().Element(CellStyle).Text("Value").Bold();
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Total Companies");
+                                        table.Cell().Element(CellStyle).Text(companiesOverview.TotalCompanies.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Active Companies");
+                                        table.Cell().Element(CellStyle).Text(companiesOverview.ActiveCompanies.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Inactive Companies");
+                                        table.Cell().Element(CellStyle).Text(companiesOverview.InactiveCompanies.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("New Companies This Month");
+                                        table.Cell().Element(CellStyle).Text(companiesOverview.NewCompaniesThisMonth.ToString());
+                                    });
+                                }
+
+                                // Companies usage
+                                column.Item().PaddingTop(20).Text("3. Companies Usage").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                                if (companiesUsage != null)
+                                {
+                                    column.Item().PaddingTop(5).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Metric").Bold();
+                                            header.Cell().Element(CellStyle).Text("Value").Bold();
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Registered Only");
+                                        table.Cell().Element(CellStyle).Text(companiesUsage.RegisteredOnly.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Active Companies");
+                                        table.Cell().Element(CellStyle).Text(companiesUsage.ActiveCompanies.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Frequent Companies");
+                                        table.Cell().Element(CellStyle).Text(companiesUsage.FrequentCompanies.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Active Rate");
+                                        table.Cell().Element(CellStyle).Text($"{companiesUsage.Kpis.ActiveRate:P2}");
+
+                                        table.Cell().Element(CellStyle).Text("AI Usage Rate");
+                                        table.Cell().Element(CellStyle).Text($"{companiesUsage.Kpis.AiUsageRate:P2}");
+
+                                        table.Cell().Element(CellStyle).Text("Returning Rate");
+                                        table.Cell().Element(CellStyle).Text($"{companiesUsage.Kpis.ReturningRate:P2}");
+                                    });
+                                }
+
+                                // Jobs statistics
+                                column.Item().PaddingTop(20).Text("4. Jobs Statistics").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                                if (jobsStatistics != null)
+                                {
+                                    column.Item().PaddingTop(5).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Metric").Bold();
+                                            header.Cell().Element(CellStyle).Text("Value").Bold();
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Total Jobs");
+                                        table.Cell().Element(CellStyle).Text(jobsStatistics.TotalJobs.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Active Jobs");
+                                        table.Cell().Element(CellStyle).Text(jobsStatistics.ActiveJobs.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Draft Jobs");
+                                        table.Cell().Element(CellStyle).Text(jobsStatistics.DraftJobs.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Closed Jobs");
+                                        table.Cell().Element(CellStyle).Text(jobsStatistics.ClosedJobs.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("New Jobs This Month");
+                                        table.Cell().Element(CellStyle).Text(jobsStatistics.NewJobsThisMonth.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Avg Applications / Job");
+                                        table.Cell().Element(CellStyle).Text($"{jobsStatistics.AverageApplicationsPerJob:N2}");
+                                    });
+                                }
+
+                                // Jobs effectiveness
+                                column.Item().PaddingTop(20).Text("5. Jobs Effectiveness").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                                if (jobsEffectiveness != null)
+                                {
+                                    column.Item().PaddingTop(5).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Metric").Bold();
+                                            header.Cell().Element(CellStyle).Text("Value").Bold();
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Avg Resumes / Job");
+                                        table.Cell().Element(CellStyle).Text($"{jobsEffectiveness.AverageResumesPerJob:N2}");
+
+                                        table.Cell().Element(CellStyle).Text("Qualified Rate");
+                                        table.Cell().Element(CellStyle).Text($"{jobsEffectiveness.QualifiedRate:P2}");
+
+                                        table.Cell().Element(CellStyle).Text("Success Hiring Rate");
+                                        table.Cell().Element(CellStyle).Text($"{jobsEffectiveness.SuccessHiringRate:P2}");
+                                    });
+                                }
+
+                                // AI parsing quality
+                                column.Item().PaddingTop(20).Text("6. AI Parsing Quality").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                                if (aiParsing != null)
+                                {
+                                    column.Item().PaddingTop(5).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Metric").Bold();
+                                            header.Cell().Element(CellStyle).Text("Value").Bold();
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Success Rate");
+                                        table.Cell().Element(CellStyle).Text($"{aiParsing.SuccessRate:P2}");
+
+                                        table.Cell().Element(CellStyle).Text("Total Resumes");
+                                        table.Cell().Element(CellStyle).Text(aiParsing.TotalResumes.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Successful Parsing");
+                                        table.Cell().Element(CellStyle).Text(aiParsing.SuccessfulParsing.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Failed Parsing");
+                                        table.Cell().Element(CellStyle).Text(aiParsing.FailedParsing.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Avg Processing Time (ms)");
+                                        table.Cell().Element(CellStyle).Text($"{aiParsing.AverageProcessingTimeMs:N2}");
+                                    });
+                                }
+
+                                // AI scoring distribution
+                                column.Item().PaddingTop(20).Text("7. AI Scoring Distribution").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                                if (aiScoring != null)
+                                {
+                                    column.Item().PaddingTop(5).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Metric").Bold();
+                                            header.Cell().Element(CellStyle).Text("Value").Bold();
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Success Rate");
+                                        table.Cell().Element(CellStyle).Text($"{aiScoring.SuccessRate:P2}");
+
+                                        table.Cell().Element(CellStyle).Text("High Scores (>75)");
+                                        table.Cell().Element(CellStyle).Text($"{aiScoring.ScoreDistribution.High:P2}");
+
+                                        table.Cell().Element(CellStyle).Text("Medium Scores (50-75)");
+                                        table.Cell().Element(CellStyle).Text($"{aiScoring.ScoreDistribution.Medium:P2}");
+
+                                        table.Cell().Element(CellStyle).Text("Low Scores (<50)");
+                                        table.Cell().Element(CellStyle).Text($"{aiScoring.ScoreDistribution.Low:P2}");
+
+                                        table.Cell().Element(CellStyle).Text("Total Scored");
+                                        table.Cell().Element(CellStyle).Text(aiScoring.Statistics.TotalScored.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Average Score");
+                                        table.Cell().Element(CellStyle).Text($"{aiScoring.Statistics.AverageScore:N2}");
+
+                                        table.Cell().Element(CellStyle).Text("Median Score");
+                                        table.Cell().Element(CellStyle).Text($"{aiScoring.Statistics.MedianScore:N2}");
+                                    });
+                                }
+
+                                // Subscription & revenue
+                                column.Item().PaddingTop(20).Text("8. Subscription & Revenue").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
+                                if (subscriptionRevenue != null)
+                                {
+                                    column.Item().PaddingTop(5).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Header(header =>
+                                        {
+                                            header.Cell().Element(CellStyle).Text("Metric").Bold();
+                                            header.Cell().Element(CellStyle).Text("Value").Bold();
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Free Companies");
+                                        table.Cell().Element(CellStyle).Text(subscriptionRevenue.FreeCompanies.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Paid Companies");
+                                        table.Cell().Element(CellStyle).Text(subscriptionRevenue.PaidCompanies.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Monthly Revenue");
+                                        table.Cell().Element(CellStyle).Text($"${subscriptionRevenue.MonthlyRevenue:N2}");
+
+                                        table.Cell().Element(CellStyle).Text("Renewal Rate");
+                                        table.Cell().Element(CellStyle).Text($"{subscriptionRevenue.RenewalRate:P2}");
+
+                                        table.Cell().Element(CellStyle).Text("Total Revenue");
+                                        table.Cell().Element(CellStyle).Text($"${subscriptionRevenue.Breakdown.TotalRevenue:N2}");
+
+                                        table.Cell().Element(CellStyle).Text("Number of Plans");
+                                        table.Cell().Element(CellStyle).Text((subscriptionRevenue.Breakdown.PlanStatistics?.Count ?? 0).ToString());
+                                    });
+                                }
+                            });
+                        });
+
+                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                    });
+                });
+
+                var fileBytes = pdfDocument.GeneratePdf();
+                var fileName = $"System_Reports_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "PDF for all system reports generated successfully.",
+                    Data = new PdfExportResponse
+                    {
+                        FileBytes = fileBytes,
+                        FileName = fileName,
+                        ContentType = "application/pdf"
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = $"An error occurred while exporting all system reports to PDF: {ex.Message}"
+                };
+            }
+        }
+
         #endregion
 
         #region PDF Helper Methods
