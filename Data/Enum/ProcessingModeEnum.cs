@@ -19,10 +19,5 @@ namespace Data.Enum
         /// Clone result from existing application (same resume + same job)
         /// </summary>
         Clone,
-        
-        /// <summary>
-        /// Rescore resume with same parsed data (same job, recalculate)
-        /// </summary>
-        Rescore
     }
 }

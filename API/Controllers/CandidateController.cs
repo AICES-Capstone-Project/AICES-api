@@ -72,7 +72,8 @@ namespace API.Controllers
             [FromQuery] decimal? minScore = null,
             [FromQuery] decimal? maxScore = null,
             [FromQuery] Data.Enum.ApplicationStatusEnum? applicationStatus = null,
-            [FromQuery] Data.Enum.ResumeSortByEnum sortBy = Data.Enum.ResumeSortByEnum.HighestScore)
+            [FromQuery] Data.Enum.ResumeSortByEnum sortBy = Data.Enum.ResumeSortByEnum.HighestScore,
+            [FromQuery] Data.Enum.ProcessingModeEnum? processingMode = null)
         {
             var request = new GetResumeApplicationsRequest
             {
@@ -82,7 +83,8 @@ namespace API.Controllers
                 MinScore = minScore,
                 MaxScore = maxScore,
                 ApplicationStatus = applicationStatus,
-                SortBy = sortBy
+                SortBy = sortBy,
+                ProcessingMode = processingMode
             };
             var response = await _candidateService.GetResumeApplicationsAsync(resumeId, request);
             return ControllerResponse.Response(response);

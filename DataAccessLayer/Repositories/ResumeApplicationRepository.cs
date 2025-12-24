@@ -88,7 +88,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<(List<ResumeApplication> applications, int totalCount)> GetByJobIdAndCampaignWithResumePagedAsync(
             int jobId, int campaignId, int page, int pageSize, string? search,
-            decimal? minScore, decimal? maxScore, Data.Enum.ApplicationStatusEnum? status, Data.Enum.ResumeSortByEnum sortBy)
+            decimal? minScore, decimal? maxScore, Data.Enum.ApplicationStatusEnum? status, Data.Enum.ResumeSortByEnum sortBy, Data.Enum.ProcessingModeEnum? processingMode)
         {
             var query = _context.ResumeApplications
                 .AsNoTracking()
@@ -126,6 +126,12 @@ namespace DataAccessLayer.Repositories
             if (status.HasValue)
             {
                 query = query.Where(ra => ra.Status == status.Value);
+            }
+
+            // ProcessingMode filter
+            if (processingMode.HasValue)
+            {
+                query = query.Where(ra => ra.ProcessingMode == processingMode.Value);
             }
 
             var totalCount = await query.CountAsync();
@@ -233,7 +239,7 @@ namespace DataAccessLayer.Repositories
 
         public async Task<(List<ResumeApplication> applications, int totalCount)> GetByResumeIdWithJobAndCompanyPagedAsync(
             int resumeId, int companyId, int page, int pageSize, string? search,
-            decimal? minScore, decimal? maxScore, Data.Enum.ApplicationStatusEnum? status, Data.Enum.ResumeSortByEnum sortBy)
+            decimal? minScore, decimal? maxScore, Data.Enum.ApplicationStatusEnum? status, Data.Enum.ResumeSortByEnum sortBy, Data.Enum.ProcessingModeEnum? processingMode)
         {
             var query = _context.ResumeApplications
                 .AsNoTracking()
@@ -272,6 +278,12 @@ namespace DataAccessLayer.Repositories
             if (status.HasValue)
             {
                 query = query.Where(ra => ra.Status == status.Value);
+            }
+
+            // ProcessingMode filter
+            if (processingMode.HasValue)
+            {
+                query = query.Where(ra => ra.ProcessingMode == processingMode.Value);
             }
 
             var totalCount = await query.CountAsync();

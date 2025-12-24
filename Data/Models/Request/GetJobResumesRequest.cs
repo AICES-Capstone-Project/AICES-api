@@ -11,5 +11,6 @@ namespace Data.Models.Request
         public decimal? MaxScore { get; set; }
         public ApplicationStatusEnum? ApplicationStatus { get; set; }
         public ResumeSortByEnum SortBy { get; set; } = ResumeSortByEnum.HighestScore;
+        public ProcessingModeEnum? ProcessingMode { get; set; }
     }
 }

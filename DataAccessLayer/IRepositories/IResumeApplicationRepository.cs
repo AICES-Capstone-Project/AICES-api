@@ -14,12 +14,12 @@ namespace DataAccessLayer.IRepositories
         Task<List<ResumeApplication>> GetByJobIdAndCampaignWithResumeAsync(int jobId, int campaignId);
         Task<(List<ResumeApplication> applications, int totalCount)> GetByJobIdAndCampaignWithResumePagedAsync(
             int jobId, int campaignId, int page, int pageSize, string? search, 
-            decimal? minScore, decimal? maxScore, Data.Enum.ApplicationStatusEnum? status, Data.Enum.ResumeSortByEnum sortBy);
+            decimal? minScore, decimal? maxScore, Data.Enum.ApplicationStatusEnum? status, Data.Enum.ResumeSortByEnum sortBy, Data.Enum.ProcessingModeEnum? processingMode);
         Task<ResumeApplication?> GetByApplicationIdWithDetailsAsync(int applicationId);
         Task<List<ResumeApplication>> GetByResumeIdWithJobAsync(int resumeId);
         Task<(List<ResumeApplication> applications, int totalCount)> GetByResumeIdWithJobAndCompanyPagedAsync(
             int resumeId, int companyId, int page, int pageSize, string? search, 
-            decimal? minScore, decimal? maxScore, Data.Enum.ApplicationStatusEnum? status, Data.Enum.ResumeSortByEnum sortBy);
+            decimal? minScore, decimal? maxScore, Data.Enum.ApplicationStatusEnum? status, Data.Enum.ResumeSortByEnum sortBy, Data.Enum.ProcessingModeEnum? processingMode);
         Task<ResumeApplication?> GetByResumeAndApplicationIdWithDetailsAsync(int resumeId, int applicationId);
         Task<ResumeApplication?> GetByQueueJobIdWithDetailsAsync(string queueJobId);
         Task UpdateAsync(ResumeApplication resumeApplication);

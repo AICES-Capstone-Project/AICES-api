@@ -496,7 +496,7 @@ namespace BusinessObjectLayer.Services
 
                 var (applications, totalCount) = await _resumeApplicationRepo.GetByResumeIdWithJobAndCompanyPagedAsync(
                     resumeId, companyId, request.Page, request.PageSize,
-                    request.Search, request.MinScore, request.MaxScore, request.ApplicationStatus, request.SortBy);
+                    request.Search, request.MinScore, request.MaxScore, request.ApplicationStatus, request.SortBy, request.ProcessingMode);
 
                 var applicationList = applications.Select(a => new CandidateApplicationResponse
                     {
