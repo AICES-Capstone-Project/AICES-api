@@ -18,6 +18,7 @@ namespace Data.Models.Response
         public ResumeStatusEnum? ResumeStatus { get; set; }
         public ApplicationStatusEnum ApplicationStatus { get; set; }
         public ApplicationErrorEnum? ApplicationErrorType { get; set; }
+        public ProcessingModeEnum? ProcessingMode { get; set; }
         public decimal? TotalScore { get; set; }
         public decimal? AdjustedScore { get; set; }
         public string? MatchSkills { get; set; }

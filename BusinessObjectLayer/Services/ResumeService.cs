@@ -93,6 +93,13 @@ namespace BusinessObjectLayer.Services
                 }
                 var companyId = (int)validationResult.Data!;
 
+                // Check if company has paid subscription (batch upload is a premium feature)
+                var subscriptionCheck = await CheckIfCompanyHasPaidSubscriptionAsync(companyId);
+                if (subscriptionCheck != null)
+                {
+                    return subscriptionCheck;
+                }
+
                 // Validate campaign and job ONCE
                 var campaignJobValidation = await ValidateCampaignAndJobAsync(campaignId, jobId, companyId);
                 if (campaignJobValidation.Status != SRStatus.Success)
@@ -420,6 +427,42 @@ namespace BusinessObjectLayer.Services
             }
 
             return new ServiceResponse { Status = SRStatus.Success };
+        }
+
+        /// <summary>
+        /// Check if company has paid subscription for premium features (like batch upload)
+        /// Returns null if company has paid subscription, otherwise returns error response
+        /// </summary>
+        private async Task<ServiceResponse?> CheckIfCompanyHasPaidSubscriptionAsync(int companyId)
+        {
+            var companySubRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            var companySubscription = await companySubRepo.GetAnyActiveSubscriptionByCompanyAsync(companyId);
+            
+            if (companySubscription == null)
+            {
+                // No active subscription means Free plan
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Forbidden,
+                    Message = "Batch upload is only available for paid subscriptions. Please upgrade your plan to upload multiple resumes at once."
+                };
+            }
+
+            // Check if subscription is Free (additional check)
+            var subscriptionRepo = _uow.GetRepository<ISubscriptionRepository>();
+            var subscription = await subscriptionRepo.GetByIdAsync(companySubscription.SubscriptionId);
+            var freeSubscription = await subscriptionRepo.GetFreeSubscriptionAsync();
+            
+            if (freeSubscription != null && subscription != null && subscription.SubscriptionId == freeSubscription.SubscriptionId)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Forbidden,
+                    Message = "Batch upload is only available for paid subscriptions. Please upgrade your plan to upload multiple resumes at once."
+                };
+            }
+
+            return null; // Company has paid subscription
         }
 
         /// <summary>

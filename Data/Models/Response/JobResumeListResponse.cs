@@ -9,6 +9,7 @@ namespace Data.Models.Response
         public ResumeStatusEnum? ResumeStatus { get; set; }
         public ApplicationStatusEnum? ApplicationStatus { get; set; }
         public ApplicationErrorEnum? ApplicationErrorType { get; set; }
+        public ProcessingModeEnum? ProcessingMode { get; set; }
 
         public string FullName { get; set; } = "Unknown";
 

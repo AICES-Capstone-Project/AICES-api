@@ -14,5 +14,7 @@ namespace DataAccessLayer.IRepositories
         Task<List<CompanyUser>> GetMembersByCompanyIdAsync(int companyId);
         Task<List<CompanyUser>> GetPendingByCompanyIdAsync(int companyId);
         Task<List<CompanyUser>> GetApprovedAndInvitedMembersByCompanyIdAsync(int companyId);
+        Task<List<CompanyUser>> GetHrManagersByCompanyIdAsync(int companyId);
+        Task<List<User>> GetHrManagerUsersByCompanyIdAsync(int companyId);
     }
 }

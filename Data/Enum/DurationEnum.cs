@@ -20,7 +20,10 @@ namespace Data.Enum
         Monthly,
 
         [Description("year")]
-        Yearly
+        Yearly,
+
+        [Description("unlimited")]
+        Unlimited
     }
 
     public static class DurationEnumExtensions
@@ -42,6 +45,7 @@ namespace Data.Enum
         /// <summary>
         /// Calculate end date from start date using proper date arithmetic.
         /// This method handles varying month lengths and leap years correctly.
+        /// For Unlimited duration, returns a far future date (100 years).
         /// </summary>
         public static DateTime CalculateEndDate(this DurationEnum duration, DateTime startDate)
         {
@@ -51,8 +55,17 @@ namespace Data.Enum
                 DurationEnum.Weekly => startDate.AddDays(7),
                 DurationEnum.Monthly => startDate.AddMonths(1),  // Handles varying month lengths!
                 DurationEnum.Yearly => startDate.AddYears(1),    // Handles leap years!
+                DurationEnum.Unlimited => startDate.AddYears(100), // Far future date for free/unlimited plans
                 _ => startDate.AddMonths(1)
             };
+        }
+
+        /// <summary>
+        /// Check if the duration is unlimited (for free/perpetual plans).
+        /// </summary>
+        public static bool IsUnlimited(this DurationEnum duration)
+        {
+            return duration == DurationEnum.Unlimited;
         }
 
         /// <summary>
@@ -68,12 +81,14 @@ namespace Data.Enum
                 DurationEnum.Weekly => 7,
                 DurationEnum.Monthly => 30,
                 DurationEnum.Yearly => 365,
+                DurationEnum.Unlimited => 0, // 0 means no expiration
                 _ => 30
             };
         }
 
         /// <summary>
         /// Approximate days for display purposes only (not for calculations).
+        /// Returns 0 for Unlimited duration (no expiration).
         /// </summary>
         public static int ApproximateDays(this DurationEnum duration)
         {
@@ -83,6 +98,7 @@ namespace Data.Enum
                 DurationEnum.Weekly => 7,
                 DurationEnum.Monthly => 30,
                 DurationEnum.Yearly => 365,
+                DurationEnum.Unlimited => 0, // 0 means no expiration
                 _ => 30
             };
         }

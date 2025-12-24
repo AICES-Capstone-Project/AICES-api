@@ -94,6 +94,40 @@ namespace DataAccessLayer.Repositories
                     (cu.JoinStatus == JoinStatusEnum.Approved))
                 .ToListAsync();
         }
+
+        public async Task<List<CompanyUser>> GetHrManagersByCompanyIdAsync(int companyId)
+        {
+            return await _context.CompanyUsers
+                .AsNoTracking()
+                .Include(cu => cu.User)
+                    .ThenInclude(u => u.Profile)
+                .Include(cu => cu.User)
+                    .ThenInclude(u => u.Role)
+                .Where(cu => cu.IsActive 
+                             && cu.CompanyId == companyId 
+                             && cu.User != null 
+                             && cu.JoinStatus == JoinStatusEnum.Approved
+                             && cu.User.RoleId == 4) // HR_Manager
+                .ToListAsync();
+        }
+
+        public async Task<List<User>> GetHrManagerUsersByCompanyIdAsync(int companyId)
+        {
+            return await _context.CompanyUsers
+                .AsNoTracking()
+                .Include(cu => cu.User)
+                    .ThenInclude(u => u.Profile)
+                .Include(cu => cu.User)
+                    .ThenInclude(u => u.Role)
+                .Where(cu => cu.IsActive 
+                             && cu.CompanyId == companyId 
+                             && cu.User != null 
+                             && cu.JoinStatus == JoinStatusEnum.Approved
+                             && cu.User.Role!.RoleId == 4) // HR_Manager
+                .Select(cu => cu.User!)
+                .Distinct()
+                .ToListAsync();
+        }
     }
 } 
 

@@ -962,49 +962,62 @@ namespace BusinessObjectLayer.Services
 
         public async Task<ServiceResponse> GetPaymentsAsync(ClaimsPrincipal userClaims)
         {
-            var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
-            var paymentRepo = _uow.GetRepository<IPaymentRepository>();
-            
-            var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
-            if (userIdClaim == null)
-                return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
-
-            int userId = int.Parse(userIdClaim);
-
-            var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
-            if (companyUser == null || companyUser.CompanyId == null)
-                return new ServiceResponse { Status = SRStatus.Error, Message = "User is not associated with any company." };
-
-            int companyId = companyUser.CompanyId.Value;
-
-            var payments = await paymentRepo.GetPaymentsByCompanyAsync(companyId);
-
-            var responseList = payments.Select(p =>
+            try
             {
-                var transaction = p.Transactions?.OrderByDescending(t => t.TransactionTime).FirstOrDefault();
-                return new PaymentListResponse
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var paymentRepo = _uow.GetRepository<IPaymentRepository>();
+                
+                var userIdClaim = Common.ClaimUtils.GetUserIdClaim(userClaims);
+                if (userIdClaim == null)
+                    return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not authenticated" };
+
+                int userId = int.Parse(userIdClaim);
+
+                var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
+                if (companyUser == null || companyUser.CompanyId == null)
+                    return new ServiceResponse { Status = SRStatus.Error, Message = "User is not associated with any company." };
+
+                int companyId = companyUser.CompanyId.Value;
+
+                var payments = await paymentRepo.GetPaymentsByCompanyAsync(companyId);
+
+                var responseList = payments.Select(p =>
                 {
-                    PaymentId = p.PaymentId,
-                    CompanyId = p.CompanyId,
-                    ComSubId = p.ComSubId,
-                    PaymentStatus = p.PaymentStatus,
-                    SubscriptionStatus = p.CompanySubscription?.SubscriptionStatus,
-                    Amount = transaction?.Amount ?? 0,
-                    Currency = transaction?.Currency,
-                    SubscriptionName = p.CompanySubscription?.Subscription?.Name,
-                    StartDate = p.CompanySubscription?.StartDate,
-                    EndDate = p.CompanySubscription?.EndDate,
-                    TransactionTime = transaction?.TransactionTime
-                };
-            })
-            .ToList();
+                    var transaction = p.Transactions?.OrderByDescending(t => t.TransactionTime).FirstOrDefault();
+                    return new PaymentListResponse
+                    {
+                        PaymentId = p.PaymentId,
+                        CompanyId = p.CompanyId,
+                        ComSubId = p.ComSubId,
+                        PaymentStatus = p.PaymentStatus,
+                        SubscriptionStatus = p.CompanySubscription?.SubscriptionStatus,
+                        Amount = transaction?.Amount ?? 0,
+                        Currency = transaction?.Currency,
+                        SubscriptionName = p.CompanySubscription?.Subscription?.Name,
+                        StartDate = p.CompanySubscription?.StartDate,
+                        EndDate = p.CompanySubscription?.EndDate,
+                        TransactionTime = transaction?.TransactionTime
+                    };
+                })
+                .ToList();
 
-            return new ServiceResponse
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Success,
+                    Message = "Payments retrieved successfully.",
+                    Data = responseList
+                };
+            }
+            catch (Exception ex)
             {
-                Status = SRStatus.Success,
-                Message = "Payments retrieved successfully.",
-                Data = responseList
-            };
+                _logger?.LogError(ex, "Error retrieving payments: {Message}", ex.Message);
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "An error occurred while retrieving payments.",
+                    Data = ex.Message
+                };
+            }
         }
 
         public async Task<ServiceResponse> GetPaymentDetailAsync(ClaimsPrincipal userClaims, int paymentId)

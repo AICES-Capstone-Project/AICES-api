@@ -12,6 +12,7 @@ namespace Data.Models.Response
         public ResumeStatusEnum? ResumeStatus { get; set; }
         public ApplicationStatusEnum? ApplicationStatus { get; set; }
         public ApplicationErrorEnum? ApplicationErrorType { get; set; }
+        public ProcessingModeEnum? ProcessingMode { get; set; }
         public int? CampaignId { get; set; }
         public DateTime? CreatedAt { get; set; }
 

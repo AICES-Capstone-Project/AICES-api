@@ -586,6 +586,22 @@ namespace BusinessObjectLayer.Services
 
                     await _uow.CommitTransactionAsync();
 
+                    // 🔔 If created by HR_Recruiter (roleId = 5), notify all HR_Managers (roleId = 4) in the same company for approval
+                    if (user.RoleId == 5)
+                    {
+                        var hrManagers = await companyUserRepo.GetHrManagerUsersByCompanyIdAsync(companyUser.CompanyId.Value);
+
+                        foreach (var manager in hrManagers)
+                        {
+                            await _notificationService.CreateAsync(
+                                userId: manager.UserId,
+                                type: NotificationTypeEnum.Campaign,
+                                message: "New campaign pending approval",
+                                detail: $"HR Recruiter '{user.Profile?.FullName ?? user.Email}' created a new campaign '{campaign.Title}' that is awaiting your approval."
+                            );
+                        }
+                    }
+
                     return new ServiceResponse
                     {
                         Status = SRStatus.Success,
@@ -1329,7 +1345,7 @@ namespace BusinessObjectLayer.Services
                                         
                         await _notificationService.CreateAsync(
                             userId: creator.UserId,
-                            type: NotificationTypeEnum.Job,
+                            type: NotificationTypeEnum.Campaign,
                             message: $"Campaign {action}",
                             detail: $"Your campaign '{campaign.Title}' has been {action} by the HR Manager."
                         );
