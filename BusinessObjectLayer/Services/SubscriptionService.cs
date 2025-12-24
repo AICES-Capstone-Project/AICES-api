@@ -154,6 +154,18 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
+            // Check if subscription has any associated CompanySubscriptions
+            var companySubscriptionRepo = _uow.GetRepository<ICompanySubscriptionRepository>();
+            var hasCompanySubscriptions = await companySubscriptionRepo.HasAnyBySubscriptionIdAsync(id);
+            if (hasCompanySubscriptions)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Error,
+                    Message = "Cannot update subscription that has associated company subscriptions."
+                };
+            }
+
             subscription.Name = request.Name ?? subscription.Name;
             subscription.Description = request.Description ?? subscription.Description;
             subscription.Price = request.Price;
