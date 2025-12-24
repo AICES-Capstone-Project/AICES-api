@@ -1616,7 +1616,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -1881,7 +1881,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -2102,7 +2102,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -2387,7 +2387,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -2568,7 +2568,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -2815,7 +2815,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -3098,7 +3098,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -3381,7 +3381,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -3790,7 +3790,8 @@ namespace BusinessObjectLayer.Services
                 subscriptionSheet.Cells[subscriptionSheet.Dimension.Address].AutoFitColumns();
 
                 var fileBytes = package.GetAsByteArray();
-                var fileName = $"System_Reports_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+                var vietnamTime = DateTime.UtcNow.AddHours(7);
+                var fileName = $"System_Reports_{vietnamTime:yyyyMMdd_HHmmss}.xlsx";
 
                 return new ServiceResponse
                 {
@@ -3877,6 +3878,19 @@ namespace BusinessObjectLayer.Services
                 var clientEngagement = clientEngagementResponse.Data as ClientEngagementReportResponse;
                 var saasMetrics = saasMetricsResponse.Data as SaasAdminMetricsReportResponse;
 
+                // Download logo từ Cloudinary
+                byte[]? logoBytes = null;
+                try
+                {
+                    var logoUrl = "https://res.cloudinary.com/dhtkfrubh/image/upload/companies/logos/wtwt1u9cl5uovpgrfgdl.png";
+                    using var httpClient = new HttpClient();
+                    logoBytes = await httpClient.GetByteArrayAsync(logoUrl);
+                }
+                catch
+                {
+                    // Nếu không load được logo thì bỏ qua
+                }
+
                 var pdfDocument = Document.Create(container =>
                 {
                     container.Page(page =>
@@ -3885,12 +3899,36 @@ namespace BusinessObjectLayer.Services
                         page.Margin(40);
                         page.DefaultTextStyle(x => x.FontSize(11));
 
-                        page.Header().Element(c => ComposeReportHeader(c, "System Reports Overview"));
-
                         page.Content().Element(c =>
                         {
                             c.Column(column =>
                             {
+                                // Header chỉ xuất hiện ở trang đầu
+                                var vietnamTime = DateTime.UtcNow.AddHours(7);
+                                column.Item().PaddingBottom(10).BorderBottom(1).BorderColor(Colors.Grey.Lighten1).Column(headerColumn =>
+                                {
+                                    // Row chứa logo và text
+                                    headerColumn.Item().Row(row =>
+                                    {
+                                        // Logo bên trái
+                                        if (logoBytes != null)
+                                        {
+                                            row.ConstantItem(120).Height(50).Image(logoBytes);
+                                        }
+                                        
+                                        // Spacing
+                                        row.ConstantItem(15);
+                                        
+                                        // Text bên phải
+                                        row.RelativeItem().Column(textColumn =>
+                                        {
+                                            textColumn.Item().AlignLeft().PaddingTop(5).Text("AI-Powered Candidate Evaluation System").FontSize(10).FontColor(Colors.Grey.Medium);
+                                            textColumn.Item().AlignLeft().Text("System Reports Overview").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                                            textColumn.Item().AlignLeft().Text("Generated on: " + vietnamTime.ToString("MMMM dd, yyyy")).FontSize(9).FontColor(Colors.Grey.Medium);
+                                        });
+                                    });
+                                });
+
                                 column.Item().PaddingTop(10).Text("1. Executive Summary").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
                                 if (executiveSummary != null)
                                 {
@@ -4370,12 +4408,13 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
                 var fileBytes = pdfDocument.GeneratePdf();
-                var fileName = $"System_Reports_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+                var vietnamTime = DateTime.UtcNow.AddHours(7);
+                var fileName = $"System_Reports_{vietnamTime:yyyyMMdd_HHmmss}.pdf";
 
                 return new ServiceResponse
                 {
@@ -4419,15 +4458,20 @@ namespace BusinessObjectLayer.Services
                 });
         }
 
-        private static void ComposeReportFooter(IContainer container, int pageNumber)
+        private static void ComposeReportFooter(IContainer container)
         {
             container
                 .PaddingTop(10)
                 .BorderTop(1)
                 .BorderColor(Colors.Grey.Lighten1)
-                .Row(row =>
+                .AlignCenter()
+                .DefaultTextStyle(x => x.FontSize(9).FontColor(Colors.Grey.Medium))
+                .Text(text =>
                 {
-                    row.RelativeItem().AlignCenter().Text($"Page {pageNumber}").FontSize(9).FontColor(Colors.Grey.Medium);
+                    text.Span("Page ");
+                    text.CurrentPageNumber();
+                    text.Span(" / ");
+                    text.TotalPages();
                 });
         }
 
