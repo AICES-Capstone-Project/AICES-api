@@ -125,8 +125,8 @@ namespace API.Controllers
         /// Export all system reports into a single Excel file.
         /// </summary>
         [HttpGet]
-        [Route("/api/reports/excel")]
-        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        [Route("excel")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> ExportAllSystemReportsToExcel()
         {
             var serviceResponse = await _reportService.ExportAllSystemReportsToExcelAsync();
@@ -149,8 +149,8 @@ namespace API.Controllers
         /// Export all system reports into a single PDF document.
         /// </summary>
         [HttpGet]
-        [Route("/api/reports/pdf")]
-        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
+        [Route("pdf")]
+        [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> ExportAllSystemReportsToPdf()
         {
             var serviceResponse = await _reportService.ExportAllSystemReportsToPdfAsync();
@@ -172,7 +172,7 @@ namespace API.Controllers
         #endregion
 
         
-        [HttpGet("campaigns/{campaignId}/job/{jobId}/excel")]
+        [HttpGet("/api/reports/campaigns/{campaignId}/job/{jobId}/excel")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> ExportJobCandidatesToExcel(int campaignId, int jobId)
         {
@@ -193,7 +193,7 @@ namespace API.Controllers
         }
 
         
-        [HttpGet("campaigns/{campaignId}/job/{jobId}/pdf")]
+        [HttpGet("/api/reports/campaigns/{campaignId}/job/{jobId}/pdf")]
         [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> ExportJobCandidatesToPdf(int campaignId, int jobId)
         {
