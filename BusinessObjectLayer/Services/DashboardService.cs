@@ -298,8 +298,10 @@ namespace BusinessObjectLayer.Services
                     TotalMembers = totalMembers,
                     AiProcessed = aiProcessed,
                     ResumeCreditsRemaining = resumeCreditsRemaining,
+                    MaxResumeCredits = (resumeLimit.HasValue && resumeLimit.Value > 0) ? resumeLimit.Value : -1,
                     ResumeTimeRemaining = resumeTimeRemaining,
                     ComparisonCreditsRemaining = comparisonCreditsRemaining,
+                    MaxComparisonCredits = (!compareLimit.HasValue) ? -1 : (compareLimit.Value == 0 ? 0 : compareLimit.Value),
                     ComparisonTimeRemaining = comparisonTimeRemaining
                 };
 
