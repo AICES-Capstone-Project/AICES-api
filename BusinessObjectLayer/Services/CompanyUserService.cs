@@ -190,7 +190,7 @@ namespace BusinessObjectLayer.Services
                         {
                             await _notificationService.CreateAsync(
                                 userId: manager.UserId,
-                                type: NotificationTypeEnum.Company,
+                                type: NotificationTypeEnum.Member,
                                 message: $"New join request from {recruiterName}",
                                 detail: $"Recruiter {recruiterName} has requested to join your company '{company.Name}'."
                             );
@@ -411,7 +411,7 @@ namespace BusinessObjectLayer.Services
 
                     await _notificationService.CreateAsync(
                         userId: recruiterUserId,
-                        type: NotificationTypeEnum.Company,
+                        type: NotificationTypeEnum.Member,
                         message: message,
                         detail: detail
                     );

@@ -109,7 +109,7 @@ namespace BusinessObjectLayer.Services
                     // Send notification to receiver
                     await _notificationService.CreateWithInvitationAsync(
                         userId: receiver.UserId,
-                        type: NotificationTypeEnum.Invitation,
+                        type: NotificationTypeEnum.Member,
                         message: $"You were invited to join {companyName}",
                         detail: $"{senderName} invited you to join their company.",
                         invitationId: invitation.InvitationId
@@ -327,7 +327,7 @@ namespace BusinessObjectLayer.Services
                     // Send notification to manager (sender)
                     await _notificationService.CreateAsync(
                         userId: invitation.SenderId,
-                        type: NotificationTypeEnum.Company,
+                        type: NotificationTypeEnum.Member,
                         message: $"{receiverName} accepted your invitation",
                         detail: $"{receiverName} has joined {companyName}."
                     );
@@ -395,7 +395,7 @@ namespace BusinessObjectLayer.Services
                     // Send notification to manager (sender)
                     await _notificationService.CreateAsync(
                         userId: invitation.SenderId,
-                        type: NotificationTypeEnum.Company,
+                        type: NotificationTypeEnum.Member,
                         message: $"{receiverName} declined your invitation",
                         detail: $"{receiverName} has declined the invitation to join {companyName}."
                     );

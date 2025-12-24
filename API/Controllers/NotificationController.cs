@@ -57,17 +57,17 @@ namespace API.Controllers
         /// <summary>
         /// Test endpoint: Gửi thông báo cho một userId cụ thể để test SignalR
         /// </summary>
-        [HttpPost("test/send")]
-        // [Authorize(Roles = "System_Admin,System_Manager")]
-        public async Task<IActionResult> SendTestNotification([FromBody] NotificationRequest request)
-        {
-            var response = await _notificationService.CreateAsync(
-                request.UserId,
-                request.Type,
-                request.Message,
-                request.Detail
-            );
-            return ControllerResponse.Response(response);
-        }
+        // [HttpPost("test/send")]
+        // // [Authorize(Roles = "System_Admin,System_Manager")]
+        // public async Task<IActionResult> SendTestNotification([FromBody] NotificationRequest request)
+        // {
+        //     var response = await _notificationService.CreateAsync(
+        //         request.UserId,
+        //         request.Type,
+        //         request.Message,
+        //         request.Detail
+        //     );
+        //     return ControllerResponse.Response(response);
+        // }
     }
 }

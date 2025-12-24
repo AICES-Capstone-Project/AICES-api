@@ -11,6 +11,7 @@ namespace Data.Enum
         Resume,
         Job,
         Campaign,
+        Member,
         Payment,
         Subscription,
         Company,
