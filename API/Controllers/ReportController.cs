@@ -125,8 +125,8 @@ namespace API.Controllers
         /// Export all system reports into a single Excel file.
         /// </summary>
         [HttpGet]
-        [Route("api/reports/excel")]
-        [Authorize(Roles = "System_Admin,System_Manager")]
+        [Route("/api/reports/excel")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> ExportAllSystemReportsToExcel()
         {
             var serviceResponse = await _reportService.ExportAllSystemReportsToExcelAsync();
@@ -149,8 +149,8 @@ namespace API.Controllers
         /// Export all system reports into a single PDF document.
         /// </summary>
         [HttpGet]
-        [Route("api/reports/pdf")]
-        [Authorize(Roles = "System_Admin,System_Manager")]
+        [Route("/api/reports/pdf")]
+        [Authorize(Roles = "HR_Manager, HR_Recruiter")]
         public async Task<IActionResult> ExportAllSystemReportsToPdf()
         {
             var serviceResponse = await _reportService.ExportAllSystemReportsToPdfAsync();
