@@ -10,6 +10,7 @@ namespace Data.Enum
     {
         Resume,
         Job,
+        Campaign,
         Payment,
         Subscription,
         Company,

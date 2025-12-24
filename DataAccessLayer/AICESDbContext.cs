@@ -573,6 +573,12 @@ namespace DataAccessLayer
                 .HasMaxLength(50)
                 .IsRequired(false);
 
+            // Configure enum conversion for DurationEnum
+            modelBuilder.Entity<Subscription>()
+                .Property(s => s.Duration)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
             // ===== USAGE COUNTER RELATIONSHIPS =====
             
             // Company - UsageCounters (one-to-many)

@@ -11,16 +11,16 @@ namespace Data.Enum
     public enum DurationEnum
     {
         [Description("day")]
-        Daily = 1,      // 1 day
+        Daily,
 
         [Description("week")]
-        Weekly = 7,     // 7 days
+        Weekly,
 
         [Description("month")]
-        Monthly = 30,   // 30 days
+        Monthly,
 
         [Description("year")]
-        Yearly = 365    // 365 days
+        Yearly
     }
 
     public static class DurationEnumExtensions
@@ -40,11 +40,51 @@ namespace Data.Enum
         }
 
         /// <summary>
-        /// Chuyển đổi DurationEnum thành số ngày
+        /// Calculate end date from start date using proper date arithmetic.
+        /// This method handles varying month lengths and leap years correctly.
         /// </summary>
+        public static DateTime CalculateEndDate(this DurationEnum duration, DateTime startDate)
+        {
+            return duration switch
+            {
+                DurationEnum.Daily => startDate.AddDays(1),
+                DurationEnum.Weekly => startDate.AddDays(7),
+                DurationEnum.Monthly => startDate.AddMonths(1),  // Handles varying month lengths!
+                DurationEnum.Yearly => startDate.AddYears(1),    // Handles leap years!
+                _ => startDate.AddMonths(1)
+            };
+        }
+
+        /// <summary>
+        /// Chuyển đổi DurationEnum thành số ngày (approximate, for display purposes only).
+        /// DO NOT use this for date calculations - use CalculateEndDate() instead.
+        /// </summary>
+        [Obsolete("Use CalculateEndDate() for accurate date calculations. This method is only for display purposes.")]
         public static int ToDays(this DurationEnum duration)
         {
-            return (int)duration;
+            return duration switch
+            {
+                DurationEnum.Daily => 1,
+                DurationEnum.Weekly => 7,
+                DurationEnum.Monthly => 30,
+                DurationEnum.Yearly => 365,
+                _ => 30
+            };
+        }
+
+        /// <summary>
+        /// Approximate days for display purposes only (not for calculations).
+        /// </summary>
+        public static int ApproximateDays(this DurationEnum duration)
+        {
+            return duration switch
+            {
+                DurationEnum.Daily => 1,
+                DurationEnum.Weekly => 7,
+                DurationEnum.Monthly => 30,
+                DurationEnum.Yearly => 365,
+                _ => 30
+            };
         }
 
         /// <summary>

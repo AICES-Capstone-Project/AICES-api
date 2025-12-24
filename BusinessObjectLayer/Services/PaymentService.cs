@@ -462,7 +462,7 @@ namespace BusinessObjectLayer.Services
                     CompanyId = companyId,
                     SubscriptionId = subscriptionId,
                     StartDate = now,
-                    EndDate = now.AddDays(subscriptionEntity?.Duration.ToDays() ?? 0),
+                    EndDate = subscriptionEntity != null ? subscriptionEntity.Duration.CalculateEndDate(now) : now.AddMonths(1),
                     SubscriptionStatus = SubscriptionStatusEnum.Active,
                     StripeSubscriptionId = stripeSubscriptionId
                 };
@@ -640,7 +640,7 @@ namespace BusinessObjectLayer.Services
                         var endDate = periodEnd;
                         if (!endDate.HasValue && subscriptionDef != null)
                         {
-                            endDate = startDate.AddDays(subscriptionDef.Duration.ToDays());
+                            endDate = subscriptionDef.Duration.CalculateEndDate(startDate);
                         }
                         
                         targetSub = new CompanySubscription
@@ -649,7 +649,7 @@ namespace BusinessObjectLayer.Services
                             SubscriptionId = subscriptionId,
                             StripeSubscriptionId = stripeSubId,
                             StartDate = startDate,
-                            EndDate = endDate ?? startDate.AddDays(subscriptionDef?.Duration.ToDays() ?? 30),
+                            EndDate = endDate ?? (subscriptionDef != null ? subscriptionDef.Duration.CalculateEndDate(startDate) : startDate.AddMonths(1)),
                             SubscriptionStatus = SubscriptionStatusEnum.Active
                         };
                         await companySubRepo.AddAsync(targetSub);
@@ -709,7 +709,7 @@ namespace BusinessObjectLayer.Services
                     var endDate = periodEnd;
                     if (!endDate.HasValue && subscriptionDef != null)
                     {
-                        endDate = startDate.AddDays(subscriptionDef.Duration.ToDays());
+                        endDate = subscriptionDef.Duration.CalculateEndDate(startDate);
                     }
 
                     targetSub = new CompanySubscription
@@ -718,7 +718,7 @@ namespace BusinessObjectLayer.Services
                         SubscriptionId = subscriptionId,
                         StripeSubscriptionId = stripeSubId,
                         StartDate = startDate,
-                        EndDate = endDate ?? startDate.AddDays(subscriptionDef?.Duration.ToDays() ?? 30),
+                        EndDate = endDate ?? (subscriptionDef != null ? subscriptionDef.Duration.CalculateEndDate(startDate) : startDate.AddMonths(1)),
                         SubscriptionStatus = SubscriptionStatusEnum.Active
                     };
 
