@@ -124,7 +124,8 @@ namespace API.Controllers
         /// <summary>
         /// Export all system reports into a single Excel file.
         /// </summary>
-        [HttpGet("excel")]
+        [HttpGet]
+        [Route("api/reports/excel")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> ExportAllSystemReportsToExcel()
         {
@@ -147,7 +148,8 @@ namespace API.Controllers
         /// <summary>
         /// Export all system reports into a single PDF document.
         /// </summary>
-        [HttpGet("pdf")]
+        [HttpGet]
+        [Route("api/reports/pdf")]
         [Authorize(Roles = "System_Admin,System_Manager")]
         public async Task<IActionResult> ExportAllSystemReportsToPdf()
         {
