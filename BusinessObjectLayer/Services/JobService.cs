@@ -1076,6 +1076,28 @@ namespace BusinessObjectLayer.Services
                     return new ServiceResponse { Status = SRStatus.NotFound, Message = "Job not found or does not belong to your company." };
                 }
 
+                // Check if job belongs to any campaign - jobs in campaigns cannot be edited
+                var campaignRepo = _uow.GetRepository<ICampaignRepository>();
+                var allCampaigns = await campaignRepo.GetByCompanyIdAsync(companyUser.CompanyId.Value);
+                var jobInCampaign = false;
+                foreach (var campaign in allCampaigns)
+                {
+                    var jobCampaign = await campaignRepo.GetJobCampaignByJobIdAndCampaignIdAsync(jobId, campaign.CampaignId);
+                    if (jobCampaign != null)
+                    {
+                        jobInCampaign = true;
+                        break; // Found one, no need to check others
+                    }
+                }
+                if (jobInCampaign)
+                {
+                    return new ServiceResponse 
+                    { 
+                        Status = SRStatus.Validation, 
+                        Message = "Jobs that belong to campaigns cannot be edited. Please remove the job from the campaign first if you need to make changes." 
+                    };
+                }
+
                 // Validate specialization if provided
                 if (request.SpecializationId != null)
                 {
