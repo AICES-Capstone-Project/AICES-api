@@ -555,6 +555,13 @@ namespace DataAccessLayer.Repositories
             if (jobCampaign != null)
             {
                 jobCampaign.CurrentHired = hiredCount;
+                
+                // If CurrentHired exceeds TargetQuantity, increase TargetQuantity to match CurrentHired
+                if (hiredCount > jobCampaign.TargetQuantity)
+                {
+                    jobCampaign.TargetQuantity = hiredCount;
+                }
+                
                 _context.JobCampaigns.Update(jobCampaign);
             }
         }
