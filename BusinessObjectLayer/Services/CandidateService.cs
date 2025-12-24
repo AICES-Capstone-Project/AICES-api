@@ -256,7 +256,7 @@ namespace BusinessObjectLayer.Services
                         ResumeId = resume.ResumeId,
                         CompanyId = resume.CompanyId,
                         FileUrl = resume.FileUrl,
-                        QueueJobId = latestApplication?.QueueJobId,
+                        FileName = resume.OriginalFileName,
                         Status = resume.Status,
                         IsLatest = resume.IsLatest,
                         CreatedAt = resume.CreatedAt
@@ -687,7 +687,7 @@ namespace BusinessObjectLayer.Services
                         ResumeId = resume.ResumeId,
                         CompanyId = resume.CompanyId,
                         FileUrl = resume.FileUrl,
-                        QueueJobId = latestApplication?.QueueJobId,
+                        FileName = resume.OriginalFileName,
                         Status = resume.Status,
                         IsLatest = resume.IsLatest,
                         CreatedAt = resume.CreatedAt

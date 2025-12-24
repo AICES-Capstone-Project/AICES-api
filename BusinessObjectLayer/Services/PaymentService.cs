@@ -150,15 +150,15 @@ namespace BusinessObjectLayer.Services
             }
 
             // Check if there's already a pending payment for this company
-            var existingPendingPayment = await paymentRepo.GetLatestPendingByCompanyAsync(companyId);
-            if (existingPendingPayment != null)
-            {
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "You already have a pending payment session. Please complete or cancel the existing payment before creating a new one."
-                };
-            }
+            // var existingPendingPayment = await paymentRepo.GetLatestPendingByCompanyAsync(companyId);
+            // if (existingPendingPayment != null)
+            // {
+            //     return new ServiceResponse
+            //     {
+            //         Status = SRStatus.Error,
+            //         Message = "You already have a pending payment session. Please complete or cancel the existing payment before creating a new one."
+            //     };
+            // }
 
             string domain = Environment.GetEnvironmentVariable("APPURL__CLIENTURL") ?? "https://aices-client.vercel.app";
 
