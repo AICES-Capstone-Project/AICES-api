@@ -1456,6 +1456,27 @@ namespace BusinessObjectLayer.Services
                     jobRepo.UpdateJob(job);
                     await _uow.CommitTransactionAsync();
 
+                    // 🔔 Notify HR_Recruiter (roleId = 5) if they created the job
+                    if (job.CreatedBy.HasValue)
+                    {
+                        var creator = await authRepo.GetByIdNoTrackingAsync(job.CreatedBy.Value);
+                        
+                        if (creator != null && creator.RoleId == 5)
+                        {
+                            string action = status == JobStatusEnum.Published ? "approved" : 
+                                            status == JobStatusEnum.Rejected ? "rejected" : 
+                                            status == JobStatusEnum.Archived ? "archived" :
+                                            status.ToString().ToLower();
+                                            
+                            await _notificationService.CreateAsync(
+                                userId: creator.UserId,
+                                type: NotificationTypeEnum.Job,
+                                message: $"Job {action}",
+                                detail: $"Your job '{job.Title}' has been {action} by the HR Manager."
+                            );
+                        }
+                    }
+
                     return new ServiceResponse
                     {
                         Status = SRStatus.Success,

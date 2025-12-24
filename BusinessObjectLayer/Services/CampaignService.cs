@@ -20,11 +20,13 @@ namespace BusinessObjectLayer.Services
     {
         private readonly IUnitOfWork _uow;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly INotificationService _notificationService;
 
-        public CampaignService(IUnitOfWork uow, IHttpContextAccessor httpContextAccessor)
+        public CampaignService(IUnitOfWork uow, IHttpContextAccessor httpContextAccessor, INotificationService notificationService)
         {
             _uow = uow;
             _httpContextAccessor = httpContextAccessor;
+            _notificationService = notificationService;
         }
 
         public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null, CampaignStatusEnum? status = null, DateTime? startDate = null, DateTime? endDate = null)
@@ -1311,6 +1313,28 @@ namespace BusinessObjectLayer.Services
                 campaign.Status = newStatus.Value;
                 campaignRepo.Update(campaign);
                 await _uow.SaveChangesAsync();
+
+                // 🔔 Notify HR_Recruiter (roleId = 5) if they created the campaign
+                if (campaign.CreatedBy.HasValue)
+                {
+                    var userRepo = _uow.GetRepository<IUserRepository>();
+                    var creator = await userRepo.GetByIdAsync(campaign.CreatedBy.Value);
+                    
+                    if (creator != null && creator.RoleId == 5)
+                    {
+                        string action = newStatus.Value == CampaignStatusEnum.Published ? "approved" : 
+                                        newStatus.Value == CampaignStatusEnum.Rejected ? "rejected" : 
+                                        newStatus.Value == CampaignStatusEnum.Paused ? "paused" :
+                                        newStatus.Value.ToString().ToLower();
+                                        
+                        await _notificationService.CreateAsync(
+                            userId: creator.UserId,
+                            type: NotificationTypeEnum.Job,
+                            message: $"Campaign {action}",
+                            detail: $"Your campaign '{campaign.Title}' has been {action} by the HR Manager."
+                        );
+                    }
+                }
 
                 return new ServiceResponse
                 {
