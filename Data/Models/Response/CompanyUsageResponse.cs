@@ -3,7 +3,7 @@ namespace Data.Models.Response
     public class CompanyUsageResponse
     {
         public int RegisteredOnly { get; set; }
-        public int ActiveCompanies { get; set; }
+        public int EngagedCompanies { get; set; }
         public int FrequentCompanies { get; set; }
         public CompanyUsageKpis Kpis { get; set; } = new();
     }

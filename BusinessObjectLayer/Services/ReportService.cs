@@ -919,19 +919,16 @@ namespace BusinessObjectLayer.Services
                 // 1. Total Companies
                 var totalCompanies = await _reportRepository.GetTotalActiveCompaniesAsync();
 
-                // 2. Active Companies (có ít nhất 1 job published hoặc có subscription active)
-                var activeCompanies = await _reportRepository.GetActiveCompaniesWithJobsOrSubscriptionsAsync();
-
-                // 3. Total Jobs (all active jobs)
+                // 2. Total Jobs (all active jobs)
                 var totalJobs = await _reportRepository.GetTotalActiveJobsAsync();
 
-                // 4. AI Processed Resumes (resumes with score)
+                // 3. AI Processed Resumes (resumes with score)
                 var aiProcessedResumes = await _reportRepository.GetAiProcessedResumesCountAsync();
 
-                // 5. Total Revenue (sum of successful payments via transactions)
+                // 4. Total Revenue (sum of successful payments via transactions)
                 var totalRevenue = await _reportRepository.GetTotalRevenueFromPaidPaymentsAsync();
 
-                // 6. Company Retention Rate (companies that have renewed - have more than 1 subscription in history)
+                // 5. Company Retention Rate (companies that have renewed - have more than 1 subscription in history)
                 var companiesWithSubscriptions = await _reportRepository.GetCompaniesWithSubscriptionsCountAsync();
 
                 var companiesWithMultipleSubscriptions = await _reportRepository.GetCompaniesWithMultipleSubscriptionsCountAsync();
@@ -943,7 +940,6 @@ namespace BusinessObjectLayer.Services
                 var summary = new ExecutiveSummaryResponse
                 {
                     TotalCompanies = totalCompanies,
-                    ActiveCompanies = activeCompanies,
                     TotalJobs = totalJobs,
                     AiProcessedResumes = aiProcessedResumes,
                     TotalRevenue = totalRevenue,
@@ -1082,7 +1078,7 @@ namespace BusinessObjectLayer.Services
                 var usage = new CompanyUsageResponse
                 {
                     RegisteredOnly = registeredOnly,
-                    ActiveCompanies = activeCompanies,
+                    EngagedCompanies = activeCompanies,
                     FrequentCompanies = frequentCompanies,
                     Kpis = new CompanyUsageKpis
                     {
@@ -1484,7 +1480,6 @@ namespace BusinessObjectLayer.Services
                 var reportData = new Dictionary<string, object>
                 {
                     { "Total Companies", data.TotalCompanies },
-                    { "Active Companies", data.ActiveCompanies },
                     { "Total Jobs", data.TotalJobs },
                     { "AI Processed Resumes", data.AiProcessedResumes },
                     { "Total Revenue", data.TotalRevenue },
@@ -1597,9 +1592,6 @@ namespace BusinessObjectLayer.Services
 
                                     table.Cell().Element(CellStyle).Text("Total Companies");
                                     table.Cell().Element(CellStyle).Text(data.TotalCompanies.ToString());
-
-                                    table.Cell().Element(CellStyle).Text("Active Companies");
-                                    table.Cell().Element(CellStyle).Text(data.ActiveCompanies.ToString());
 
                                     table.Cell().Element(CellStyle).Text("Total Jobs");
                                     table.Cell().Element(CellStyle).Text(data.TotalJobs.ToString());
@@ -1950,7 +1942,7 @@ namespace BusinessObjectLayer.Services
                 var usageData = new Dictionary<string, object>
                 {
                     { "Registered Only", data.RegisteredOnly },
-                    { "Active Companies", data.ActiveCompanies },
+                    { "Engaged Companies", data.EngagedCompanies },
                     { "Frequent Companies", data.FrequentCompanies }
                 };
 
@@ -2074,8 +2066,8 @@ namespace BusinessObjectLayer.Services
                                     table.Cell().Element(CellStyle).Text("Registered Only");
                                     table.Cell().Element(CellStyle).Text(data.RegisteredOnly.ToString());
 
-                                    table.Cell().Element(CellStyle).Text("Active Companies");
-                                    table.Cell().Element(CellStyle).Text(data.ActiveCompanies.ToString());
+                                    table.Cell().Element(CellStyle).Text("Engaged Companies");
+                                    table.Cell().Element(CellStyle).Text(data.EngagedCompanies.ToString());
 
                                     table.Cell().Element(CellStyle).Text("Frequent Companies");
                                     table.Cell().Element(CellStyle).Text(data.FrequentCompanies.ToString());
@@ -3494,8 +3486,6 @@ namespace BusinessObjectLayer.Services
                 {
                     execSheet.Cells[row, 1].Value = "Total Companies";
                     execSheet.Cells[row++, 2].Value = executiveSummary.TotalCompanies;
-                    execSheet.Cells[row, 1].Value = "Active Companies";
-                    execSheet.Cells[row++, 2].Value = executiveSummary.ActiveCompanies;
                     execSheet.Cells[row, 1].Value = "Total Jobs";
                     execSheet.Cells[row++, 2].Value = executiveSummary.TotalJobs;
                     execSheet.Cells[row, 1].Value = "AI Processed Resumes";
@@ -3542,8 +3532,8 @@ namespace BusinessObjectLayer.Services
                 {
                     usageSheet.Cells[uRow, 1].Value = "Registered Only";
                     usageSheet.Cells[uRow++, 2].Value = companiesUsage.RegisteredOnly;
-                    usageSheet.Cells[uRow, 1].Value = "Active Companies";
-                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.ActiveCompanies;
+                    usageSheet.Cells[uRow, 1].Value = "Engaged Companies";
+                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.EngagedCompanies;
                     usageSheet.Cells[uRow, 1].Value = "Frequent Companies";
                     usageSheet.Cells[uRow++, 2].Value = companiesUsage.FrequentCompanies;
                     usageSheet.Cells[uRow, 1].Value = "Active Rate";
@@ -3949,9 +3939,6 @@ namespace BusinessObjectLayer.Services
                                         table.Cell().Element(CellStyle).Text("Total Companies");
                                         table.Cell().Element(CellStyle).Text(executiveSummary.TotalCompanies.ToString());
 
-                                        table.Cell().Element(CellStyle).Text("Active Companies");
-                                        table.Cell().Element(CellStyle).Text(executiveSummary.ActiveCompanies.ToString());
-
                                         table.Cell().Element(CellStyle).Text("Total Jobs");
                                         table.Cell().Element(CellStyle).Text(executiveSummary.TotalJobs.ToString());
 
@@ -4018,8 +4005,8 @@ namespace BusinessObjectLayer.Services
                                         table.Cell().Element(CellStyle).Text("Registered Only");
                                         table.Cell().Element(CellStyle).Text(companiesUsage.RegisteredOnly.ToString());
 
-                                        table.Cell().Element(CellStyle).Text("Active Companies");
-                                        table.Cell().Element(CellStyle).Text(companiesUsage.ActiveCompanies.ToString());
+                                        table.Cell().Element(CellStyle).Text("Engaged Companies");
+                                        table.Cell().Element(CellStyle).Text(companiesUsage.EngagedCompanies.ToString());
 
                                         table.Cell().Element(CellStyle).Text("Frequent Companies");
                                         table.Cell().Element(CellStyle).Text(companiesUsage.FrequentCompanies.ToString());
