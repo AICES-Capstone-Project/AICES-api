@@ -6,6 +6,5 @@ namespace Data.Models.Response
         public int TotalJobs { get; set; }
         public int AiProcessedResumes { get; set; }
         public decimal TotalRevenue { get; set; }
-        public decimal CompanyRetentionRate { get; set; }
     }
 }

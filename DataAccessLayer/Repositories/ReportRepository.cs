@@ -490,27 +490,38 @@ namespace DataAccessLayer.Repositories
 
         public async Task<List<PlanStatistic>> GetPlanStatisticsAsync()
         {
-            var planStats = await (from cs in _context.CompanySubscriptions
-                                  join s in _context.Subscriptions on cs.SubscriptionId equals s.SubscriptionId
-                                  where cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active
-                                  group cs by new { s.SubscriptionId, s.Name } into g
-                                  select new
-                                  {
-                                      SubscriptionId = g.Key.SubscriptionId,
-                                      PlanName = g.Key.Name,
-                                      SubscriberCount = g.Select(x => x.CompanyId).Distinct().Count()
-                                  })
-                                  .ToListAsync();
+            // Get all active subscriptions
+            var allSubscriptions = await _context.Subscriptions
+                .AsNoTracking()
+                .Where(s => s.IsActive)
+                .Select(s => new
+                {
+                    s.SubscriptionId,
+                    s.Name
+                })
+                .ToListAsync();
 
+            // Get company count per subscription (only active subscriptions)
+            var companyCountDict = await _context.CompanySubscriptions
+                .AsNoTracking()
+                .Where(cs => cs.IsActive && cs.SubscriptionStatus == SubscriptionStatusEnum.Active)
+                .GroupBy(cs => cs.SubscriptionId)
+                .Select(g => new
+                {
+                    SubscriptionId = g.Key,
+                    CompanyCount = g.Select(x => x.CompanyId).Distinct().Count()
+                })
+                .ToDictionaryAsync(x => x.SubscriptionId, x => x.CompanyCount);
+
+            // Get revenue per subscription (only paid transactions)
             var planRevenueDict = await (from t in _context.Transactions
                                         join p in _context.Payments on t.PaymentId equals p.PaymentId
                                         join cs in _context.CompanySubscriptions on p.ComSubId equals cs.ComSubId
-                                        join s in _context.Subscriptions on cs.SubscriptionId equals s.SubscriptionId
                                         where t.IsActive &&
                                               p.IsActive &&
                                               p.PaymentStatus == PaymentStatusEnum.Paid &&
                                               cs.IsActive
-                                        group t by s.SubscriptionId into g
+                                        group t by cs.SubscriptionId into g
                                         select new
                                         {
                                             SubscriptionId = g.Key,
@@ -518,12 +529,13 @@ namespace DataAccessLayer.Repositories
                                         })
                                         .ToDictionaryAsync(x => x.SubscriptionId, x => x.Revenue);
 
-            return planStats.Select(ps => new PlanStatistic
+            // Combine all data - show all subscriptions even with 0 companies and 0 revenue
+            return allSubscriptions.Select(s => new PlanStatistic
             {
-                SubscriptionId = ps.SubscriptionId,
-                PlanName = ps.PlanName,
-                CompanyCount = ps.SubscriberCount,
-                Revenue = planRevenueDict.TryGetValue(ps.SubscriptionId, out var revenue) ? revenue : 0
+                SubscriptionId = s.SubscriptionId,
+                PlanName = s.Name,
+                CompanyCount = companyCountDict.TryGetValue(s.SubscriptionId, out var count) ? count : 0,
+                Revenue = planRevenueDict.TryGetValue(s.SubscriptionId, out var revenue) ? revenue : 0
             }).ToList();
         }
 
