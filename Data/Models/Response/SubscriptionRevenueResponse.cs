@@ -5,7 +5,6 @@ namespace Data.Models.Response
         public int FreeCompanies { get; set; }
         public int PaidCompanies { get; set; }
         public decimal MonthlyRevenue { get; set; }
-        public decimal RenewalRate { get; set; }
         public string PopularPlan { get; set; } = string.Empty;
         public SubscriptionBreakdown Breakdown { get; set; } = new();
     }

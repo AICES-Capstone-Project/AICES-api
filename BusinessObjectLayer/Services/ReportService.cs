@@ -928,22 +928,12 @@ namespace BusinessObjectLayer.Services
                 // 4. Total Revenue (sum of successful payments via transactions)
                 var totalRevenue = await _reportRepository.GetTotalRevenueFromPaidPaymentsAsync();
 
-                // 5. Company Retention Rate (companies that have renewed - have more than 1 subscription in history)
-                var companiesWithSubscriptions = await _reportRepository.GetCompaniesWithSubscriptionsCountAsync();
-
-                var companiesWithMultipleSubscriptions = await _reportRepository.GetCompaniesWithMultipleSubscriptionsCountAsync();
-
-                decimal retentionRate = companiesWithSubscriptions > 0 
-                    ? Math.Round((decimal)companiesWithMultipleSubscriptions / companiesWithSubscriptions, 2)
-                    : 0;
-
                 var summary = new ExecutiveSummaryResponse
                 {
                     TotalCompanies = totalCompanies,
                     TotalJobs = totalJobs,
                     AiProcessedResumes = aiProcessedResumes,
-                    TotalRevenue = totalRevenue,
-                    CompanyRetentionRate = retentionRate
+                    TotalRevenue = totalRevenue
                 };
 
                 return new ServiceResponse
@@ -1383,21 +1373,12 @@ namespace BusinessObjectLayer.Services
                 // 4. Monthly Revenue (transactions trong tháng này với payment status = Paid)
                 var monthlyRevenue = await _reportRepository.GetMonthlyRevenueAsync(now.Year, now.Month);
 
-                // 5. Renewal Rate (công ty có > 1 subscription / tổng công ty có subscription)
-                var companiesWithSubscriptions = await _reportRepository.GetCompaniesWithSubscriptionsForRevenueAsync();
-
-                var companiesWithMultipleSubscriptions = await _reportRepository.GetCompaniesWithMultipleSubscriptionsForRevenueAsync();
-
-                decimal renewalRate = companiesWithSubscriptions > 0
-                    ? Math.Round((decimal)companiesWithMultipleSubscriptions / companiesWithSubscriptions, 2)
-                    : 0;
-
-                // 6. Popular Plan and Plan Statistics
+                // 5. Popular Plan and Plan Statistics
                 var planStatistics = await _reportRepository.GetPlanStatisticsAsync();
 
                 var popularPlan = planStatistics.OrderByDescending(p => p.CompanyCount).FirstOrDefault()?.PlanName ?? "N/A";
 
-                // 8. Total Revenue (all time)
+                // 6. Total Revenue (all time)
                 var totalRevenue = await _reportRepository.GetTotalRevenueAsync();
 
                 decimal avgRevenuePerCompany = paidCompanies > 0
@@ -1409,7 +1390,6 @@ namespace BusinessObjectLayer.Services
                     FreeCompanies = freeCompanies,
                     PaidCompanies = paidCompanies,
                     MonthlyRevenue = monthlyRevenue,
-                    RenewalRate = renewalRate,
                     PopularPlan = popularPlan,
                     Breakdown = new SubscriptionBreakdown
                     {
@@ -1482,8 +1462,7 @@ namespace BusinessObjectLayer.Services
                     { "Total Companies", data.TotalCompanies },
                     { "Total Jobs", data.TotalJobs },
                     { "AI Processed Resumes", data.AiProcessedResumes },
-                    { "Total Revenue", data.TotalRevenue },
-                    { "Company Retention Rate", $"{data.CompanyRetentionRate:P2}" }
+                    { "Total Revenue", data.TotalRevenue }
                 };
 
                 // Headers
@@ -1601,9 +1580,6 @@ namespace BusinessObjectLayer.Services
 
                                     table.Cell().Element(CellStyle).Text("Total Revenue");
                                     table.Cell().Element(CellStyle).Text($"${data.TotalRevenue:N2}");
-
-                                    table.Cell().Element(CellStyle).Text("Company Retention Rate");
-                                    table.Cell().Element(CellStyle).Text($"{data.CompanyRetentionRate:P2}");
                                 });
                             });
                         });
@@ -3161,7 +3137,6 @@ namespace BusinessObjectLayer.Services
                     { "Free Companies", data.FreeCompanies },
                     { "Paid Companies", data.PaidCompanies },
                     { "Monthly Revenue", $"${data.MonthlyRevenue:N2}" },
-                    { "Renewal Rate", $"{data.RenewalRate:P2}" },
                     { "Popular Plan", data.PopularPlan }
                 };
 
@@ -3320,9 +3295,6 @@ namespace BusinessObjectLayer.Services
                                     table.Cell().Element(CellStyle).Text("Monthly Revenue");
                                     table.Cell().Element(CellStyle).Text($"${data.MonthlyRevenue:N2}");
 
-                                    table.Cell().Element(CellStyle).Text("Renewal Rate");
-                                    table.Cell().Element(CellStyle).Text($"{data.RenewalRate:P2}");
-
                                     table.Cell().Element(CellStyle).Text("Popular Plan");
                                     table.Cell().Element(CellStyle).Text(data.PopularPlan);
                                 });
@@ -3467,294 +3439,969 @@ namespace BusinessObjectLayer.Services
 
                 using var package = new ExcelPackage();
 
+                // ============= EXECUTIVE SUMMARY SHEET =============
                 var execSheet = package.Workbook.Worksheets.Add("Executive Summary");
+                
+                // Title section with beautiful styling
                 execSheet.Cells[1, 1].Value = "Executive Summary";
                 execSheet.Cells[1, 1, 1, 2].Merge = true;
-                execSheet.Cells[1, 1].Style.Font.Bold = true;
-                execSheet.Cells[1, 1].Style.Font.Size = 16;
+                using (var titleRange = execSheet.Cells[1, 1, 1, 2])
+                {
+                    titleRange.Style.Font.Bold = true;
+                    titleRange.Style.Font.Size = 18;
+                    titleRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    titleRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(46, 125, 50)); // Material Green
+                    titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                }
+                execSheet.Row(1).Height = 30;
 
                 execSheet.Cells[2, 1].Value = "Generated Date";
                 execSheet.Cells[2, 2].Value = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC");
                 execSheet.Cells[2, 1].Style.Font.Bold = true;
+                execSheet.Cells[2, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                execSheet.Cells[2, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(245, 245, 245));
 
                 int row = 4;
+                // Header row
                 execSheet.Cells[row, 1].Value = "Metric";
                 execSheet.Cells[row, 2].Value = "Value";
-                execSheet.Cells[row, 1, row, 2].Style.Font.Bold = true;
+                using (var headerRange = execSheet.Cells[row, 1, row, 2])
+                {
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(66, 165, 245)); // Material Blue
+                    headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    headerRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                    headerRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                }
+                execSheet.Row(row).Height = 25;
                 row++;
+                
+                int dataStartRow = row;
                 if (executiveSummary != null)
                 {
                     execSheet.Cells[row, 1].Value = "Total Companies";
-                    execSheet.Cells[row++, 2].Value = executiveSummary.TotalCompanies;
+                    execSheet.Cells[row, 2].Value = executiveSummary.TotalCompanies;
+                    execSheet.Cells[row, 2].Style.Numberformat.Format = "#,##0";
+                    row++;
+                    
                     execSheet.Cells[row, 1].Value = "Total Jobs";
-                    execSheet.Cells[row++, 2].Value = executiveSummary.TotalJobs;
+                    execSheet.Cells[row, 2].Value = executiveSummary.TotalJobs;
+                    execSheet.Cells[row, 2].Style.Numberformat.Format = "#,##0";
+                    row++;
+                    
                     execSheet.Cells[row, 1].Value = "AI Processed Resumes";
-                    execSheet.Cells[row++, 2].Value = executiveSummary.AiProcessedResumes;
+                    execSheet.Cells[row, 2].Value = executiveSummary.AiProcessedResumes;
+                    execSheet.Cells[row, 2].Style.Numberformat.Format = "#,##0";
+                    row++;
+                    
                     execSheet.Cells[row, 1].Value = "Total Revenue";
-                    execSheet.Cells[row++, 2].Value = executiveSummary.TotalRevenue;
-                    execSheet.Cells[row, 1].Value = "Company Retention Rate";
-                    execSheet.Cells[row++, 2].Value = $"{executiveSummary.CompanyRetentionRate:P2}";
+                    execSheet.Cells[row, 2].Value = executiveSummary.TotalRevenue;
+                    execSheet.Cells[row, 2].Style.Numberformat.Format = "$#,##0.00";
+                    row++;
                 }
-                execSheet.Cells[execSheet.Dimension.Address].AutoFitColumns();
+                
+                // Apply alternating row colors and borders
+                for (int r = dataStartRow; r < row; r++)
+                {
+                    var rowRange = execSheet.Cells[r, 1, r, 2];
+                    if ((r - dataStartRow) % 2 == 0)
+                    {
+                        rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                    }
+                    rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                    execSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+                
+                execSheet.Column(1).Width = 30;
+                execSheet.Column(2).Width = 25;
+                execSheet.View.FreezePanes(5, 1);
 
+                // ============= COMPANIES OVERVIEW SHEET =============
                 var overviewSheet = package.Workbook.Worksheets.Add("Companies Overview");
+                
+                // Title
                 overviewSheet.Cells[1, 1].Value = "Companies Overview";
                 overviewSheet.Cells[1, 1, 1, 2].Merge = true;
-                overviewSheet.Cells[1, 1].Style.Font.Bold = true;
-                overviewSheet.Cells[1, 1].Style.Font.Size = 16;
+                using (var titleRange = overviewSheet.Cells[1, 1, 1, 2])
+                {
+                    titleRange.Style.Font.Bold = true;
+                    titleRange.Style.Font.Size = 18;
+                    titleRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    titleRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(46, 125, 50));
+                    titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                }
+                overviewSheet.Row(1).Height = 30;
 
-                overviewSheet.Cells[2, 1].Value = "Metric";
-                overviewSheet.Cells[2, 2].Value = "Value";
-                overviewSheet.Cells[2, 1, 2, 2].Style.Font.Bold = true;
+                // Header row
                 int oRow = 3;
+                overviewSheet.Cells[oRow, 1].Value = "Metric";
+                overviewSheet.Cells[oRow, 2].Value = "Value";
+                using (var headerRange = overviewSheet.Cells[oRow, 1, oRow, 2])
+                {
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(66, 165, 245));
+                    headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    headerRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                    headerRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                }
+                overviewSheet.Row(oRow).Height = 25;
+                oRow++;
+                
+                int oDataStart = oRow;
                 if (companiesOverview != null)
                 {
                     overviewSheet.Cells[oRow, 1].Value = "Total Companies";
-                    overviewSheet.Cells[oRow++, 2].Value = companiesOverview.TotalCompanies;
+                    overviewSheet.Cells[oRow, 2].Value = companiesOverview.TotalCompanies;
+                    overviewSheet.Cells[oRow, 2].Style.Numberformat.Format = "#,##0";
+                    oRow++;
+                    
                     overviewSheet.Cells[oRow, 1].Value = "Active Companies";
-                    overviewSheet.Cells[oRow++, 2].Value = companiesOverview.ActiveCompanies;
+                    overviewSheet.Cells[oRow, 2].Value = companiesOverview.ActiveCompanies;
+                    overviewSheet.Cells[oRow, 2].Style.Numberformat.Format = "#,##0";
+                    oRow++;
+                    
                     overviewSheet.Cells[oRow, 1].Value = "Inactive Companies";
-                    overviewSheet.Cells[oRow++, 2].Value = companiesOverview.InactiveCompanies;
+                    overviewSheet.Cells[oRow, 2].Value = companiesOverview.InactiveCompanies;
+                    overviewSheet.Cells[oRow, 2].Style.Numberformat.Format = "#,##0";
+                    oRow++;
+                    
                     overviewSheet.Cells[oRow, 1].Value = "New Companies This Month";
-                    overviewSheet.Cells[oRow++, 2].Value = companiesOverview.NewCompaniesThisMonth;
+                    overviewSheet.Cells[oRow, 2].Value = companiesOverview.NewCompaniesThisMonth;
+                    overviewSheet.Cells[oRow, 2].Style.Numberformat.Format = "#,##0";
+                    oRow++;
                 }
-                overviewSheet.Cells[overviewSheet.Dimension.Address].AutoFitColumns();
+                
+                // Apply styling
+                for (int r = oDataStart; r < oRow; r++)
+                {
+                    var rowRange = overviewSheet.Cells[r, 1, r, 2];
+                    if ((r - oDataStart) % 2 == 0)
+                    {
+                        rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                    }
+                    rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                    overviewSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+                
+                overviewSheet.Column(1).Width = 30;
+                overviewSheet.Column(2).Width = 25;
+                overviewSheet.View.FreezePanes(4, 1);
 
-                // Companies Usage sheet
+                // ============= COMPANIES USAGE SHEET =============
                 var usageSheet = package.Workbook.Worksheets.Add("Companies Usage");
-                usageSheet.Cells[1, 1].Value = "Companies Usage (summary)";
-                usageSheet.Cells[1, 1].Style.Font.Bold = true;
-                usageSheet.Cells[3, 1].Value = "Metric";
-                usageSheet.Cells[3, 2].Value = "Value";
-                usageSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
-                int uRow = 4;
+                
+                // Title
+                usageSheet.Cells[1, 1].Value = "Companies Usage Summary";
+                usageSheet.Cells[1, 1, 1, 2].Merge = true;
+                using (var titleRange = usageSheet.Cells[1, 1, 1, 2])
+                {
+                    titleRange.Style.Font.Bold = true;
+                    titleRange.Style.Font.Size = 18;
+                    titleRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    titleRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(46, 125, 50));
+                    titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                }
+                usageSheet.Row(1).Height = 30;
+
+                // Header
+                int uRow = 3;
+                usageSheet.Cells[uRow, 1].Value = "Metric";
+                usageSheet.Cells[uRow, 2].Value = "Value";
+                using (var headerRange = usageSheet.Cells[uRow, 1, uRow, 2])
+                {
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(66, 165, 245));
+                    headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    headerRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                    headerRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                }
+                usageSheet.Row(uRow).Height = 25;
+                uRow++;
+                
+                int uDataStart = uRow;
                 if (companiesUsage != null)
                 {
                     usageSheet.Cells[uRow, 1].Value = "Registered Only";
-                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.RegisteredOnly;
+                    usageSheet.Cells[uRow, 2].Value = companiesUsage.RegisteredOnly;
+                    usageSheet.Cells[uRow, 2].Style.Numberformat.Format = "#,##0";
+                    uRow++;
+                    
                     usageSheet.Cells[uRow, 1].Value = "Engaged Companies";
-                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.EngagedCompanies;
+                    usageSheet.Cells[uRow, 2].Value = companiesUsage.EngagedCompanies;
+                    usageSheet.Cells[uRow, 2].Style.Numberformat.Format = "#,##0";
+                    uRow++;
+                    
                     usageSheet.Cells[uRow, 1].Value = "Frequent Companies";
-                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.FrequentCompanies;
+                    usageSheet.Cells[uRow, 2].Value = companiesUsage.FrequentCompanies;
+                    usageSheet.Cells[uRow, 2].Style.Numberformat.Format = "#,##0";
+                    uRow++;
+                    
                     usageSheet.Cells[uRow, 1].Value = "Active Rate";
-                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.Kpis.ActiveRate;
+                    usageSheet.Cells[uRow, 2].Value = companiesUsage.Kpis.ActiveRate;
+                    usageSheet.Cells[uRow, 2].Style.Numberformat.Format = "0.00%";
+                    uRow++;
+                    
                     usageSheet.Cells[uRow, 1].Value = "AI Usage Rate";
-                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.Kpis.AiUsageRate;
+                    usageSheet.Cells[uRow, 2].Value = companiesUsage.Kpis.AiUsageRate;
+                    usageSheet.Cells[uRow, 2].Style.Numberformat.Format = "0.00%";
+                    uRow++;
+                    
                     usageSheet.Cells[uRow, 1].Value = "Returning Rate";
-                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.Kpis.ReturningRate;
+                    usageSheet.Cells[uRow, 2].Value = companiesUsage.Kpis.ReturningRate;
+                    usageSheet.Cells[uRow, 2].Style.Numberformat.Format = "0.00%";
+                    uRow++;
                 }
-                usageSheet.Cells[usageSheet.Dimension.Address].AutoFitColumns();
+                
+                // Apply styling
+                for (int r = uDataStart; r < uRow; r++)
+                {
+                    var rowRange = usageSheet.Cells[r, 1, r, 2];
+                    if ((r - uDataStart) % 2 == 0)
+                    {
+                        rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                    }
+                    rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                    usageSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+                
+                usageSheet.Column(1).Width = 30;
+                usageSheet.Column(2).Width = 25;
+                usageSheet.View.FreezePanes(4, 1);
 
-                // Jobs Statistics sheet
+                // ============= JOBS STATISTICS SHEET =============
                 var jobsStatsSheet = package.Workbook.Worksheets.Add("Jobs Statistics");
-                jobsStatsSheet.Cells[1, 1].Value = "Jobs Statistics (summary)";
-                jobsStatsSheet.Cells[1, 1].Style.Font.Bold = true;
-                jobsStatsSheet.Cells[3, 1].Value = "Metric";
-                jobsStatsSheet.Cells[3, 2].Value = "Value";
-                jobsStatsSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
-                int jsRow = 4;
+                
+                // Title
+                jobsStatsSheet.Cells[1, 1].Value = "Jobs Statistics Summary";
+                jobsStatsSheet.Cells[1, 1, 1, 2].Merge = true;
+                using (var titleRange = jobsStatsSheet.Cells[1, 1, 1, 2])
+                {
+                    titleRange.Style.Font.Bold = true;
+                    titleRange.Style.Font.Size = 18;
+                    titleRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    titleRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(46, 125, 50));
+                    titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                }
+                jobsStatsSheet.Row(1).Height = 30;
+
+                // Header
+                int jsRow = 3;
+                jobsStatsSheet.Cells[jsRow, 1].Value = "Metric";
+                jobsStatsSheet.Cells[jsRow, 2].Value = "Value";
+                using (var headerRange = jobsStatsSheet.Cells[jsRow, 1, jsRow, 2])
+                {
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(66, 165, 245));
+                    headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    headerRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                    headerRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                }
+                jobsStatsSheet.Row(jsRow).Height = 25;
+                jsRow++;
+                
+                int jsDataStart = jsRow;
                 if (jobsStatistics != null)
                 {
                     jobsStatsSheet.Cells[jsRow, 1].Value = "Total Jobs";
-                    jobsStatsSheet.Cells[jsRow++, 2].Value = jobsStatistics.TotalJobs;
+                    jobsStatsSheet.Cells[jsRow, 2].Value = jobsStatistics.TotalJobs;
+                    jobsStatsSheet.Cells[jsRow, 2].Style.Numberformat.Format = "#,##0";
+                    jsRow++;
+                    
                     jobsStatsSheet.Cells[jsRow, 1].Value = "Active Jobs";
-                    jobsStatsSheet.Cells[jsRow++, 2].Value = jobsStatistics.ActiveJobs;
+                    jobsStatsSheet.Cells[jsRow, 2].Value = jobsStatistics.ActiveJobs;
+                    jobsStatsSheet.Cells[jsRow, 2].Style.Numberformat.Format = "#,##0";
+                    jsRow++;
+                    
                     jobsStatsSheet.Cells[jsRow, 1].Value = "Draft Jobs";
-                    jobsStatsSheet.Cells[jsRow++, 2].Value = jobsStatistics.DraftJobs;
+                    jobsStatsSheet.Cells[jsRow, 2].Value = jobsStatistics.DraftJobs;
+                    jobsStatsSheet.Cells[jsRow, 2].Style.Numberformat.Format = "#,##0";
+                    jsRow++;
+                    
                     jobsStatsSheet.Cells[jsRow, 1].Value = "Closed Jobs";
-                    jobsStatsSheet.Cells[jsRow++, 2].Value = jobsStatistics.ClosedJobs;
+                    jobsStatsSheet.Cells[jsRow, 2].Value = jobsStatistics.ClosedJobs;
+                    jobsStatsSheet.Cells[jsRow, 2].Style.Numberformat.Format = "#,##0";
+                    jsRow++;
+                    
                     jobsStatsSheet.Cells[jsRow, 1].Value = "New Jobs This Month";
-                    jobsStatsSheet.Cells[jsRow++, 2].Value = jobsStatistics.NewJobsThisMonth;
+                    jobsStatsSheet.Cells[jsRow, 2].Value = jobsStatistics.NewJobsThisMonth;
+                    jobsStatsSheet.Cells[jsRow, 2].Style.Numberformat.Format = "#,##0";
+                    jsRow++;
+                    
                     jobsStatsSheet.Cells[jsRow, 1].Value = "Avg Applications / Job";
-                    jobsStatsSheet.Cells[jsRow++, 2].Value = jobsStatistics.AverageApplicationsPerJob;
+                    jobsStatsSheet.Cells[jsRow, 2].Value = jobsStatistics.AverageApplicationsPerJob;
+                    jobsStatsSheet.Cells[jsRow, 2].Style.Numberformat.Format = "#,##0.00";
+                    jsRow++;
                 }
-                jobsStatsSheet.Cells[jobsStatsSheet.Dimension.Address].AutoFitColumns();
+                
+                // Apply styling
+                for (int r = jsDataStart; r < jsRow; r++)
+                {
+                    var rowRange = jobsStatsSheet.Cells[r, 1, r, 2];
+                    if ((r - jsDataStart) % 2 == 0)
+                    {
+                        rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                    }
+                    rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                    jobsStatsSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+                
+                jobsStatsSheet.Column(1).Width = 30;
+                jobsStatsSheet.Column(2).Width = 25;
+                jobsStatsSheet.View.FreezePanes(4, 1);
 
-                // Jobs Effectiveness sheet
+                // ============= JOBS EFFECTIVENESS SHEET =============
                 var jobsEffSheet = package.Workbook.Worksheets.Add("Jobs Effectiveness");
-                jobsEffSheet.Cells[1, 1].Value = "Jobs Effectiveness (summary)";
-                jobsEffSheet.Cells[1, 1].Style.Font.Bold = true;
-                jobsEffSheet.Cells[3, 1].Value = "Metric";
-                jobsEffSheet.Cells[3, 2].Value = "Value";
-                jobsEffSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
-                int jeRow = 4;
+                
+                // Title
+                jobsEffSheet.Cells[1, 1].Value = "Jobs Effectiveness Summary";
+                jobsEffSheet.Cells[1, 1, 1, 2].Merge = true;
+                using (var titleRange = jobsEffSheet.Cells[1, 1, 1, 2])
+                {
+                    titleRange.Style.Font.Bold = true;
+                    titleRange.Style.Font.Size = 18;
+                    titleRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    titleRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(46, 125, 50));
+                    titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                }
+                jobsEffSheet.Row(1).Height = 30;
+
+                // Header
+                int jeRow = 3;
+                jobsEffSheet.Cells[jeRow, 1].Value = "Metric";
+                jobsEffSheet.Cells[jeRow, 2].Value = "Value";
+                using (var headerRange = jobsEffSheet.Cells[jeRow, 1, jeRow, 2])
+                {
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(66, 165, 245));
+                    headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    headerRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                    headerRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                }
+                jobsEffSheet.Row(jeRow).Height = 25;
+                jeRow++;
+                
+                int jeDataStart = jeRow;
                 if (jobsEffectiveness != null)
                 {
                     jobsEffSheet.Cells[jeRow, 1].Value = "Avg Resumes / Job";
-                    jobsEffSheet.Cells[jeRow++, 2].Value = jobsEffectiveness.AverageResumesPerJob;
+                    jobsEffSheet.Cells[jeRow, 2].Value = jobsEffectiveness.AverageResumesPerJob;
+                    jobsEffSheet.Cells[jeRow, 2].Style.Numberformat.Format = "#,##0.00";
+                    jeRow++;
+                    
                     jobsEffSheet.Cells[jeRow, 1].Value = "Qualified Rate";
-                    jobsEffSheet.Cells[jeRow++, 2].Value = jobsEffectiveness.QualifiedRate;
+                    jobsEffSheet.Cells[jeRow, 2].Value = jobsEffectiveness.QualifiedRate;
+                    jobsEffSheet.Cells[jeRow, 2].Style.Numberformat.Format = "0.00%";
+                    jeRow++;
+                    
                     jobsEffSheet.Cells[jeRow, 1].Value = "Success Hiring Rate";
-                    jobsEffSheet.Cells[jeRow++, 2].Value = jobsEffectiveness.SuccessHiringRate;
+                    jobsEffSheet.Cells[jeRow, 2].Value = jobsEffectiveness.SuccessHiringRate;
+                    jobsEffSheet.Cells[jeRow, 2].Style.Numberformat.Format = "0.00%";
+                    jeRow++;
                 }
-                jobsEffSheet.Cells[jobsEffSheet.Dimension.Address].AutoFitColumns();
+                
+                // Apply styling
+                for (int r = jeDataStart; r < jeRow; r++)
+                {
+                    var rowRange = jobsEffSheet.Cells[r, 1, r, 2];
+                    if ((r - jeDataStart) % 2 == 0)
+                    {
+                        rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                    }
+                    rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                    jobsEffSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+                
+                jobsEffSheet.Column(1).Width = 30;
+                jobsEffSheet.Column(2).Width = 25;
+                jobsEffSheet.View.FreezePanes(4, 1);
 
-                // AI Parsing sheet
+                // ============= AI PARSING SHEET =============
                 var aiParsingSheet = package.Workbook.Worksheets.Add("AI Parsing");
-                aiParsingSheet.Cells[1, 1].Value = "AI Parsing Quality (summary)";
-                aiParsingSheet.Cells[1, 1].Style.Font.Bold = true;
-                aiParsingSheet.Cells[3, 1].Value = "Metric";
-                aiParsingSheet.Cells[3, 2].Value = "Value";
-                aiParsingSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
-                int apRow = 4;
+                
+                // Title
+                aiParsingSheet.Cells[1, 1].Value = "AI Parsing Quality Summary";
+                aiParsingSheet.Cells[1, 1, 1, 2].Merge = true;
+                using (var titleRange = aiParsingSheet.Cells[1, 1, 1, 2])
+                {
+                    titleRange.Style.Font.Bold = true;
+                    titleRange.Style.Font.Size = 18;
+                    titleRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    titleRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(46, 125, 50));
+                    titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                }
+                aiParsingSheet.Row(1).Height = 30;
+
+                // Header
+                int apRow = 3;
+                aiParsingSheet.Cells[apRow, 1].Value = "Metric";
+                aiParsingSheet.Cells[apRow, 2].Value = "Value";
+                using (var headerRange = aiParsingSheet.Cells[apRow, 1, apRow, 2])
+                {
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(66, 165, 245));
+                    headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    headerRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                    headerRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                }
+                aiParsingSheet.Row(apRow).Height = 25;
+                apRow++;
+                
+                int apDataStart = apRow;
                 if (aiParsing != null)
                 {
                     aiParsingSheet.Cells[apRow, 1].Value = "Success Rate";
-                    aiParsingSheet.Cells[apRow++, 2].Value = aiParsing.SuccessRate;
+                    aiParsingSheet.Cells[apRow, 2].Value = aiParsing.SuccessRate;
+                    aiParsingSheet.Cells[apRow, 2].Style.Numberformat.Format = "0.00%";
+                    apRow++;
+                    
                     aiParsingSheet.Cells[apRow, 1].Value = "Total Resumes";
-                    aiParsingSheet.Cells[apRow++, 2].Value = aiParsing.TotalResumes;
+                    aiParsingSheet.Cells[apRow, 2].Value = aiParsing.TotalResumes;
+                    aiParsingSheet.Cells[apRow, 2].Style.Numberformat.Format = "#,##0";
+                    apRow++;
+                    
                     aiParsingSheet.Cells[apRow, 1].Value = "Successful Parsing";
-                    aiParsingSheet.Cells[apRow++, 2].Value = aiParsing.SuccessfulParsing;
+                    aiParsingSheet.Cells[apRow, 2].Value = aiParsing.SuccessfulParsing;
+                    aiParsingSheet.Cells[apRow, 2].Style.Numberformat.Format = "#,##0";
+                    apRow++;
+                    
                     aiParsingSheet.Cells[apRow, 1].Value = "Failed Parsing";
-                    aiParsingSheet.Cells[apRow++, 2].Value = aiParsing.FailedParsing;
+                    aiParsingSheet.Cells[apRow, 2].Value = aiParsing.FailedParsing;
+                    aiParsingSheet.Cells[apRow, 2].Style.Numberformat.Format = "#,##0";
+                    apRow++;
+                    
                     aiParsingSheet.Cells[apRow, 1].Value = "Avg Processing Time (ms)";
-                    aiParsingSheet.Cells[apRow++, 2].Value = aiParsing.AverageProcessingTimeMs;
+                    aiParsingSheet.Cells[apRow, 2].Value = aiParsing.AverageProcessingTimeMs;
+                    aiParsingSheet.Cells[apRow, 2].Style.Numberformat.Format = "#,##0.00";
+                    apRow++;
                 }
-                aiParsingSheet.Cells[aiParsingSheet.Dimension.Address].AutoFitColumns();
+                
+                // Apply styling
+                for (int r = apDataStart; r < apRow; r++)
+                {
+                    var rowRange = aiParsingSheet.Cells[r, 1, r, 2];
+                    if ((r - apDataStart) % 2 == 0)
+                    {
+                        rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                    }
+                    rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                    aiParsingSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+                
+                aiParsingSheet.Column(1).Width = 30;
+                aiParsingSheet.Column(2).Width = 25;
+                aiParsingSheet.View.FreezePanes(4, 1);
 
-                // AI Scoring sheet
+                // ============= AI SCORING SHEET =============
                 var aiScoringSheet = package.Workbook.Worksheets.Add("AI Scoring");
-                aiScoringSheet.Cells[1, 1].Value = "AI Scoring Distribution (summary)";
-                aiScoringSheet.Cells[1, 1].Style.Font.Bold = true;
-                aiScoringSheet.Cells[3, 1].Value = "Metric";
-                aiScoringSheet.Cells[3, 2].Value = "Value";
-                aiScoringSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
-                int asRow = 4;
+                
+                // Title
+                aiScoringSheet.Cells[1, 1].Value = "AI Scoring Distribution Summary";
+                aiScoringSheet.Cells[1, 1, 1, 2].Merge = true;
+                using (var titleRange = aiScoringSheet.Cells[1, 1, 1, 2])
+                {
+                    titleRange.Style.Font.Bold = true;
+                    titleRange.Style.Font.Size = 18;
+                    titleRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    titleRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(46, 125, 50));
+                    titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                }
+                aiScoringSheet.Row(1).Height = 30;
+
+                // Header
+                int asRow = 3;
+                aiScoringSheet.Cells[asRow, 1].Value = "Metric";
+                aiScoringSheet.Cells[asRow, 2].Value = "Value";
+                using (var headerRange = aiScoringSheet.Cells[asRow, 1, asRow, 2])
+                {
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(66, 165, 245));
+                    headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    headerRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                    headerRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                }
+                aiScoringSheet.Row(asRow).Height = 25;
+                asRow++;
+                
+                int asDataStart = asRow;
                 if (aiScoring != null)
                 {
                     aiScoringSheet.Cells[asRow, 1].Value = "Success Rate";
-                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.SuccessRate;
+                    aiScoringSheet.Cells[asRow, 2].Value = aiScoring.SuccessRate;
+                    aiScoringSheet.Cells[asRow, 2].Style.Numberformat.Format = "0.00%";
+                    asRow++;
+                    
                     aiScoringSheet.Cells[asRow, 1].Value = "High Scores (>75)";
-                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.ScoreDistribution.High;
+                    aiScoringSheet.Cells[asRow, 2].Value = aiScoring.ScoreDistribution.High;
+                    aiScoringSheet.Cells[asRow, 2].Style.Numberformat.Format = "#,##0";
+                    asRow++;
+                    
                     aiScoringSheet.Cells[asRow, 1].Value = "Medium Scores (50-75)";
-                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.ScoreDistribution.Medium;
+                    aiScoringSheet.Cells[asRow, 2].Value = aiScoring.ScoreDistribution.Medium;
+                    aiScoringSheet.Cells[asRow, 2].Style.Numberformat.Format = "#,##0";
+                    asRow++;
+                    
                     aiScoringSheet.Cells[asRow, 1].Value = "Low Scores (<50)";
-                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.ScoreDistribution.Low;
+                    aiScoringSheet.Cells[asRow, 2].Value = aiScoring.ScoreDistribution.Low;
+                    aiScoringSheet.Cells[asRow, 2].Style.Numberformat.Format = "#,##0";
+                    asRow++;
+                    
                     aiScoringSheet.Cells[asRow, 1].Value = "Total Scored";
-                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.Statistics.TotalScored;
+                    aiScoringSheet.Cells[asRow, 2].Value = aiScoring.Statistics.TotalScored;
+                    aiScoringSheet.Cells[asRow, 2].Style.Numberformat.Format = "#,##0";
+                    asRow++;
+                    
                     aiScoringSheet.Cells[asRow, 1].Value = "Average Score";
-                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.Statistics.AverageScore;
+                    aiScoringSheet.Cells[asRow, 2].Value = aiScoring.Statistics.AverageScore;
+                    aiScoringSheet.Cells[asRow, 2].Style.Numberformat.Format = "#,##0.00";
+                    asRow++;
+                    
                     aiScoringSheet.Cells[asRow, 1].Value = "Median Score";
-                    aiScoringSheet.Cells[asRow++, 2].Value = aiScoring.Statistics.MedianScore;
+                    aiScoringSheet.Cells[asRow, 2].Value = aiScoring.Statistics.MedianScore;
+                    aiScoringSheet.Cells[asRow, 2].Style.Numberformat.Format = "#,##0.00";
+                    asRow++;
                 }
-                aiScoringSheet.Cells[aiScoringSheet.Dimension.Address].AutoFitColumns();
+                
+                // Apply styling
+                for (int r = asDataStart; r < asRow; r++)
+                {
+                    var rowRange = aiScoringSheet.Cells[r, 1, r, 2];
+                    if ((r - asDataStart) % 2 == 0)
+                    {
+                        rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                    }
+                    rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                    aiScoringSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+                
+                aiScoringSheet.Column(1).Width = 30;
+                aiScoringSheet.Column(2).Width = 25;
+                aiScoringSheet.View.FreezePanes(4, 1);
 
-                // AI Health sheet
+                // ============= AI HEALTH SHEET =============
                 var aiHealthSheet = package.Workbook.Worksheets.Add("AI Health");
-                aiHealthSheet.Cells[1, 1].Value = "AI System Health (summary)";
-                aiHealthSheet.Cells[1, 1].Style.Font.Bold = true;
-                aiHealthSheet.Cells[3, 1].Value = "Metric";
-                aiHealthSheet.Cells[3, 2].Value = "Value";
-                aiHealthSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
-                int ahRow = 4;
+                
+                // Title
+                aiHealthSheet.Cells[1, 1].Value = "AI System Health Summary";
+                aiHealthSheet.Cells[1, 1, 1, 3].Merge = true;
+                using (var titleRange = aiHealthSheet.Cells[1, 1, 1, 3])
+                {
+                    titleRange.Style.Font.Bold = true;
+                    titleRange.Style.Font.Size = 18;
+                    titleRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    titleRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(46, 125, 50));
+                    titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                }
+                aiHealthSheet.Row(1).Height = 30;
+
+                // Header for main metrics
+                int ahRow = 3;
+                aiHealthSheet.Cells[ahRow, 1].Value = "Metric";
+                aiHealthSheet.Cells[ahRow, 2].Value = "Value";
+                using (var headerRange = aiHealthSheet.Cells[ahRow, 1, ahRow, 2])
+                {
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(66, 165, 245));
+                    headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    headerRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                    headerRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                }
+                aiHealthSheet.Row(ahRow).Height = 25;
+                ahRow++;
+                
+                int ahDataStart = ahRow;
                 if (aiHealth != null)
                 {
                     aiHealthSheet.Cells[ahRow, 1].Value = "Success Rate";
-                    aiHealthSheet.Cells[ahRow++, 2].Value = $"{aiHealth.SuccessRate:P2}";
+                    aiHealthSheet.Cells[ahRow, 2].Value = aiHealth.SuccessRate;
+                    aiHealthSheet.Cells[ahRow, 2].Style.Numberformat.Format = "0.00%";
+                    ahRow++;
+                    
                     aiHealthSheet.Cells[ahRow, 1].Value = "Error Rate";
-                    aiHealthSheet.Cells[ahRow++, 2].Value = $"{aiHealth.ErrorRate:P2}";
+                    aiHealthSheet.Cells[ahRow, 2].Value = aiHealth.ErrorRate;
+                    aiHealthSheet.Cells[ahRow, 2].Style.Numberformat.Format = "0.00%";
+                    ahRow++;
+                    
                     aiHealthSheet.Cells[ahRow, 1].Value = "Avg Processing Time (seconds)";
-                    aiHealthSheet.Cells[ahRow++, 2].Value = $"{aiHealth.AverageProcessingTimeSeconds:N2}";
+                    aiHealthSheet.Cells[ahRow, 2].Value = aiHealth.AverageProcessingTimeSeconds;
+                    aiHealthSheet.Cells[ahRow, 2].Style.Numberformat.Format = "#,##0.00";
+                    ahRow++;
+                    
+                    // Apply styling for main metrics
+                    for (int r = ahDataStart; r < ahRow; r++)
+                    {
+                        var rowRange = aiHealthSheet.Cells[r, 1, r, 2];
+                        if ((r - ahDataStart) % 2 == 0)
+                        {
+                            rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                        }
+                        rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                        aiHealthSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                    }
+                    
+                    // Error Reasons table if exists
                     if (aiHealth.ErrorReasons != null && aiHealth.ErrorReasons.Any())
                     {
                         ahRow++;
                         aiHealthSheet.Cells[ahRow, 1].Value = "Error Reasons";
+                        aiHealthSheet.Cells[ahRow, 1, ahRow, 3].Merge = true;
                         aiHealthSheet.Cells[ahRow, 1].Style.Font.Bold = true;
+                        aiHealthSheet.Cells[ahRow, 1].Style.Font.Size = 14;
                         ahRow++;
+                        
                         aiHealthSheet.Cells[ahRow, 1].Value = "Error Type";
                         aiHealthSheet.Cells[ahRow, 2].Value = "Count";
                         aiHealthSheet.Cells[ahRow, 3].Value = "Percentage";
-                        aiHealthSheet.Cells[ahRow, 1, ahRow, 3].Style.Font.Bold = true;
+                        using (var errorHeaderRange = aiHealthSheet.Cells[ahRow, 1, ahRow, 3])
+                        {
+                            errorHeaderRange.Style.Font.Bold = true;
+                            errorHeaderRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                            errorHeaderRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            errorHeaderRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(255, 152, 0)); // Orange
+                            errorHeaderRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                            errorHeaderRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                            errorHeaderRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                        }
                         ahRow++;
+                        
+                        int errorDataStart = ahRow;
                         foreach (var error in aiHealth.ErrorReasons)
                         {
                             aiHealthSheet.Cells[ahRow, 1].Value = error.ErrorType;
                             aiHealthSheet.Cells[ahRow, 2].Value = error.Count;
-                            aiHealthSheet.Cells[ahRow++, 3].Value = $"{error.Percentage:P2}";
+                            aiHealthSheet.Cells[ahRow, 2].Style.Numberformat.Format = "#,##0";
+                            aiHealthSheet.Cells[ahRow, 3].Value = error.Percentage;
+                            aiHealthSheet.Cells[ahRow, 3].Style.Numberformat.Format = "0.00%";
+                            ahRow++;
+                        }
+                        
+                        // Apply styling for error reasons
+                        for (int r = errorDataStart; r < ahRow; r++)
+                        {
+                            var rowRange = aiHealthSheet.Cells[r, 1, r, 3];
+                            if ((r - errorDataStart) % 2 == 0)
+                            {
+                                rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                                rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(255, 245, 235));
+                            }
+                            rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                            rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                            rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                            rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                            aiHealthSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                            aiHealthSheet.Cells[r, 3].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                         }
                     }
                 }
-                aiHealthSheet.Cells[aiHealthSheet.Dimension.Address].AutoFitColumns();
+                
+                aiHealthSheet.Column(1).Width = 35;
+                aiHealthSheet.Column(2).Width = 20;
+                aiHealthSheet.Column(3).Width = 20;
+                aiHealthSheet.View.FreezePanes(4, 1);
 
-                // Client Engagement sheet
+                // ============= CLIENT ENGAGEMENT SHEET =============
                 var clientEngagementSheet = package.Workbook.Worksheets.Add("Client Engagement");
-                clientEngagementSheet.Cells[1, 1].Value = "Client Engagement (summary)";
-                clientEngagementSheet.Cells[1, 1].Style.Font.Bold = true;
-                clientEngagementSheet.Cells[3, 1].Value = "Metric";
-                clientEngagementSheet.Cells[3, 2].Value = "Value";
-                clientEngagementSheet.Cells[3, 1, 3, 2].Style.Font.Bold = true;
-                int ceRow = 4;
+                
+                // Title
+                clientEngagementSheet.Cells[1, 1].Value = "Client Engagement Summary";
+                clientEngagementSheet.Cells[1, 1, 1, 2].Merge = true;
+                using (var titleRange = clientEngagementSheet.Cells[1, 1, 1, 2])
+                {
+                    titleRange.Style.Font.Bold = true;
+                    titleRange.Style.Font.Size = 18;
+                    titleRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    titleRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(46, 125, 50));
+                    titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                }
+                clientEngagementSheet.Row(1).Height = 30;
+
+                // Header
+                int ceRow = 3;
+                clientEngagementSheet.Cells[ceRow, 1].Value = "Metric";
+                clientEngagementSheet.Cells[ceRow, 2].Value = "Value";
+                using (var headerRange = clientEngagementSheet.Cells[ceRow, 1, ceRow, 2])
+                {
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(66, 165, 245));
+                    headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    headerRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                    headerRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                }
+                clientEngagementSheet.Row(ceRow).Height = 25;
+                ceRow++;
+                
+                int ceDataStart = ceRow;
                 if (clientEngagement != null)
                 {
                     clientEngagementSheet.Cells[ceRow, 1].Value = "Avg Jobs / Company / Month";
-                    clientEngagementSheet.Cells[ceRow++, 2].Value = $"{clientEngagement.UsageFrequency.AverageJobsPerCompanyPerMonth:N2}";
+                    clientEngagementSheet.Cells[ceRow, 2].Value = clientEngagement.UsageFrequency.AverageJobsPerCompanyPerMonth;
+                    clientEngagementSheet.Cells[ceRow, 2].Style.Numberformat.Format = "#,##0.00";
+                    ceRow++;
+                    
                     clientEngagementSheet.Cells[ceRow, 1].Value = "Avg Campaigns / Company / Month";
-                    clientEngagementSheet.Cells[ceRow++, 2].Value = $"{clientEngagement.UsageFrequency.AverageCampaignsPerCompanyPerMonth:N2}";
+                    clientEngagementSheet.Cells[ceRow, 2].Value = clientEngagement.UsageFrequency.AverageCampaignsPerCompanyPerMonth;
+                    clientEngagementSheet.Cells[ceRow, 2].Style.Numberformat.Format = "#,##0.00";
+                    ceRow++;
+                    
                     clientEngagementSheet.Cells[ceRow, 1].Value = "AI Trust Percentage";
-                    clientEngagementSheet.Cells[ceRow++, 2].Value = $"{clientEngagement.AiTrustLevel.TrustPercentage:P2}";
+                    clientEngagementSheet.Cells[ceRow, 2].Value = clientEngagement.AiTrustLevel.TrustPercentage;
+                    clientEngagementSheet.Cells[ceRow, 2].Style.Numberformat.Format = "0.00%";
+                    ceRow++;
+                    
                     clientEngagementSheet.Cells[ceRow, 1].Value = "High Score Candidates Count";
-                    clientEngagementSheet.Cells[ceRow++, 2].Value = clientEngagement.AiTrustLevel.HighScoreCandidatesCount;
+                    clientEngagementSheet.Cells[ceRow, 2].Value = clientEngagement.AiTrustLevel.HighScoreCandidatesCount;
+                    clientEngagementSheet.Cells[ceRow, 2].Style.Numberformat.Format = "#,##0";
+                    ceRow++;
+                    
                     clientEngagementSheet.Cells[ceRow, 1].Value = "High Score Candidates Hired";
-                    clientEngagementSheet.Cells[ceRow++, 2].Value = clientEngagement.AiTrustLevel.HighScoreCandidatesHiredCount;
+                    clientEngagementSheet.Cells[ceRow, 2].Value = clientEngagement.AiTrustLevel.HighScoreCandidatesHiredCount;
+                    clientEngagementSheet.Cells[ceRow, 2].Style.Numberformat.Format = "#,##0";
+                    ceRow++;
                 }
-                clientEngagementSheet.Cells[clientEngagementSheet.Dimension.Address].AutoFitColumns();
+                
+                // Apply styling
+                for (int r = ceDataStart; r < ceRow; r++)
+                {
+                    var rowRange = clientEngagementSheet.Cells[r, 1, r, 2];
+                    if ((r - ceDataStart) % 2 == 0)
+                    {
+                        rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                    }
+                    rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                    clientEngagementSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+                
+                clientEngagementSheet.Column(1).Width = 35;
+                clientEngagementSheet.Column(2).Width = 25;
+                clientEngagementSheet.View.FreezePanes(4, 1);
 
-                // SaaS Metrics sheet
+                // ============= SAAS METRICS SHEET =============
                 var saasMetricsSheet = package.Workbook.Worksheets.Add("SaaS Metrics");
-                saasMetricsSheet.Cells[1, 1].Value = "SaaS Admin Metrics (summary)";
-                saasMetricsSheet.Cells[1, 1].Style.Font.Bold = true;
+                
+                // Title
+                saasMetricsSheet.Cells[1, 1].Value = "SaaS Admin Metrics Summary";
+                saasMetricsSheet.Cells[1, 1, 1, 5].Merge = true;
+                using (var titleRange = saasMetricsSheet.Cells[1, 1, 1, 5])
+                {
+                    titleRange.Style.Font.Bold = true;
+                    titleRange.Style.Font.Size = 18;
+                    titleRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    titleRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(46, 125, 50));
+                    titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                }
+                saasMetricsSheet.Row(1).Height = 30;
+
                 int smRow = 3;
                 if (saasMetrics != null)
                 {
-                    // Feature Adoption
-                    smRow++;
+                    // Feature Adoption Section
                     saasMetricsSheet.Cells[smRow, 1].Value = "Feature Adoption";
+                    saasMetricsSheet.Cells[smRow, 1, smRow, 2].Merge = true;
                     saasMetricsSheet.Cells[smRow, 1].Style.Font.Bold = true;
+                    saasMetricsSheet.Cells[smRow, 1].Style.Font.Size = 14;
+                    saasMetricsSheet.Cells[smRow, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    saasMetricsSheet.Cells[smRow, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(224, 224, 224));
                     smRow++;
+                    
+                    int featureDataStart = smRow;
                     saasMetricsSheet.Cells[smRow, 1].Value = "Screening Usage";
-                    saasMetricsSheet.Cells[smRow++, 2].Value = saasMetrics.FeatureAdoption.ScreeningUsageCount;
+                    saasMetricsSheet.Cells[smRow, 2].Value = saasMetrics.FeatureAdoption.ScreeningUsageCount;
+                    saasMetricsSheet.Cells[smRow, 2].Style.Numberformat.Format = "#,##0";
+                    smRow++;
+                    
                     saasMetricsSheet.Cells[smRow, 1].Value = "Tracking Usage";
-                    saasMetricsSheet.Cells[smRow++, 2].Value = saasMetrics.FeatureAdoption.TrackingUsageCount;
+                    saasMetricsSheet.Cells[smRow, 2].Value = saasMetrics.FeatureAdoption.TrackingUsageCount;
+                    saasMetricsSheet.Cells[smRow, 2].Style.Numberformat.Format = "#,##0";
+                    smRow++;
+                    
                     saasMetricsSheet.Cells[smRow, 1].Value = "Export Usage";
-                    saasMetricsSheet.Cells[smRow++, 2].Value = saasMetrics.FeatureAdoption.ExportUsageCount;
+                    saasMetricsSheet.Cells[smRow, 2].Value = saasMetrics.FeatureAdoption.ExportUsageCount;
+                    saasMetricsSheet.Cells[smRow, 2].Style.Numberformat.Format = "#,##0";
+                    smRow++;
+                    
+                    // Apply styling for feature adoption
+                    for (int r = featureDataStart; r < smRow; r++)
+                    {
+                        var rowRange = saasMetricsSheet.Cells[r, 1, r, 2];
+                        if ((r - featureDataStart) % 2 == 0)
+                        {
+                            rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                        }
+                        rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                        saasMetricsSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                    }
 
-                    // Top Companies
+                    // Top Companies Section
                     if (saasMetrics.TopCompanies != null && saasMetrics.TopCompanies.Any())
                     {
                         smRow++;
                         saasMetricsSheet.Cells[smRow, 1].Value = "Top Companies";
+                        saasMetricsSheet.Cells[smRow, 1, smRow, 5].Merge = true;
                         saasMetricsSheet.Cells[smRow, 1].Style.Font.Bold = true;
+                        saasMetricsSheet.Cells[smRow, 1].Style.Font.Size = 14;
+                        saasMetricsSheet.Cells[smRow, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        saasMetricsSheet.Cells[smRow, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(224, 224, 224));
                         smRow++;
+                        
+                        // Header
                         saasMetricsSheet.Cells[smRow, 1].Value = "Company Name";
                         saasMetricsSheet.Cells[smRow, 2].Value = "Resumes";
                         saasMetricsSheet.Cells[smRow, 3].Value = "Jobs";
                         saasMetricsSheet.Cells[smRow, 4].Value = "Campaigns";
                         saasMetricsSheet.Cells[smRow, 5].Value = "Activity Score";
-                        saasMetricsSheet.Cells[smRow, 1, smRow, 5].Style.Font.Bold = true;
+                        using (var headerRange = saasMetricsSheet.Cells[smRow, 1, smRow, 5])
+                        {
+                            headerRange.Style.Font.Bold = true;
+                            headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                            headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(156, 39, 176)); // Purple
+                            headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                            headerRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                            headerRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                        }
                         smRow++;
+                        
+                        int topCompDataStart = smRow;
                         foreach (var company in saasMetrics.TopCompanies.Take(10))
                         {
                             saasMetricsSheet.Cells[smRow, 1].Value = company.CompanyName;
                             saasMetricsSheet.Cells[smRow, 2].Value = company.TotalResumesUploaded;
+                            saasMetricsSheet.Cells[smRow, 2].Style.Numberformat.Format = "#,##0";
                             saasMetricsSheet.Cells[smRow, 3].Value = company.TotalJobsCreated;
+                            saasMetricsSheet.Cells[smRow, 3].Style.Numberformat.Format = "#,##0";
                             saasMetricsSheet.Cells[smRow, 4].Value = company.TotalCampaignsCreated;
+                            saasMetricsSheet.Cells[smRow, 4].Style.Numberformat.Format = "#,##0";
                             saasMetricsSheet.Cells[smRow, 5].Value = company.ActivityScore;
+                            saasMetricsSheet.Cells[smRow, 5].Style.Numberformat.Format = "#,##0.00";
                             smRow++;
+                        }
+                        
+                        // Apply styling
+                        for (int r = topCompDataStart; r < smRow; r++)
+                        {
+                            var rowRange = saasMetricsSheet.Cells[r, 1, r, 5];
+                            if ((r - topCompDataStart) % 2 == 0)
+                            {
+                                rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                                rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(243, 229, 245));
+                            }
+                            rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                            rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                            rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                            rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                            for (int c = 2; c <= 5; c++)
+                            {
+                                saasMetricsSheet.Cells[r, c].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                            }
                         }
                     }
 
-                    // Churn Risk Companies
+                    // Churn Risk Companies Section
                     if (saasMetrics.ChurnRiskCompanies != null && saasMetrics.ChurnRiskCompanies.Any())
                     {
                         smRow++;
                         saasMetricsSheet.Cells[smRow, 1].Value = "Churn Risk Companies";
+                        saasMetricsSheet.Cells[smRow, 1, smRow, 3].Merge = true;
                         saasMetricsSheet.Cells[smRow, 1].Style.Font.Bold = true;
+                        saasMetricsSheet.Cells[smRow, 1].Style.Font.Size = 14;
+                        saasMetricsSheet.Cells[smRow, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        saasMetricsSheet.Cells[smRow, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(224, 224, 224));
                         smRow++;
+                        
+                        // Header
                         saasMetricsSheet.Cells[smRow, 1].Value = "Company Name";
                         saasMetricsSheet.Cells[smRow, 2].Value = "Plan";
                         saasMetricsSheet.Cells[smRow, 3].Value = "Risk Level";
-                        saasMetricsSheet.Cells[smRow, 1, smRow, 3].Style.Font.Bold = true;
+                        using (var headerRange = saasMetricsSheet.Cells[smRow, 1, smRow, 3])
+                        {
+                            headerRange.Style.Font.Bold = true;
+                            headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                            headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(244, 67, 54)); // Red
+                            headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                            headerRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                            headerRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                        }
                         smRow++;
+                        
+                        int churnDataStart = smRow;
                         foreach (var company in saasMetrics.ChurnRiskCompanies.Take(10))
                         {
                             saasMetricsSheet.Cells[smRow, 1].Value = company.CompanyName;
@@ -3762,22 +4409,194 @@ namespace BusinessObjectLayer.Services
                             saasMetricsSheet.Cells[smRow, 3].Value = company.RiskLevel;
                             smRow++;
                         }
+                        
+                        // Apply styling
+                        for (int r = churnDataStart; r < smRow; r++)
+                        {
+                            var rowRange = saasMetricsSheet.Cells[r, 1, r, 3];
+                            if ((r - churnDataStart) % 2 == 0)
+                            {
+                                rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                                rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(255, 235, 238));
+                            }
+                            rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                            rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                            rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                            rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                        }
                     }
                 }
-                saasMetricsSheet.Cells[saasMetricsSheet.Dimension.Address].AutoFitColumns();
+                
+                saasMetricsSheet.Column(1).Width = 35;
+                saasMetricsSheet.Column(2).Width = 20;
+                saasMetricsSheet.Column(3).Width = 20;
+                saasMetricsSheet.Column(4).Width = 20;
+                saasMetricsSheet.Column(5).Width = 20;
+                saasMetricsSheet.View.FreezePanes(2, 1);
 
+                // ============= SUBSCRIPTIONS SHEET =============
                 var subscriptionSheet = package.Workbook.Worksheets.Add("Subscriptions");
-                subscriptionSheet.Cells[1, 1].Value = "Subscription & Revenue (summary)";
-                subscriptionSheet.Cells[1, 1].Style.Font.Bold = true;
+                
+                // Title
+                subscriptionSheet.Cells[1, 1].Value = "Subscription & Revenue Summary";
+                subscriptionSheet.Cells[1, 1, 1, 4].Merge = true;
+                using (var titleRange = subscriptionSheet.Cells[1, 1, 1, 4])
+                {
+                    titleRange.Style.Font.Bold = true;
+                    titleRange.Style.Font.Size = 18;
+                    titleRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    titleRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(46, 125, 50));
+                    titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                }
+                subscriptionSheet.Row(1).Height = 30;
+
+                // Header for main metrics
+                int subRow = 3;
+                subscriptionSheet.Cells[subRow, 1].Value = "Metric";
+                subscriptionSheet.Cells[subRow, 2].Value = "Value";
+                using (var headerRange = subscriptionSheet.Cells[subRow, 1, subRow, 2])
+                {
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(66, 165, 245));
+                    headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    headerRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                    headerRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                }
+                subscriptionSheet.Row(subRow).Height = 25;
+                subRow++;
+                
+                int subDataStart = subRow;
                 if (subscriptionRevenue != null)
                 {
-                    subscriptionSheet.Cells[3, 1].Value = "Total Revenue";
-                    subscriptionSheet.Cells[3, 2].Value = subscriptionRevenue.Breakdown.TotalRevenue;
+                    subscriptionSheet.Cells[subRow, 1].Value = "Total Revenue";
+                    subscriptionSheet.Cells[subRow, 2].Value = subscriptionRevenue.Breakdown.TotalRevenue;
+                    subscriptionSheet.Cells[subRow, 2].Style.Numberformat.Format = "$#,##0.00";
+                    subRow++;
+                    
+                    subscriptionSheet.Cells[subRow, 1].Value = "Monthly Revenue";
+                    subscriptionSheet.Cells[subRow, 2].Value = subscriptionRevenue.MonthlyRevenue;
+                    subscriptionSheet.Cells[subRow, 2].Style.Numberformat.Format = "$#,##0.00";
+                    subRow++;
+                    
+                    subscriptionSheet.Cells[subRow, 1].Value = "Average Revenue Per Company";
+                    subscriptionSheet.Cells[subRow, 2].Value = subscriptionRevenue.Breakdown.AverageRevenuePerCompany;
+                    subscriptionSheet.Cells[subRow, 2].Style.Numberformat.Format = "$#,##0.00";
+                    subRow++;
+                    
+                    subscriptionSheet.Cells[subRow, 1].Value = "Total Companies";
+                    subscriptionSheet.Cells[subRow, 2].Value = subscriptionRevenue.FreeCompanies + subscriptionRevenue.PaidCompanies;
+                    subscriptionSheet.Cells[subRow, 2].Style.Numberformat.Format = "#,##0";
+                    subRow++;
 
-                    subscriptionSheet.Cells[4, 1].Value = "Number of Plans";
-                    subscriptionSheet.Cells[4, 2].Value = subscriptionRevenue.Breakdown.PlanStatistics?.Count ?? 0;
+                    subscriptionSheet.Cells[subRow, 1].Value = "Free Companies";
+                    subscriptionSheet.Cells[subRow, 2].Value = subscriptionRevenue.FreeCompanies;
+                    subscriptionSheet.Cells[subRow, 2].Style.Numberformat.Format = "#,##0";
+                    subRow++;
+                    
+                    subscriptionSheet.Cells[subRow, 1].Value = "Paid Companies";
+                    subscriptionSheet.Cells[subRow, 2].Value = subscriptionRevenue.PaidCompanies;
+                    subscriptionSheet.Cells[subRow, 2].Style.Numberformat.Format = "#,##0";
+                    subRow++;
+                    
+                    subscriptionSheet.Cells[subRow, 1].Value = "Most Popular Plan";
+                    subscriptionSheet.Cells[subRow, 2].Value = subscriptionRevenue.PopularPlan;
+                    subRow++;
                 }
-                subscriptionSheet.Cells[subscriptionSheet.Dimension.Address].AutoFitColumns();
+                
+                // Apply styling for main metrics
+                for (int r = subDataStart; r < subRow; r++)
+                {
+                    var rowRange = subscriptionSheet.Cells[r, 1, r, 2];
+                    if ((r - subDataStart) % 2 == 0)
+                    {
+                        rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                    }
+                    rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                    rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                    subscriptionSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+                
+                // Plan Statistics table if exists
+                if (subscriptionRevenue?.Breakdown?.PlanStatistics != null && subscriptionRevenue.Breakdown.PlanStatistics.Any())
+                {
+                    subRow++;
+                    subscriptionSheet.Cells[subRow, 1].Value = "Plan Statistics";
+                    subscriptionSheet.Cells[subRow, 1, subRow, 4].Merge = true;
+                    subscriptionSheet.Cells[subRow, 1].Style.Font.Bold = true;
+                    subscriptionSheet.Cells[subRow, 1].Style.Font.Size = 14;
+                    subscriptionSheet.Cells[subRow, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    subscriptionSheet.Cells[subRow, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(224, 224, 224));
+                    subRow++;
+                    
+                    // Header for plan statistics
+                    subscriptionSheet.Cells[subRow, 1].Value = "Plan Name";
+                    subscriptionSheet.Cells[subRow, 2].Value = "Company Count";
+                    subscriptionSheet.Cells[subRow, 3].Value = "Revenue";
+                    subscriptionSheet.Cells[subRow, 4].Value = "Avg Revenue/Company";
+                    using (var planHeaderRange = subscriptionSheet.Cells[subRow, 1, subRow, 4])
+                    {
+                        planHeaderRange.Style.Font.Bold = true;
+                        planHeaderRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                        planHeaderRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        planHeaderRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(0, 150, 136)); // Teal
+                        planHeaderRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                        planHeaderRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                        planHeaderRange.Style.Border.BorderAround(ExcelBorderStyle.Medium);
+                    }
+                    subscriptionSheet.Row(subRow).Height = 25;
+                    subRow++;
+                    
+                    int planDataStart = subRow;
+                    foreach (var plan in subscriptionRevenue.Breakdown.PlanStatistics)
+                    {
+                        subscriptionSheet.Cells[subRow, 1].Value = plan.PlanName;
+                        
+                        subscriptionSheet.Cells[subRow, 2].Value = plan.CompanyCount;
+                        subscriptionSheet.Cells[subRow, 2].Style.Numberformat.Format = "#,##0";
+                        
+                        subscriptionSheet.Cells[subRow, 3].Value = plan.Revenue;
+                        subscriptionSheet.Cells[subRow, 3].Style.Numberformat.Format = "$#,##0.00";
+                        
+                        // Calculate average revenue per company for this plan
+                        var avgRevenue = plan.CompanyCount > 0 ? plan.Revenue / plan.CompanyCount : 0;
+                        subscriptionSheet.Cells[subRow, 4].Value = avgRevenue;
+                        subscriptionSheet.Cells[subRow, 4].Style.Numberformat.Format = "$#,##0.00";
+                        
+                        subRow++;
+                    }
+                    
+                    // Apply styling for plan statistics
+                    for (int r = planDataStart; r < subRow; r++)
+                    {
+                        var rowRange = subscriptionSheet.Cells[r, 1, r, 4];
+                        if ((r - planDataStart) % 2 == 0)
+                        {
+                            rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(224, 242, 241));
+                        }
+                        rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                        for (int c = 2; c <= 4; c++)
+                        {
+                            subscriptionSheet.Cells[r, c].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                        }
+                    }
+                }
+                
+                subscriptionSheet.Column(1).Width = 35;
+                subscriptionSheet.Column(2).Width = 20;
+                subscriptionSheet.Column(3).Width = 20;
+                subscriptionSheet.Column(4).Width = 25;
+                subscriptionSheet.View.FreezePanes(4, 1);
 
                 var fileBytes = package.GetAsByteArray();
                 var vietnamTime = DateTime.UtcNow.AddHours(7);
@@ -3947,9 +4766,6 @@ namespace BusinessObjectLayer.Services
 
                                         table.Cell().Element(CellStyle).Text("Total Revenue");
                                         table.Cell().Element(CellStyle).Text($"${executiveSummary.TotalRevenue:N2}");
-
-                                        table.Cell().Element(CellStyle).Text("Company Retention Rate");
-                                        table.Cell().Element(CellStyle).Text($"{executiveSummary.CompanyRetentionRate:P2}");
                                     });
                                 }
 
@@ -4382,15 +5198,49 @@ namespace BusinessObjectLayer.Services
                                         table.Cell().Element(CellStyle).Text("Monthly Revenue");
                                         table.Cell().Element(CellStyle).Text($"${subscriptionRevenue.MonthlyRevenue:N2}");
 
-                                        table.Cell().Element(CellStyle).Text("Renewal Rate");
-                                        table.Cell().Element(CellStyle).Text($"{subscriptionRevenue.RenewalRate:P2}");
-
                                         table.Cell().Element(CellStyle).Text("Total Revenue");
                                         table.Cell().Element(CellStyle).Text($"${subscriptionRevenue.Breakdown.TotalRevenue:N2}");
 
-                                        table.Cell().Element(CellStyle).Text("Number of Plans");
-                                        table.Cell().Element(CellStyle).Text((subscriptionRevenue.Breakdown.PlanStatistics?.Count ?? 0).ToString());
+                                        table.Cell().Element(CellStyle).Text("Average Revenue Per Company");
+                                        table.Cell().Element(CellStyle).Text($"${subscriptionRevenue.Breakdown.AverageRevenuePerCompany:N2}");
+
+                                        table.Cell().Element(CellStyle).Text("Popular Plan");
+                                        table.Cell().Element(CellStyle).Text(subscriptionRevenue.PopularPlan);
                                     });
+
+                                    // Plan Statistics Table
+                                    if (subscriptionRevenue.Breakdown.PlanStatistics != null && subscriptionRevenue.Breakdown.PlanStatistics.Any())
+                                    {
+                                        column.Item().PaddingTop(15).Text("Plan Statistics").FontSize(12).Bold().FontColor(Colors.Black);
+                                        column.Item().PaddingTop(5).Table(table =>
+                                        {
+                                            table.ColumnsDefinition(cols =>
+                                            {
+                                                cols.RelativeColumn(3);
+                                                cols.RelativeColumn(2);
+                                                cols.RelativeColumn(2);
+                                                cols.RelativeColumn(2);
+                                            });
+
+                                            table.Header(header =>
+                                            {
+                                                header.Cell().Element(CellStyle).Text("Plan Name").Bold();
+                                                header.Cell().Element(CellStyle).Text("Companies").Bold();
+                                                header.Cell().Element(CellStyle).Text("Revenue").Bold();
+                                                header.Cell().Element(CellStyle).Text("Avg/Company").Bold();
+                                            });
+
+                                            foreach (var plan in subscriptionRevenue.Breakdown.PlanStatistics)
+                                            {
+                                                var avgRevenue = plan.CompanyCount > 0 ? plan.Revenue / plan.CompanyCount : 0;
+                                                
+                                                table.Cell().Element(CellStyle).Text(plan.PlanName);
+                                                table.Cell().Element(CellStyle).Text(plan.CompanyCount.ToString());
+                                                table.Cell().Element(CellStyle).Text($"${plan.Revenue:N2}");
+                                                table.Cell().Element(CellStyle).Text($"${avgRevenue:N2}");
+                                            }
+                                        });
+                                    }
                                 }
                             });
                         });
