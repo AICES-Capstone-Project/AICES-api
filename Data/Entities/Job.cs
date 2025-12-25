@@ -43,6 +43,9 @@ namespace Data.Entities
         [ForeignKey("Level")]
         public int? LevelId { get; set; }
 
+        // Track if job is in any campaign
+        public bool IsInCampaign { get; set; } = false;
+
         // Navigation
         public CompanyUser CompanyUser { get; set; } = null!;
         public Company Company { get; set; } = null!;

@@ -613,6 +613,10 @@ namespace BusinessObjectLayer.Services
                                     TargetQuantity = jobWithTarget.TargetQuantity,
                                     CurrentHired = 0
                                 });
+                                
+                                // Set IsInCampaign to true
+                                job.IsInCampaign = true;
+                                jobRepo.UpdateJob(job);
                             }
                         }
                     }
@@ -813,6 +817,11 @@ namespace BusinessObjectLayer.Services
                         // Get existing job campaigns to preserve CurrentHired
                         var existingJobCampaigns = campaign.JobCampaigns?.ToList() ?? new List<JobCampaign>();
                         var existingJobCampaignsDict = existingJobCampaigns.ToDictionary(jc => jc.JobId);
+                        var existingJobIds = existingJobCampaigns.Select(jc => jc.JobId).ToHashSet();
+                        var newJobIds = request.Jobs.Select(j => j.JobId).ToHashSet();
+                        
+                        // Find jobs being removed from this campaign
+                        var removedJobIds = existingJobIds.Except(newJobIds).ToList();
                         
                         // Clear existing job campaigns
                         if (campaign.JobCampaigns != null)
@@ -845,6 +854,33 @@ namespace BusinessObjectLayer.Services
                                         TargetQuantity = jobWithTarget.TargetQuantity,
                                         CurrentHired = existingCurrentHired
                                     });
+                                    
+                                    // Set IsInCampaign to true for newly added jobs
+                                    if (!existingJobIds.Contains(jobWithTarget.JobId))
+                                    {
+                                        job.IsInCampaign = true;
+                                        jobRepo.UpdateJob(job);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Handle removed jobs - check if they exist in other campaigns
+                        foreach (var removedJobId in removedJobIds)
+                        {
+                            var job = await jobRepo.GetJobByIdAsync(removedJobId);
+                            if (job != null)
+                            {
+                                // Check if job exists in other campaigns
+                                var allCampaigns = await campaignRepo.GetByCompanyIdAsync(companyUser.CompanyId.Value);
+                                var isInOtherCampaign = allCampaigns
+                                    .Where(c => c.CampaignId != campaign.CampaignId && c.IsActive)
+                                    .Any(c => c.JobCampaigns != null && c.JobCampaigns.Any(jc => jc.JobId == removedJobId));
+                                
+                                if (!isInOtherCampaign)
+                                {
+                                    job.IsInCampaign = false;
+                                    jobRepo.UpdateJob(job);
                                 }
                             }
                         }
@@ -986,6 +1022,11 @@ namespace BusinessObjectLayer.Services
                                 TargetQuantity = jobWithTarget.TargetQuantity,
                                 CurrentHired = 0
                             });
+                            
+                            // Set IsInCampaign to true
+                            job.IsInCampaign = true;
+                            jobRepo.UpdateJob(job);
+                            
                             addedCount++;
                         }
                     }
@@ -1130,9 +1171,27 @@ namespace BusinessObjectLayer.Services
                     }
 
                     var removedCount = jobsToRemove.Count;
+                    var jobRepo = _uow.GetRepository<IJobRepository>();
+                    
                     foreach (var jobCampaign in jobsToRemove)
                     {
                         campaign.JobCampaigns.Remove(jobCampaign);
+                        
+                        // Check if job exists in other campaigns
+                        var job = await jobRepo.GetJobByIdAsync(jobCampaign.JobId);
+                        if (job != null)
+                        {
+                            var allCampaigns = await campaignRepo.GetByCompanyIdAsync(companyUser.CompanyId.Value);
+                            var isInOtherCampaign = allCampaigns
+                                .Where(c => c.CampaignId != campaign.CampaignId && c.IsActive)
+                                .Any(c => c.JobCampaigns != null && c.JobCampaigns.Any(jc => jc.JobId == jobCampaign.JobId));
+                            
+                            if (!isInOtherCampaign)
+                            {
+                                job.IsInCampaign = false;
+                                jobRepo.UpdateJob(job);
+                            }
+                        }
                     }
 
                     campaignRepo.Update(campaign);
@@ -1226,6 +1285,31 @@ namespace BusinessObjectLayer.Services
                 await _uow.BeginTransactionAsync();
                 try
                 {
+                    // Update IsInCampaign for jobs if they are not in other campaigns
+                    if (campaign.JobCampaigns != null && campaign.JobCampaigns.Any())
+                    {
+                        var jobRepo = _uow.GetRepository<IJobRepository>();
+                        var allCampaigns = await campaignRepo.GetByCompanyIdAsync(companyUser.CompanyId.Value);
+                        
+                        foreach (var jobCampaign in campaign.JobCampaigns)
+                        {
+                            var job = await jobRepo.GetJobByIdAsync(jobCampaign.JobId);
+                            if (job != null)
+                            {
+                                // Check if job exists in other active campaigns
+                                var isInOtherCampaign = allCampaigns
+                                    .Where(c => c.CampaignId != campaign.CampaignId && c.IsActive)
+                                    .Any(c => c.JobCampaigns != null && c.JobCampaigns.Any(jc => jc.JobId == jobCampaign.JobId));
+                                
+                                if (!isInOtherCampaign)
+                                {
+                                    job.IsInCampaign = false;
+                                    jobRepo.UpdateJob(job);
+                                }
+                            }
+                        }
+                    }
+                    
                     campaign.IsActive = false;
                     campaignRepo.Update(campaign);
                     await _uow.CommitTransactionAsync();

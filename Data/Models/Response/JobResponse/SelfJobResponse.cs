@@ -25,6 +25,7 @@ namespace Data.Models.Response
         public List<string>? Languages { get; set; }
         public string? FullName { get; set; }
         public string? CreatorName { get; set; }
+        public bool? IsInCampaign { get; set; }
     }
 }
 

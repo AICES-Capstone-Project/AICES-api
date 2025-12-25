@@ -80,7 +80,8 @@ namespace BusinessObjectLayer.Services
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
                     FullName = job.CompanyUser?.User?.Profile?.FullName,
-                    CreatorName = job.Creator?.Profile?.FullName ?? job.Creator?.Email
+                    CreatorName = job.Creator?.Profile?.FullName ?? job.Creator?.Email,
+                    IsInCampaign = job.IsInCampaign
                 };
 
                 return new ServiceResponse
@@ -135,7 +136,8 @@ namespace BusinessObjectLayer.Services
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
                     FullName = j.CompanyUser?.User?.Profile?.FullName,
-                    CreatorName = j.Creator?.Profile?.FullName ?? j.Creator?.Email
+                    CreatorName = j.Creator?.Profile?.FullName ?? j.Creator?.Email,
+                    IsInCampaign = j.IsInCampaign
                 }).ToList();
 
                 return new ServiceResponse
@@ -438,7 +440,8 @@ namespace BusinessObjectLayer.Services
                         Requirements = request.Requirements,
                         JobStatus = jobStatus,
                         SpecializationId = request.SpecializationId,
-                        LevelId = request.LevelId
+                        LevelId = request.LevelId,
+                        IsInCampaign = false
                     };
 
                     // Add job to context
@@ -639,7 +642,8 @@ namespace BusinessObjectLayer.Services
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
                     FullName = j.CompanyUser?.User?.Profile?.FullName,
-                    CreatorName = j.Creator?.Profile?.FullName ?? j.Creator?.Email
+                    CreatorName = j.Creator?.Profile?.FullName ?? j.Creator?.Email,
+                    IsInCampaign = j.IsInCampaign
                 }).ToList();
 
                 return new ServiceResponse
@@ -735,7 +739,8 @@ namespace BusinessObjectLayer.Services
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
                     FullName = j.CompanyUser?.User?.Profile?.FullName,
-                    CreatorName = j.Creator?.Profile?.FullName ?? j.Creator?.Email
+                    CreatorName = j.Creator?.Profile?.FullName ?? j.Creator?.Email,
+                    IsInCampaign = j.IsInCampaign
                 }).ToList();
 
                 return new ServiceResponse
@@ -848,7 +853,8 @@ namespace BusinessObjectLayer.Services
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
                     FullName = job.CompanyUser?.User?.Profile?.FullName,
-                    CreatorName = job.Creator?.Profile?.FullName ?? job.Creator?.Email
+                    CreatorName = job.Creator?.Profile?.FullName ?? job.Creator?.Email,
+                    IsInCampaign = job.IsInCampaign
                 };
 
                 return new ServiceResponse
@@ -941,7 +947,8 @@ namespace BusinessObjectLayer.Services
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
                     FullName = job.CompanyUser?.User?.Profile?.FullName,
-                    CreatorName = job.Creator?.Profile?.FullName ?? job.Creator?.Email
+                    CreatorName = job.Creator?.Profile?.FullName ?? job.Creator?.Email,
+                    IsInCampaign = job.IsInCampaign
                 };
 
                 return new ServiceResponse
@@ -1029,7 +1036,8 @@ namespace BusinessObjectLayer.Services
                         Name = c.Name,
                         Weight = c.Weight
                     }).ToList() ?? new List<CriteriaResponse>(),
-                    CreatorName = j.Creator?.Profile?.FullName ?? j.Creator?.Email
+                    CreatorName = j.Creator?.Profile?.FullName ?? j.Creator?.Email,
+                    IsInCampaign = j.IsInCampaign
                 }).ToList();
 
                 return new ServiceResponse
