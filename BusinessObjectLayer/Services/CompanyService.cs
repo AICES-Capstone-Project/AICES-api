@@ -663,6 +663,23 @@ namespace BusinessObjectLayer.Services
                     
                     await _uow.CommitTransactionAsync();
 
+                    // Send notifications to system roles (roleId = 1,2,3) with type SystemCompany
+                    var authRepo = _uow.GetRepository<IAuthRepository>();
+                    var systemRoles = new[] { "System_Admin", "System_Manager", "System_Staff" };
+                    foreach (var roleName in systemRoles)
+                    {
+                        var systemUsers = await authRepo.GetUsersByRoleAsync(roleName);
+                        foreach (var systemUser in systemUsers)
+                        {
+                            await _notificationService.CreateAsync(
+                                systemUser.UserId,
+                                NotificationTypeEnum.SystemCompany,
+                                "New company registration",
+                                $"A new company '{company.Name}' has been created and is waiting for approval."
+                            );
+                        }
+                    }
+
                     return new ServiceResponse
                     {
                         Status = SRStatus.Success,

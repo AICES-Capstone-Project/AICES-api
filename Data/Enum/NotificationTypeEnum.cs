@@ -14,7 +14,9 @@ namespace Data.Enum
         Member,
         Payment,
         Subscription,
+        SystemSubscription,
         Company,
+        SystemCompany,
         System,
         Invitation,
     }

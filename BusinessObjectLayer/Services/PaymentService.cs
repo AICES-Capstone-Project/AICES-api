@@ -483,15 +483,36 @@ namespace BusinessObjectLayer.Services
                     }
                 }
 
-                var admins = await authRepo.GetUsersByRoleAsync("System_Admin");
-                foreach (var admin in admins)
+                // Send notifications to company members with type Subscription
+                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                var companyMembers = await companyUserRepo.GetApprovedAndInvitedMembersByCompanyIdAsync(companyId);
+                foreach (var member in companyMembers)
                 {
-                    await _notificationService.CreateAsync(
-                        admin.UserId,
-                        NotificationTypeEnum.Subscription,
-                        "A company subscribed",
-                        $"Company {company?.Name ?? companyId.ToString()} subscribed to {subscriptionEntity?.Name}"
-                    );
+                    if (member.User != null)
+                    {
+                        await _notificationService.CreateAsync(
+                            member.User.UserId,
+                            NotificationTypeEnum.Subscription,
+                            "Subscription activated",
+                            $"Your company has successfully subscribed to {subscriptionEntity?.Name ?? "a subscription plan"}."
+                        );
+                    }
+                }
+
+                // Send notifications to system roles (roleId = 1,2,3) with type SystemSubscription
+                var systemRoles = new[] { "System_Admin", "System_Manager", "System_Staff" };
+                foreach (var roleName in systemRoles)
+                {
+                    var systemUsers = await authRepo.GetUsersByRoleAsync(roleName);
+                    foreach (var systemUser in systemUsers)
+                    {
+                        await _notificationService.CreateAsync(
+                            systemUser.UserId,
+                            NotificationTypeEnum.SystemSubscription,
+                            "Company subscription",
+                            $"Company {company?.Name ?? companyId.ToString()} has subscribed to {subscriptionEntity?.Name ?? "a subscription plan"}."
+                        );
+                    }
                 }
 
                 // Expire all other open sessions for the same customer
