@@ -5201,9 +5201,46 @@ namespace BusinessObjectLayer.Services
                                         table.Cell().Element(CellStyle).Text("Total Revenue");
                                         table.Cell().Element(CellStyle).Text($"${subscriptionRevenue.Breakdown.TotalRevenue:N2}");
 
-                                        table.Cell().Element(CellStyle).Text("Number of Plans");
-                                        table.Cell().Element(CellStyle).Text((subscriptionRevenue.Breakdown.PlanStatistics?.Count ?? 0).ToString());
+                                        table.Cell().Element(CellStyle).Text("Average Revenue Per Company");
+                                        table.Cell().Element(CellStyle).Text($"${subscriptionRevenue.Breakdown.AverageRevenuePerCompany:N2}");
+
+                                        table.Cell().Element(CellStyle).Text("Popular Plan");
+                                        table.Cell().Element(CellStyle).Text(subscriptionRevenue.PopularPlan);
                                     });
+
+                                    // Plan Statistics Table
+                                    if (subscriptionRevenue.Breakdown.PlanStatistics != null && subscriptionRevenue.Breakdown.PlanStatistics.Any())
+                                    {
+                                        column.Item().PaddingTop(15).Text("Plan Statistics").FontSize(12).Bold().FontColor(Colors.Black);
+                                        column.Item().PaddingTop(5).Table(table =>
+                                        {
+                                            table.ColumnsDefinition(cols =>
+                                            {
+                                                cols.RelativeColumn(3);
+                                                cols.RelativeColumn(2);
+                                                cols.RelativeColumn(2);
+                                                cols.RelativeColumn(2);
+                                            });
+
+                                            table.Header(header =>
+                                            {
+                                                header.Cell().Element(CellStyle).Text("Plan Name").Bold();
+                                                header.Cell().Element(CellStyle).Text("Companies").Bold();
+                                                header.Cell().Element(CellStyle).Text("Revenue").Bold();
+                                                header.Cell().Element(CellStyle).Text("Avg/Company").Bold();
+                                            });
+
+                                            foreach (var plan in subscriptionRevenue.Breakdown.PlanStatistics)
+                                            {
+                                                var avgRevenue = plan.CompanyCount > 0 ? plan.Revenue / plan.CompanyCount : 0;
+                                                
+                                                table.Cell().Element(CellStyle).Text(plan.PlanName);
+                                                table.Cell().Element(CellStyle).Text(plan.CompanyCount.ToString());
+                                                table.Cell().Element(CellStyle).Text($"${plan.Revenue:N2}");
+                                                table.Cell().Element(CellStyle).Text($"${avgRevenue:N2}");
+                                            }
+                                        });
+                                    }
                                 }
                             });
                         });
