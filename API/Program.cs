@@ -346,6 +346,7 @@ builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<ICandidateService, CandidateService>();
 builder.Services.AddScoped<IResumeApplicationService, ResumeApplicationService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IContentValidationService, ContentValidationService>();
 
 
 // Hosted Services (Background Jobs)

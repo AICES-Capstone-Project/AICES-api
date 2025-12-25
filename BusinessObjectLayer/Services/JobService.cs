@@ -22,18 +22,21 @@ namespace BusinessObjectLayer.Services
         private readonly ICriteriaService _criteriaService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly INotificationService _notificationService;
+        private readonly IContentValidationService _contentValidationService;
 
 
         public JobService(
             IUnitOfWork uow,
             ICriteriaService criteriaService,
             IHttpContextAccessor httpContextAccessor,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IContentValidationService contentValidationService)
         {
             _uow = uow;
             _criteriaService = criteriaService;
             _httpContextAccessor = httpContextAccessor;
             _notificationService = notificationService;
+            _contentValidationService = contentValidationService;
         }
 
         public async Task<ServiceResponse> GetJobByIdAsync(int jobId, int companyId)
@@ -199,6 +202,49 @@ namespace BusinessObjectLayer.Services
                     {
                         Status = SRStatus.Unauthorized,
                         Message = "User not found."
+                    };
+                }
+
+                // ============================================
+                // VALIDATE CONTENT USING GOOGLE CLOUD NLP
+                // ============================================
+                
+                // Validate Title
+                var (isTitleValid, titleError) = await _contentValidationService
+                    .ValidateJobContentAsync(request.Title ?? "", "Job Title");
+                if (!isTitleValid)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = titleError
+                    };
+                }
+
+                // Validate Description (if provided)
+                if (!string.IsNullOrWhiteSpace(request.Description))
+                {
+                    var (isDescValid, descError) = await _contentValidationService
+                        .ValidateJobContentAsync(request.Description, "Job Description");
+                    if (!isDescValid)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = descError
+                        };
+                    }
+                }
+
+                // Validate Requirements
+                var (isReqValid, reqError) = await _contentValidationService
+                    .ValidateJobContentAsync(request.Requirements ?? "", "Job Requirements");
+                if (!isReqValid)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = reqError
                     };
                 }
 
@@ -1062,6 +1108,49 @@ namespace BusinessObjectLayer.Services
                 if (user == null)
                 {
                     return new ServiceResponse { Status = SRStatus.Unauthorized, Message = "User not found." };
+                }
+
+                // ============================================
+                // VALIDATE CONTENT USING GOOGLE CLOUD NLP
+                // ============================================
+                
+                // Validate Title
+                var (isTitleValid, titleError) = await _contentValidationService
+                    .ValidateJobContentAsync(request.Title ?? "", "Job Title");
+                if (!isTitleValid)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = titleError
+                    };
+                }
+
+                // Validate Description (if provided)
+                if (!string.IsNullOrWhiteSpace(request.Description))
+                {
+                    var (isDescValid, descError) = await _contentValidationService
+                        .ValidateJobContentAsync(request.Description, "Job Description");
+                    if (!isDescValid)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = descError
+                        };
+                    }
+                }
+
+                // Validate Requirements
+                var (isReqValid, reqError) = await _contentValidationService
+                    .ValidateJobContentAsync(request.Requirements ?? "", "Job Requirements");
+                if (!isReqValid)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = reqError
+                    };
                 }
 
                 var companyUser = await companyUserRepo.GetCompanyUserByUserIdAsync(user.UserId);
