@@ -919,19 +919,16 @@ namespace BusinessObjectLayer.Services
                 // 1. Total Companies
                 var totalCompanies = await _reportRepository.GetTotalActiveCompaniesAsync();
 
-                // 2. Active Companies (có ít nhất 1 job published hoặc có subscription active)
-                var activeCompanies = await _reportRepository.GetActiveCompaniesWithJobsOrSubscriptionsAsync();
-
-                // 3. Total Jobs (all active jobs)
+                // 2. Total Jobs (all active jobs)
                 var totalJobs = await _reportRepository.GetTotalActiveJobsAsync();
 
-                // 4. AI Processed Resumes (resumes with score)
+                // 3. AI Processed Resumes (resumes with score)
                 var aiProcessedResumes = await _reportRepository.GetAiProcessedResumesCountAsync();
 
-                // 5. Total Revenue (sum of successful payments via transactions)
+                // 4. Total Revenue (sum of successful payments via transactions)
                 var totalRevenue = await _reportRepository.GetTotalRevenueFromPaidPaymentsAsync();
 
-                // 6. Company Retention Rate (companies that have renewed - have more than 1 subscription in history)
+                // 5. Company Retention Rate (companies that have renewed - have more than 1 subscription in history)
                 var companiesWithSubscriptions = await _reportRepository.GetCompaniesWithSubscriptionsCountAsync();
 
                 var companiesWithMultipleSubscriptions = await _reportRepository.GetCompaniesWithMultipleSubscriptionsCountAsync();
@@ -943,7 +940,6 @@ namespace BusinessObjectLayer.Services
                 var summary = new ExecutiveSummaryResponse
                 {
                     TotalCompanies = totalCompanies,
-                    ActiveCompanies = activeCompanies,
                     TotalJobs = totalJobs,
                     AiProcessedResumes = aiProcessedResumes,
                     TotalRevenue = totalRevenue,
@@ -1082,7 +1078,7 @@ namespace BusinessObjectLayer.Services
                 var usage = new CompanyUsageResponse
                 {
                     RegisteredOnly = registeredOnly,
-                    ActiveCompanies = activeCompanies,
+                    EngagedCompanies = activeCompanies,
                     FrequentCompanies = frequentCompanies,
                     Kpis = new CompanyUsageKpis
                     {
@@ -1484,7 +1480,6 @@ namespace BusinessObjectLayer.Services
                 var reportData = new Dictionary<string, object>
                 {
                     { "Total Companies", data.TotalCompanies },
-                    { "Active Companies", data.ActiveCompanies },
                     { "Total Jobs", data.TotalJobs },
                     { "AI Processed Resumes", data.AiProcessedResumes },
                     { "Total Revenue", data.TotalRevenue },
@@ -1598,9 +1593,6 @@ namespace BusinessObjectLayer.Services
                                     table.Cell().Element(CellStyle).Text("Total Companies");
                                     table.Cell().Element(CellStyle).Text(data.TotalCompanies.ToString());
 
-                                    table.Cell().Element(CellStyle).Text("Active Companies");
-                                    table.Cell().Element(CellStyle).Text(data.ActiveCompanies.ToString());
-
                                     table.Cell().Element(CellStyle).Text("Total Jobs");
                                     table.Cell().Element(CellStyle).Text(data.TotalJobs.ToString());
 
@@ -1616,7 +1608,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -1881,7 +1873,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -1950,7 +1942,7 @@ namespace BusinessObjectLayer.Services
                 var usageData = new Dictionary<string, object>
                 {
                     { "Registered Only", data.RegisteredOnly },
-                    { "Active Companies", data.ActiveCompanies },
+                    { "Engaged Companies", data.EngagedCompanies },
                     { "Frequent Companies", data.FrequentCompanies }
                 };
 
@@ -2074,8 +2066,8 @@ namespace BusinessObjectLayer.Services
                                     table.Cell().Element(CellStyle).Text("Registered Only");
                                     table.Cell().Element(CellStyle).Text(data.RegisteredOnly.ToString());
 
-                                    table.Cell().Element(CellStyle).Text("Active Companies");
-                                    table.Cell().Element(CellStyle).Text(data.ActiveCompanies.ToString());
+                                    table.Cell().Element(CellStyle).Text("Engaged Companies");
+                                    table.Cell().Element(CellStyle).Text(data.EngagedCompanies.ToString());
 
                                     table.Cell().Element(CellStyle).Text("Frequent Companies");
                                     table.Cell().Element(CellStyle).Text(data.FrequentCompanies.ToString());
@@ -2102,7 +2094,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -2387,7 +2379,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -2568,7 +2560,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -2815,7 +2807,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -3098,7 +3090,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -3381,7 +3373,7 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
@@ -3494,8 +3486,6 @@ namespace BusinessObjectLayer.Services
                 {
                     execSheet.Cells[row, 1].Value = "Total Companies";
                     execSheet.Cells[row++, 2].Value = executiveSummary.TotalCompanies;
-                    execSheet.Cells[row, 1].Value = "Active Companies";
-                    execSheet.Cells[row++, 2].Value = executiveSummary.ActiveCompanies;
                     execSheet.Cells[row, 1].Value = "Total Jobs";
                     execSheet.Cells[row++, 2].Value = executiveSummary.TotalJobs;
                     execSheet.Cells[row, 1].Value = "AI Processed Resumes";
@@ -3542,8 +3532,8 @@ namespace BusinessObjectLayer.Services
                 {
                     usageSheet.Cells[uRow, 1].Value = "Registered Only";
                     usageSheet.Cells[uRow++, 2].Value = companiesUsage.RegisteredOnly;
-                    usageSheet.Cells[uRow, 1].Value = "Active Companies";
-                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.ActiveCompanies;
+                    usageSheet.Cells[uRow, 1].Value = "Engaged Companies";
+                    usageSheet.Cells[uRow++, 2].Value = companiesUsage.EngagedCompanies;
                     usageSheet.Cells[uRow, 1].Value = "Frequent Companies";
                     usageSheet.Cells[uRow++, 2].Value = companiesUsage.FrequentCompanies;
                     usageSheet.Cells[uRow, 1].Value = "Active Rate";
@@ -3790,7 +3780,8 @@ namespace BusinessObjectLayer.Services
                 subscriptionSheet.Cells[subscriptionSheet.Dimension.Address].AutoFitColumns();
 
                 var fileBytes = package.GetAsByteArray();
-                var fileName = $"System_Reports_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+                var vietnamTime = DateTime.UtcNow.AddHours(7);
+                var fileName = $"System_Reports_{vietnamTime:yyyyMMdd_HHmmss}.xlsx";
 
                 return new ServiceResponse
                 {
@@ -3877,6 +3868,19 @@ namespace BusinessObjectLayer.Services
                 var clientEngagement = clientEngagementResponse.Data as ClientEngagementReportResponse;
                 var saasMetrics = saasMetricsResponse.Data as SaasAdminMetricsReportResponse;
 
+                // Download logo từ Cloudinary
+                byte[]? logoBytes = null;
+                try
+                {
+                    var logoUrl = "https://res.cloudinary.com/dhtkfrubh/image/upload/companies/logos/wtwt1u9cl5uovpgrfgdl.png";
+                    using var httpClient = new HttpClient();
+                    logoBytes = await httpClient.GetByteArrayAsync(logoUrl);
+                }
+                catch
+                {
+                    // Nếu không load được logo thì bỏ qua
+                }
+
                 var pdfDocument = Document.Create(container =>
                 {
                     container.Page(page =>
@@ -3885,12 +3889,36 @@ namespace BusinessObjectLayer.Services
                         page.Margin(40);
                         page.DefaultTextStyle(x => x.FontSize(11));
 
-                        page.Header().Element(c => ComposeReportHeader(c, "System Reports Overview"));
-
                         page.Content().Element(c =>
                         {
                             c.Column(column =>
                             {
+                                // Header chỉ xuất hiện ở trang đầu
+                                var vietnamTime = DateTime.UtcNow.AddHours(7);
+                                column.Item().PaddingBottom(10).BorderBottom(1).BorderColor(Colors.Grey.Lighten1).Column(headerColumn =>
+                                {
+                                    // Row chứa logo và text
+                                    headerColumn.Item().Row(row =>
+                                    {
+                                        // Logo bên trái
+                                        if (logoBytes != null)
+                                        {
+                                            row.ConstantItem(120).Height(50).Image(logoBytes);
+                                        }
+                                        
+                                        // Spacing
+                                        row.ConstantItem(15);
+                                        
+                                        // Text bên phải
+                                        row.RelativeItem().Column(textColumn =>
+                                        {
+                                            textColumn.Item().AlignLeft().PaddingTop(5).Text("AI-Powered Candidate Evaluation System").FontSize(10).FontColor(Colors.Grey.Medium);
+                                            textColumn.Item().AlignLeft().Text("System Reports Overview").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                                            textColumn.Item().AlignLeft().Text("Generated on: " + vietnamTime.ToString("MMMM dd, yyyy")).FontSize(9).FontColor(Colors.Grey.Medium);
+                                        });
+                                    });
+                                });
+
                                 column.Item().PaddingTop(10).Text("1. Executive Summary").FontSize(13).Bold().FontColor(Colors.Blue.Darken2);
                                 if (executiveSummary != null)
                                 {
@@ -3910,9 +3938,6 @@ namespace BusinessObjectLayer.Services
 
                                         table.Cell().Element(CellStyle).Text("Total Companies");
                                         table.Cell().Element(CellStyle).Text(executiveSummary.TotalCompanies.ToString());
-
-                                        table.Cell().Element(CellStyle).Text("Active Companies");
-                                        table.Cell().Element(CellStyle).Text(executiveSummary.ActiveCompanies.ToString());
 
                                         table.Cell().Element(CellStyle).Text("Total Jobs");
                                         table.Cell().Element(CellStyle).Text(executiveSummary.TotalJobs.ToString());
@@ -3980,8 +4005,8 @@ namespace BusinessObjectLayer.Services
                                         table.Cell().Element(CellStyle).Text("Registered Only");
                                         table.Cell().Element(CellStyle).Text(companiesUsage.RegisteredOnly.ToString());
 
-                                        table.Cell().Element(CellStyle).Text("Active Companies");
-                                        table.Cell().Element(CellStyle).Text(companiesUsage.ActiveCompanies.ToString());
+                                        table.Cell().Element(CellStyle).Text("Engaged Companies");
+                                        table.Cell().Element(CellStyle).Text(companiesUsage.EngagedCompanies.ToString());
 
                                         table.Cell().Element(CellStyle).Text("Frequent Companies");
                                         table.Cell().Element(CellStyle).Text(companiesUsage.FrequentCompanies.ToString());
@@ -4370,12 +4395,13 @@ namespace BusinessObjectLayer.Services
                             });
                         });
 
-                        page.Footer().Element(c => ComposeReportFooter(c, 1));
+                        page.Footer().Element(ComposeReportFooter);
                     });
                 });
 
                 var fileBytes = pdfDocument.GeneratePdf();
-                var fileName = $"System_Reports_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+                var vietnamTime = DateTime.UtcNow.AddHours(7);
+                var fileName = $"System_Reports_{vietnamTime:yyyyMMdd_HHmmss}.pdf";
 
                 return new ServiceResponse
                 {
@@ -4419,15 +4445,20 @@ namespace BusinessObjectLayer.Services
                 });
         }
 
-        private static void ComposeReportFooter(IContainer container, int pageNumber)
+        private static void ComposeReportFooter(IContainer container)
         {
             container
                 .PaddingTop(10)
                 .BorderTop(1)
                 .BorderColor(Colors.Grey.Lighten1)
-                .Row(row =>
+                .AlignCenter()
+                .DefaultTextStyle(x => x.FontSize(9).FontColor(Colors.Grey.Medium))
+                .Text(text =>
                 {
-                    row.RelativeItem().AlignCenter().Text($"Page {pageNumber}").FontSize(9).FontColor(Colors.Grey.Medium);
+                    text.Span("Page ");
+                    text.CurrentPageNumber();
+                    text.Span(" / ");
+                    text.TotalPages();
                 });
         }
 
