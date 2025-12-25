@@ -1182,6 +1182,27 @@ namespace BusinessObjectLayer.Services
                         };
                     }
 
+                    // Check if any jobs have resume applications
+                    var jobIdsToRemove = jobsToRemove.Select(jc => jc.JobId).ToList();
+                    var resumeAppRepo = _uow.GetRepository<IResumeApplicationRepository>();
+                    var jobTitlesWithApplications = await resumeAppRepo.GetJobTitlesWithApplicationsInCampaignAsync(campaignId, jobIdsToRemove);
+
+                    if (jobTitlesWithApplications.Any())
+                    {
+                        await _uow.RollbackTransactionAsync();
+                        var jobTitles = jobTitlesWithApplications.Values.ToList();
+                        
+                        var message = jobTitles.Count == 1
+                            ? $"Cannot remove job '{jobTitles[0]}' because it has resume applications."
+                            : $"Cannot remove {jobTitles.Count} job(s) because they have resume applications: {string.Join(", ", jobTitles)}.";
+                        
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = message
+                        };
+                    }
+
                     var removedCount = jobsToRemove.Count;
                     var jobRepo = _uow.GetRepository<IJobRepository>();
                     
@@ -1190,16 +1211,19 @@ namespace BusinessObjectLayer.Services
                         campaign.JobCampaigns.Remove(jobCampaign);
                         
                         // Check if job exists in other campaigns
-                        var job = await jobRepo.GetJobByIdAsync(jobCampaign.JobId);
+                        // Use the already-tracked Job from jobCampaign.Job (loaded via GetForUpdateAsync)
+                        // instead of fetching again to avoid tracking conflicts
+                        var job = jobCampaign.Job;
                         if (job != null)
                         {
-                            var allCampaigns = await campaignRepo.GetByCompanyIdAsync(companyUser.CompanyId.Value);
-                            var isInOtherCampaign = allCampaigns
-                                .Where(c => c.CampaignId != campaign.CampaignId && c.IsActive)
-                                .Any(c => c.JobCampaigns != null && c.JobCampaigns.Any(jc => jc.JobId == jobCampaign.JobId));
+                            var isInOtherCampaign = await campaignRepo.IsJobInOtherCampaignsAsync(
+                                jobCampaign.JobId, 
+                                campaign.CampaignId, 
+                                companyUser.CompanyId.Value);
                             
                             if (!isInOtherCampaign)
                             {
+                                // Job is already tracked from GetForUpdateAsync, so we can update it directly
                                 job.IsInCampaign = false;
                                 jobRepo.UpdateJob(job);
                             }

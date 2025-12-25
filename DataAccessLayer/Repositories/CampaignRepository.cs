@@ -566,6 +566,18 @@ namespace DataAccessLayer.Repositories
             }
         }
 
+        public async Task<bool> IsJobInOtherCampaignsAsync(int jobId, int excludeCampaignId, int companyId)
+        {
+            return await _context.Campaigns
+                .AsNoTracking()
+                .Where(c => c.CompanyId == companyId 
+                    && c.CampaignId != excludeCampaignId 
+                    && c.IsActive
+                    && c.JobCampaigns != null 
+                    && c.JobCampaigns.Any(jc => jc.JobId == jobId))
+                .AnyAsync();
+        }
+
         public async Task<bool> ExistsByTitleAndCompanyIdAsync(string title, int companyId, int? excludeCampaignId = null)
         {
             var query = _context.Campaigns

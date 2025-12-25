@@ -207,9 +207,10 @@ namespace DataAccessLayer.Repositories
                 .FirstOrDefaultAsync();
         }
 
-        public async Task UpdateAsync(ResumeApplication resumeApplication)
+        public Task UpdateAsync(ResumeApplication resumeApplication)
         {
             _context.ResumeApplications.Update(resumeApplication);
+            return Task.CompletedTask;
         }
 
         public async Task<bool> IsDuplicateResumeAsync(int jobId, int campaignId, string fileHash)
@@ -333,6 +334,31 @@ namespace DataAccessLayer.Repositories
                 .Include(ra => ra.ScoreDetails)
                     .ThenInclude(sd => sd.Criteria)
                 .FirstOrDefaultAsync();
+        }
+
+        public async Task<List<int>> GetJobIdsWithApplicationsInCampaignAsync(int campaignId, List<int> jobIds)
+        {
+            return await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.IsActive 
+                    && ra.CampaignId == campaignId 
+                    && jobIds.Contains(ra.JobId))
+                .Select(ra => ra.JobId)
+                .Distinct()
+                .ToListAsync();
+        }
+
+        public async Task<Dictionary<int, string>> GetJobTitlesWithApplicationsInCampaignAsync(int campaignId, List<int> jobIds)
+        {
+            return await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.IsActive 
+                    && ra.CampaignId == campaignId 
+                    && jobIds.Contains(ra.JobId))
+                .Include(ra => ra.Job)
+                .Select(ra => new { ra.JobId, ra.Job.Title })
+                .Distinct()
+                .ToDictionaryAsync(x => x.JobId, x => x.Title);
         }
     }
 }

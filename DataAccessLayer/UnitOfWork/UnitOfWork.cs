@@ -19,6 +19,11 @@ namespace DataAccessLayer.UnitOfWork
         //UoW sống trong 1 request scope, giống như repository.
         //Vì vậy nó phải được resolve từ DI container.
         //Và nó phải được dispose khi request kết thúc.
+        /// <summary>
+        /// Exposes DbContext for advanced queries
+        /// </summary>
+        public AICESDbContext Context => _context;
+        
         public UnitOfWork(AICESDbContext context, IServiceProvider serviceProvider)
         {
             _context = context;

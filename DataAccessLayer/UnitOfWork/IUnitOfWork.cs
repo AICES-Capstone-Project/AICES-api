@@ -6,6 +6,11 @@ namespace DataAccessLayer.UnitOfWork
     public interface IUnitOfWork : IDisposable
     {
         /// <summary>
+        /// Exposes DbContext for advanced queries
+        /// </summary>
+        AICESDbContext Context { get; }
+        
+        /// <summary>
         /// Begins a new database transaction
         /// </summary>
         Task BeginTransactionAsync();
