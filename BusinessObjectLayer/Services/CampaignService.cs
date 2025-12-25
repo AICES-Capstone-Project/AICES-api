@@ -21,12 +21,14 @@ namespace BusinessObjectLayer.Services
         private readonly IUnitOfWork _uow;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly INotificationService _notificationService;
+        private readonly IContentValidationService _contentValidationService;
 
-        public CampaignService(IUnitOfWork uow, IHttpContextAccessor httpContextAccessor, INotificationService notificationService)
+        public CampaignService(IUnitOfWork uow, IHttpContextAccessor httpContextAccessor, INotificationService notificationService, IContentValidationService contentValidationService)
         {
             _uow = uow;
             _httpContextAccessor = httpContextAccessor;
             _notificationService = notificationService;
+            _contentValidationService = contentValidationService;
         }
 
         public async Task<ServiceResponse> GetAllAsync(int page = 1, int pageSize = 10, string? search = null, CampaignStatusEnum? status = null, DateTime? startDate = null, DateTime? endDate = null)
@@ -502,6 +504,37 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // ============================================
+                // VALIDATE CONTENT USING GOOGLE CLOUD NLP
+                // ============================================
+                
+                // Validate Title
+                var (isTitleValid, titleError) = await _contentValidationService
+                    .ValidateJobContentAsync(request.Title ?? "", "Campaign Title");
+                if (!isTitleValid)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = titleError
+                    };
+                }
+
+                // Validate Description (if provided)
+                if (!string.IsNullOrWhiteSpace(request.Description))
+                {
+                    var (isDescValid, descError) = await _contentValidationService
+                        .ValidateJobContentAsync(request.Description, "Campaign Description");
+                    if (!isDescValid)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = descError
+                        };
+                    }
+                }
+
                 var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
                 var companyUser = await companyUserRepo.GetByUserIdAsync(userId);
 
@@ -688,6 +721,40 @@ namespace BusinessObjectLayer.Services
                         Status = SRStatus.Validation,
                         Message = $"Campaigns can only be updated when they are Published. Current status: {campaign.Status}"
                     };
+                }
+
+                // ============================================
+                // VALIDATE CONTENT USING GOOGLE CLOUD NLP
+                // ============================================
+                
+                // Validate Title (if being updated)
+                if (request.Title != null)
+                {
+                    var (isTitleValid, titleError) = await _contentValidationService
+                        .ValidateJobContentAsync(request.Title, "Campaign Title");
+                    if (!isTitleValid)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = titleError
+                        };
+                    }
+                }
+
+                // Validate Description (if being updated)
+                if (!string.IsNullOrWhiteSpace(request.Description))
+                {
+                    var (isDescValid, descError) = await _contentValidationService
+                        .ValidateJobContentAsync(request.Description, "Campaign Description");
+                    if (!isDescValid)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = descError
+                        };
+                    }
                 }
 
                 // Check if title already exists in company (excluding current campaign)
