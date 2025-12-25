@@ -161,7 +161,7 @@ namespace BusinessObjectLayer.Services
             {
                 return new ServiceResponse
                 {
-                    Status = SRStatus.Error,
+                    Status = SRStatus.Validation,
                     Message = "Cannot update subscription that has associated company subscriptions."
                 };
             }

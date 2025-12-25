@@ -25,6 +25,7 @@ using Stripe;
 using System.Text;
 using System.Text.Json;
 using API.Middleware;
+using System.IO;
 
 
 // ------------------------
@@ -452,6 +453,45 @@ app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
     {
+        var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
+        var exception = exceptionHandlerPathFeature?.Error;
+        
+        // Log exception details
+        if (exception != null)
+        {
+            try
+            {
+                var logPath = Path.Combine(Directory.GetCurrentDirectory(), ".cursor", "debug.log");
+                var logDir = Path.GetDirectoryName(logPath);
+                if (!string.IsNullOrEmpty(logDir) && !Directory.Exists(logDir))
+                {
+                    Directory.CreateDirectory(logDir);
+                }
+                var logData = new 
+                { 
+                    exceptionType = exception.GetType().Name, 
+                    exceptionMessage = exception.Message,
+                    innerException = exception.InnerException?.Message,
+                    innerExceptionType = exception.InnerException?.GetType().Name,
+                    stackTrace = exception.StackTrace?.Substring(0, Math.Min(2000, exception.StackTrace?.Length ?? 0)),
+                    path = exceptionHandlerPathFeature?.Path,
+                    route = context.Request.Path.Value
+                };
+                var log = new { id = $"log_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "Program.cs:451", message = "Global exception handler", data = logData, sessionId = "debug-session", runId = "run1", hypothesisId = "ALL" };
+                await System.IO.File.AppendAllTextAsync(logPath, System.Text.Json.JsonSerializer.Serialize(log) + "\n");
+                Console.WriteLine($"GLOBAL EXCEPTION HANDLER: {System.Text.Json.JsonSerializer.Serialize(log)}");
+            }
+            catch (Exception logEx)
+            {
+                Console.WriteLine($"Failed to log exception: {logEx.Message}");
+                Console.WriteLine($"Original exception: {exception?.GetType().Name} - {exception?.Message}");
+                if (exception?.InnerException != null)
+                {
+                    Console.WriteLine($"Inner exception: {exception.InnerException.GetType().Name} - {exception.InnerException.Message}");
+                }
+            }
+        }
+        
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         await context.Response.WriteAsync("An unexpected error occurred.");
     });

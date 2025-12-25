@@ -10,8 +10,10 @@ using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace BusinessObjectLayer.Services
@@ -1015,18 +1017,23 @@ namespace BusinessObjectLayer.Services
                                 campaign.JobCampaigns = new List<JobCampaign>();
                             }
                             
-                            campaign.JobCampaigns.Add(new JobCampaign
+                            // Create JobCampaign with only foreign keys - EF Core will handle navigation properties automatically
+                            // Setting Job and Campaign navigation properties causes tracking conflicts since they're already tracked
+                            var newJobCampaign = new JobCampaign
                             {
                                 JobId = jobWithTarget.JobId,
                                 CampaignId = campaign.CampaignId,
                                 TargetQuantity = jobWithTarget.TargetQuantity,
                                 CurrentHired = 0
-                            });
-                            
+                            };
+                            campaign.JobCampaigns.Add(newJobCampaign);
                             // Set IsInCampaign to true
+                            // Fix: Detach Company navigation to prevent tracking conflict
+                            // Since job was loaded with AsNoTracking but has Company nav populated,
+                            // we must null it before Update() to avoid tracking the already-tracked Company entity
+                            job.Company = null!;
                             job.IsInCampaign = true;
                             jobRepo.UpdateJob(job);
-                            
                             addedCount++;
                         }
                     }
@@ -1043,7 +1050,8 @@ namespace BusinessObjectLayer.Services
                         };
                     }
 
-                    campaignRepo.Update(campaign);
+                    // Note: campaign is already tracked from GetForUpdateAsync, and new JobCampaign entities added to the collection
+                    // will be automatically detected and saved by EF Core. Calling Update() causes tracking conflicts with the Company entity.
                     await _uow.CommitTransactionAsync();
 
                     return new ServiceResponse
@@ -1062,6 +1070,10 @@ namespace BusinessObjectLayer.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Add jobs to campaign error: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
+                }
                 return new ServiceResponse
                 {
                     Status = SRStatus.Error,

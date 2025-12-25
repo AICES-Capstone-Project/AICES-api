@@ -8,19 +8,38 @@ namespace BusinessObjectLayer.Services
 {
     public class ContentValidationService : IContentValidationService
     {
-        private readonly LanguageServiceClient _languageClient;
+        private readonly LanguageServiceClient? _languageClient;
+        private readonly bool _hasLanguageClient;
 
         public ContentValidationService()
         {
             // When running on Google Cloud, automatically use default credentials
             // When running locally, set GOOGLE_APPLICATION_CREDENTIALS environment variable
-            _languageClient = LanguageServiceClient.Create();
+            // If credentials are not available, gracefully fall back to basic validation
+            try
+            {
+                _languageClient = LanguageServiceClient.Create();
+                _hasLanguageClient = true;
+            }
+            catch (Exception ex)
+            {
+                // Credentials not available - will use fallback validation
+                Console.WriteLine($"⚠️ Google Cloud Language API credentials not found. Using fallback validation. Error: {ex.Message}");
+                _languageClient = null;
+                _hasLanguageClient = false;
+            }
         }
 
         public async Task<(bool IsValid, string ErrorMessage)> ValidateJobContentAsync(string text, string fieldName, int minMeaningfulTokens = 3)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return (false, $"{fieldName} cannot be empty");
+
+            // If Language API client is not available, use fallback validation
+            if (!_hasLanguageClient || _languageClient == null)
+            {
+                return await FallbackValidationAsync(text, fieldName, minMeaningfulTokens);
+            }
 
             try
             {
@@ -61,13 +80,22 @@ namespace BusinessObjectLayer.Services
                 Console.WriteLine($"Content validation error: {ex.Message}");
                 
                 // Fallback validation if Google API fails
-                var words = text.Split([' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries);
-                if (words.Length < 1)
-                    return (false, $"{fieldName} must contain at least 1 word");
-                    
-                // Pass if API fails to not block users
-                return (true, string.Empty);
+                return await FallbackValidationAsync(text, fieldName, minMeaningfulTokens);
             }
+        }
+
+        private Task<(bool IsValid, string ErrorMessage)> FallbackValidationAsync(string text, string fieldName, int minMeaningfulTokens)
+        {
+            // Fallback validation if Google API fails or is not available
+            var words = text.Split([' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length < minMeaningfulTokens)
+            {
+                var wordText = minMeaningfulTokens == 1 ? "word" : "words";
+                return Task.FromResult<(bool, string)>((false, $"{fieldName} must contain at least {minMeaningfulTokens} {wordText}"));
+            }
+            
+            // Pass if API fails to not block users
+            return Task.FromResult<(bool, string)>((true, string.Empty));
         }
     }
 }
