@@ -616,9 +616,8 @@ namespace BusinessObjectLayer.Services
                                     CurrentHired = 0
                                 });
                                 
-                                // Set IsInCampaign to true
-                                job.IsInCampaign = true;
-                                jobRepo.UpdateJob(job);
+                                // Set IsInCampaign to true using direct update to avoid tracking conflicts
+                                await jobRepo.UpdateIsInCampaignAsync(jobWithTarget.JobId, true);
                             }
                         }
                     }
@@ -1027,13 +1026,10 @@ namespace BusinessObjectLayer.Services
                                 CurrentHired = 0
                             };
                             campaign.JobCampaigns.Add(newJobCampaign);
-                            // Set IsInCampaign to true
-                            // Fix: Detach Company navigation to prevent tracking conflict
-                            // Since job was loaded with AsNoTracking but has Company nav populated,
-                            // we must null it before Update() to avoid tracking the already-tracked Company entity
-                            job.Company = null!;
-                            job.IsInCampaign = true;
-                            jobRepo.UpdateJob(job);
+                            
+                            // Set IsInCampaign to true using direct update to avoid tracking conflicts
+                            await jobRepo.UpdateIsInCampaignAsync(jobWithTarget.JobId, true);
+                            
                             addedCount++;
                         }
                     }

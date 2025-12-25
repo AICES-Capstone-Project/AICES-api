@@ -514,6 +514,13 @@ namespace DataAccessLayer.Repositories
             job.IsActive = false;
             _context.Jobs.Update(job);
         }
+
+        public async Task UpdateIsInCampaignAsync(int jobId, bool isInCampaign)
+        {
+            await _context.Jobs
+                .Where(j => j.JobId == jobId)
+                .ExecuteUpdateAsync(setter => setter.SetProperty(j => j.IsInCampaign, isInCampaign));
+        }
     }
 }
 

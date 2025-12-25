@@ -34,6 +34,7 @@ namespace DataAccessLayer.IRepositories
         Task<List<string>> GetLanguagesByJobIdAsync(int jobId);
         void UpdateJob(Job job);
         void SoftDeleteJob(Job job);
+        Task UpdateIsInCampaignAsync(int jobId, bool isInCampaign);
     }
 }
 
