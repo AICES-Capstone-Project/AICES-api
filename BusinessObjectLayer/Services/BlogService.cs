@@ -38,9 +38,7 @@ namespace BusinessObjectLayer.Services
                 var userId = int.Parse(userIdClaim);
                 var blogRepo = _uow.GetRepository<IBlogRepository>();
 
-                // ============================================
-                // VALIDATE CONTENT USING GOOGLE CLOUD NLP
-                // ============================================
+               
                 
                 // Validate Title (only needs 1 meaningful word)
                 var (isTitleValid, titleError) = await _contentValidationService
@@ -452,16 +450,7 @@ namespace BusinessObjectLayer.Services
                         Message = "Blog not found"
                     };
                 }
-
-                // Check if user owns this blog
-                if (blog.UserId != userId)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Unauthorized,
-                        Message = "You don't have permission to delete this blog"
-                    };
-                }
+             
 
                 blogRepo.SoftDeleteBlog(blog);
                 await _uow.SaveChangesAsync();
@@ -488,7 +477,7 @@ namespace BusinessObjectLayer.Services
             if (string.IsNullOrEmpty(title))
                 return string.Empty;
 
-            // Convert to lowercase and replace spaces with hyphens
+            
             var slug = title.ToLowerInvariant().Trim();
             slug = System.Text.RegularExpressions.Regex.Replace(slug, @"[^a-z0-9\s-]", "");
             slug = System.Text.RegularExpressions.Regex.Replace(slug, @"\s+", "-");
