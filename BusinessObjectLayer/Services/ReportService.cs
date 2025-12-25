@@ -3581,22 +3581,95 @@ namespace BusinessObjectLayer.Services
                     overviewSheet.Cells[oRow, 2].Value = companiesOverview.NewCompaniesThisMonth;
                     overviewSheet.Cells[oRow, 2].Style.Numberformat.Format = "#,##0";
                     oRow++;
+                    
+                    // Add spacing
+                    oRow++;
+                    
+                    // Subscription Breakdown section
+                    overviewSheet.Cells[oRow, 1].Value = "Subscription Breakdown";
+                    overviewSheet.Cells[oRow, 1, oRow, 2].Merge = true;
+                    overviewSheet.Cells[oRow, 1].Style.Font.Bold = true;
+                    overviewSheet.Cells[oRow, 1].Style.Font.Size = 12;
+                    overviewSheet.Cells[oRow, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    overviewSheet.Cells[oRow, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(33, 150, 243));
+                    overviewSheet.Cells[oRow, 1].Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    oRow++;
+                    
+                    overviewSheet.Cells[oRow, 1].Value = "With Active Subscription";
+                    overviewSheet.Cells[oRow, 2].Value = companiesOverview.SubscriptionBreakdown.WithActiveSubscription;
+                    overviewSheet.Cells[oRow, 2].Style.Numberformat.Format = "#,##0";
+                    oRow++;
+                    
+                    overviewSheet.Cells[oRow, 1].Value = "With Expired Subscription";
+                    overviewSheet.Cells[oRow, 2].Value = companiesOverview.SubscriptionBreakdown.WithExpiredSubscription;
+                    overviewSheet.Cells[oRow, 2].Style.Numberformat.Format = "#,##0";
+                    oRow++;
+                    
+                    overviewSheet.Cells[oRow, 1].Value = "Without Subscription";
+                    overviewSheet.Cells[oRow, 2].Value = companiesOverview.SubscriptionBreakdown.WithoutSubscription;
+                    overviewSheet.Cells[oRow, 2].Style.Numberformat.Format = "#,##0";
+                    oRow++;
+                    
+                    // Add spacing
+                    oRow++;
+                    
+                    // Verification Breakdown section
+                    overviewSheet.Cells[oRow, 1].Value = "Verification Breakdown";
+                    overviewSheet.Cells[oRow, 1, oRow, 2].Merge = true;
+                    overviewSheet.Cells[oRow, 1].Style.Font.Bold = true;
+                    overviewSheet.Cells[oRow, 1].Style.Font.Size = 12;
+                    overviewSheet.Cells[oRow, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    overviewSheet.Cells[oRow, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(33, 150, 243));
+                    overviewSheet.Cells[oRow, 1].Style.Font.Color.SetColor(System.Drawing.Color.White);
+                    oRow++;
+                    
+                    overviewSheet.Cells[oRow, 1].Value = "Verified";
+                    overviewSheet.Cells[oRow, 2].Value = companiesOverview.VerificationBreakdown.Verified;
+                    overviewSheet.Cells[oRow, 2].Style.Numberformat.Format = "#,##0";
+                    oRow++;
+                    
+                    overviewSheet.Cells[oRow, 1].Value = "Pending";
+                    overviewSheet.Cells[oRow, 2].Value = companiesOverview.VerificationBreakdown.Pending;
+                    overviewSheet.Cells[oRow, 2].Style.Numberformat.Format = "#,##0";
+                    oRow++;
+                    
+                    overviewSheet.Cells[oRow, 1].Value = "Rejected";
+                    overviewSheet.Cells[oRow, 2].Value = companiesOverview.VerificationBreakdown.Rejected;
+                    overviewSheet.Cells[oRow, 2].Style.Numberformat.Format = "#,##0";
+                    oRow++;
                 }
                 
-                // Apply styling
+                // Apply styling (avoid overwriting section headers)
                 for (int r = oDataStart; r < oRow; r++)
                 {
-                    var rowRange = overviewSheet.Cells[r, 1, r, 2];
-                    if ((r - oDataStart) % 2 == 0)
+                    // Skip section header rows (they have merged cells with blue background)
+                    var cell = overviewSheet.Cells[r, 1];
+                    var cellValue = cell.Value?.ToString() ?? "";
+                    bool isSectionHeader = cellValue == "Subscription Breakdown" || cellValue == "Verification Breakdown";
+                    
+                    if (!isSectionHeader)
                     {
-                        rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                        var rowRange = overviewSheet.Cells[r, 1, r, 2];
+                        if ((r - oDataStart) % 2 == 0)
+                        {
+                            rowRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            rowRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(250, 250, 250));
+                        }
+                        rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                        overviewSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
                     }
-                    rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
-                    rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
-                    rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
-                    rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
-                    overviewSheet.Cells[r, 2].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                    else
+                    {
+                        // Ensure borders on section headers too
+                        var rowRange = overviewSheet.Cells[r, 1, r, 2];
+                        rowRange.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+                        rowRange.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                    }
                 }
                 
                 overviewSheet.Column(1).Width = 30;
@@ -4797,6 +4870,52 @@ namespace BusinessObjectLayer.Services
 
                                         table.Cell().Element(CellStyle).Text("New Companies This Month");
                                         table.Cell().Element(CellStyle).Text(companiesOverview.NewCompaniesThisMonth.ToString());
+                                    });
+                                    
+                                    // Subscription Breakdown
+                                    column.Item().PaddingTop(15).Text(t => 
+                                    {
+                                        t.Span("Subscription Breakdown").FontSize(11).Bold().FontColor(Colors.Black);
+                                    });
+                                    column.Item().PaddingTop(5).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("With Active Subscription");
+                                        table.Cell().Element(CellStyle).Text(companiesOverview.SubscriptionBreakdown.WithActiveSubscription.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("With Expired Subscription");
+                                        table.Cell().Element(CellStyle).Text(companiesOverview.SubscriptionBreakdown.WithExpiredSubscription.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Without Subscription");
+                                        table.Cell().Element(CellStyle).Text(companiesOverview.SubscriptionBreakdown.WithoutSubscription.ToString());
+                                    });
+                                    
+                                    // Verification Breakdown
+                                    column.Item().PaddingTop(15).Text(t => 
+                                    {
+                                        t.Span("Verification Breakdown").FontSize(11).Bold().FontColor(Colors.Black);
+                                    });
+                                    column.Item().PaddingTop(5).Table(table =>
+                                    {
+                                        table.ColumnsDefinition(cols =>
+                                        {
+                                            cols.RelativeColumn(2);
+                                            cols.RelativeColumn(3);
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Verified");
+                                        table.Cell().Element(CellStyle).Text(companiesOverview.VerificationBreakdown.Verified.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Pending");
+                                        table.Cell().Element(CellStyle).Text(companiesOverview.VerificationBreakdown.Pending.ToString());
+
+                                        table.Cell().Element(CellStyle).Text("Rejected");
+                                        table.Cell().Element(CellStyle).Text(companiesOverview.VerificationBreakdown.Rejected.ToString());
                                     });
                                 }
 
