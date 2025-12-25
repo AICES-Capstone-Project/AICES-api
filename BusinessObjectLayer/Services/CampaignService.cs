@@ -508,9 +508,9 @@ namespace BusinessObjectLayer.Services
                 // VALIDATE CONTENT USING GOOGLE CLOUD NLP
                 // ============================================
                 
-                // Validate Title
+                // Validate Title (only needs 1 meaningful word)
                 var (isTitleValid, titleError) = await _contentValidationService
-                    .ValidateJobContentAsync(request.Title ?? "", "Campaign Title");
+                    .ValidateJobContentAsync(request.Title ?? "", "Campaign Title", minMeaningfulTokens: 1);
                 if (!isTitleValid)
                 {
                     return new ServiceResponse
@@ -524,7 +524,7 @@ namespace BusinessObjectLayer.Services
                 if (!string.IsNullOrWhiteSpace(request.Description))
                 {
                     var (isDescValid, descError) = await _contentValidationService
-                        .ValidateJobContentAsync(request.Description, "Campaign Description");
+                        .ValidateJobContentAsync(request.Description, "Campaign Description", minMeaningfulTokens: 3);
                     if (!isDescValid)
                     {
                         return new ServiceResponse
@@ -746,7 +746,7 @@ namespace BusinessObjectLayer.Services
                 if (!string.IsNullOrWhiteSpace(request.Description))
                 {
                     var (isDescValid, descError) = await _contentValidationService
-                        .ValidateJobContentAsync(request.Description, "Campaign Description");
+                        .ValidateJobContentAsync(request.Description, "Campaign Description", minMeaningfulTokens: 3);
                     if (!isDescValid)
                     {
                         return new ServiceResponse

@@ -105,17 +105,17 @@ namespace API.Controllers
         public async Task<IActionResult> GetById(int id) =>
             ControllerResponse.Response(await _companyService.GetByIdAsync(id));
 
-        [HttpPost]
-        [Authorize(Roles = "System_Admin, System_Manager")]
-        [RequestSizeLimit(10_000_000)]
-        public async Task<IActionResult> Create([FromForm] CompanyRequest request) =>
-            ControllerResponse.Response(await _companyService.CreateAsync(request));
+        // [HttpPost]
+        // [Authorize(Roles = "System_Admin, System_Manager")]
+        // [RequestSizeLimit(10_000_000)]
+        // public async Task<IActionResult> Create([FromForm] CompanyRequest request) =>
+        //     ControllerResponse.Response(await _companyService.CreateAsync(request));
 
-        [HttpPatch("{id}")]
-        [Authorize(Roles = "System_Admin, System_Manager")]
-        [RequestSizeLimit(10_000_000)]
-        public async Task<IActionResult> Update(int id, [FromForm] CompanyRequest request) =>
-            ControllerResponse.Response(await _companyService.UpdateAsync(id, request));
+        // [HttpPatch("{id}")]
+        // [Authorize(Roles = "System_Admin, System_Manager")]
+        // [RequestSizeLimit(10_000_000)]
+        // public async Task<IActionResult> Update(int id, [FromForm] CompanyRequest request) =>
+        //     ControllerResponse.Response(await _companyService.UpdateAsync(id, request));
 
         [HttpDelete("{id}")]
         [Authorize(Roles = "System_Admin, System_Manager")]

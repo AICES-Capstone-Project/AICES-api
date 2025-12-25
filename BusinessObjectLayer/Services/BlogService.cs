@@ -18,11 +18,13 @@ namespace BusinessObjectLayer.Services
     {
         private readonly IUnitOfWork _uow;
         private readonly Common.CloudinaryHelper _cloudinaryHelper;
+        private readonly IContentValidationService _contentValidationService;
 
-        public BlogService(IUnitOfWork uow, Common.CloudinaryHelper cloudinaryHelper)
+        public BlogService(IUnitOfWork uow, Common.CloudinaryHelper cloudinaryHelper, IContentValidationService contentValidationService)
         {
             _uow = uow;
             _cloudinaryHelper = cloudinaryHelper;
+            _contentValidationService = contentValidationService;
         }
 
         public async Task<ServiceResponse> CreateBlogAsync(BlogRequest request, ClaimsPrincipal userClaims)
@@ -35,6 +37,34 @@ namespace BusinessObjectLayer.Services
 
                 var userId = int.Parse(userIdClaim);
                 var blogRepo = _uow.GetRepository<IBlogRepository>();
+
+                // ============================================
+                // VALIDATE CONTENT USING GOOGLE CLOUD NLP
+                // ============================================
+                
+                // Validate Title (only needs 1 meaningful word)
+                var (isTitleValid, titleError) = await _contentValidationService
+                    .ValidateJobContentAsync(request.Title ?? "", "Blog Title", minMeaningfulTokens: 1);
+                if (!isTitleValid)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = titleError
+                    };
+                }
+
+                // Validate Content (needs 3 meaningful words)
+                var (isContentValid, contentError) = await _contentValidationService
+                    .ValidateJobContentAsync(request.Content ?? "", "Blog Content", minMeaningfulTokens: 3);
+                if (!isContentValid)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = contentError
+                    };
+                }
 
                 // Handle thumbnail upload if file is provided
                 string? thumbnailUrl = null;
@@ -308,6 +338,40 @@ namespace BusinessObjectLayer.Services
                         Status = SRStatus.Unauthorized,
                         Message = "You don't have permission to update this blog"
                     };
+                }
+
+                // ============================================
+                // VALIDATE CONTENT USING GOOGLE CLOUD NLP
+                // ============================================
+                
+                // Validate Title (if being updated)
+                if (!string.IsNullOrEmpty(request.Title))
+                {
+                    var (isTitleValid, titleError) = await _contentValidationService
+                        .ValidateJobContentAsync(request.Title, "Blog Title", minMeaningfulTokens: 1);
+                    if (!isTitleValid)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = titleError
+                        };
+                    }
+                }
+
+                // Validate Content (if being updated)
+                if (request.Content != null)
+                {
+                    var (isContentValid, contentError) = await _contentValidationService
+                        .ValidateJobContentAsync(request.Content, "Blog Content", minMeaningfulTokens: 3);
+                    if (!isContentValid)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = contentError
+                        };
+                    }
                 }
 
                 // Update blog fields

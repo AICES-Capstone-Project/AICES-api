@@ -17,7 +17,7 @@ namespace BusinessObjectLayer.Services
             _languageClient = LanguageServiceClient.Create();
         }
 
-        public async Task<(bool IsValid, string ErrorMessage)> ValidateJobContentAsync(string text, string fieldName)
+        public async Task<(bool IsValid, string ErrorMessage)> ValidateJobContentAsync(string text, string fieldName, int minMeaningfulTokens = 3)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return (false, $"{fieldName} cannot be empty");
@@ -40,8 +40,11 @@ namespace BusinessObjectLayer.Services
                                t.PartOfSpeech.Tag == PartOfSpeech.Types.Tag.Adj)
                     .ToList();
 
-                if (meaningfulTokens.Count < 3)
-                    return (false, $"{fieldName} must contain meaningful content with at least 3 important words (nouns/verbs/adjectives)");
+                if (meaningfulTokens.Count < minMeaningfulTokens)
+                {
+                    var wordText = minMeaningfulTokens == 1 ? "word" : "words";
+                    return (false, $"{fieldName} must contain meaningful content with at least {minMeaningfulTokens} important {wordText} (nouns/verbs/adjectives)");
+                }
 
                 // Analyze sentiment to avoid spam/negative content
                 var sentimentResponse = await _languageClient.AnalyzeSentimentAsync(document);

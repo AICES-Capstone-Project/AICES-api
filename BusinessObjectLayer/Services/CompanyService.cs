@@ -28,6 +28,7 @@ namespace BusinessObjectLayer.Services
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly INotificationService _notificationService;
         private readonly IEmailService _emailService;
+        private readonly IContentValidationService _contentValidationService;
 
         public CompanyService(
             IUnitOfWork uow,
@@ -35,7 +36,8 @@ namespace BusinessObjectLayer.Services
             Common.CloudinaryHelper cloudinaryHelper,
             IHttpContextAccessor httpContextAccessor,
             INotificationService notificationService,
-            IEmailService emailService)
+            IEmailService emailService,
+            IContentValidationService contentValidationService)
         {
             _uow = uow;
             _companyDocumentService = companyDocumentService;
@@ -43,6 +45,7 @@ namespace BusinessObjectLayer.Services
             _httpContextAccessor = httpContextAccessor;
             _notificationService = notificationService;
             _emailService = emailService;
+            _contentValidationService = contentValidationService;
         }
 
         // Get public companies (active and approved only)
@@ -200,122 +203,141 @@ namespace BusinessObjectLayer.Services
         }
 
         // Create company for System Admin (automatically approved)
-        public async Task<ServiceResponse> CreateAsync(CompanyRequest request)
-        {
-            try
-            {
-                // Get current admin user ID from claims for ApprovedBy
-                var user = _httpContextAccessor.HttpContext?.User;
-                var adminUserIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
+        // public async Task<ServiceResponse> CreateAsync(CompanyRequest request)
+        // {
+        //     try
+        //     {
+        //         // Get current admin user ID from claims for ApprovedBy
+        //         var user = _httpContextAccessor.HttpContext?.User;
+        //         var adminUserIdClaim = user != null ? Common.ClaimUtils.GetUserIdClaim(user) : null;
 
-                if (string.IsNullOrEmpty(adminUserIdClaim))
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Unauthorized,
-                        Message = "Admin user not authenticated."
-                    };
-                }
+        //         if (string.IsNullOrEmpty(adminUserIdClaim))
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Unauthorized,
+        //                 Message = "Admin user not authenticated."
+        //             };
+        //         }
 
-                int adminUserId = int.Parse(adminUserIdClaim);
+        //         int adminUserId = int.Parse(adminUserIdClaim);
 
-                // ✅ Validate documents for POST (required)
-                if (request.DocumentFiles == null || request.DocumentFiles.Count == 0)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = "At least one document file is required."
-                    };
-                }
+        //         // ✅ Validate documents for POST (required)
+        //         if (request.DocumentFiles == null || request.DocumentFiles.Count == 0)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Validation,
+        //                 Message = "At least one document file is required."
+        //             };
+        //         }
 
-                if (request.DocumentTypes == null || request.DocumentTypes.Count == 0)
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Validation,
-                        Message = "Document types are required."
-                    };
-                }
+        //         if (request.DocumentTypes == null || request.DocumentTypes.Count == 0)
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Validation,
+        //                 Message = "Document types are required."
+        //             };
+        //         }
 
-                var companyRepo = _uow.GetRepository<ICompanyRepository>();
+        //         // ============================================
+        //         // VALIDATE CONTENT USING GOOGLE CLOUD NLP
+        //         // ============================================
+
+        //         // Validate Description (if provided, needs 3 meaningful words)
+        //         if (!string.IsNullOrWhiteSpace(request.Description))
+        //         {
+        //             var (isDescValid, descError) = await _contentValidationService
+        //                 .ValidateJobContentAsync(request.Description, "Company Description", minMeaningfulTokens: 3);
+        //             if (!isDescValid)
+        //             {
+        //                 return new ServiceResponse
+        //                 {
+        //                     Status = SRStatus.Validation,
+        //                     Message = descError
+        //                 };
+        //             }
+        //         }
+
+        //         var companyRepo = _uow.GetRepository<ICompanyRepository>();
                 
-                // ✅ Kiểm tra trùng tên công ty
-                if (await companyRepo.ExistsByNameAsync(request.Name))
-                {
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Duplicated,
-                        Message = "Company name already exists."
-                    };
-                }
+        //         // ✅ Kiểm tra trùng tên công ty
+        //         if (await companyRepo.ExistsByNameAsync(request.Name))
+        //         {
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Duplicated,
+        //                 Message = "Company name already exists."
+        //             };
+        //         }
 
-                // ✅ Upload logo (nếu có)
-                string? logoUrl = null;
-                if (request.LogoFile != null)
-                {
-                    var upload = await UploadFileAsync(request.LogoFile, "companies/logos");
-                    if (!upload.Success)
-                        return new ServiceResponse { Status = SRStatus.Error, Message = upload.ErrorMessage };
-                    logoUrl = upload.Url;
-                }
+        //         // ✅ Upload logo (nếu có)
+        //         string? logoUrl = null;
+        //         if (request.LogoFile != null)
+        //         {
+        //             var upload = await UploadFileAsync(request.LogoFile, "companies/logos");
+        //             if (!upload.Success)
+        //                 return new ServiceResponse { Status = SRStatus.Error, Message = upload.ErrorMessage };
+        //             logoUrl = upload.Url;
+        //         }
 
-                await _uow.BeginTransactionAsync();
-                try
-                {
-                    // ✅ Tạo công ty mới với status Approved
-                    var company = new Company
-                    {
-                        Name = request.Name,
-                        Description = request.Description,
-                        Address = request.Address,
-                        Website = request.Website,
-                        TaxCode = request.TaxCode,
-                        LogoUrl = logoUrl,
-                        CompanyStatus = CompanyStatusEnum.Approved, // Automatically approved
-                        CreatedBy = adminUserId, // User who owns the company
-                        ApprovedBy = adminUserId, // Admin who approved/created it
-                        RejectReason = null
-                    };
+        //         await _uow.BeginTransactionAsync();
+        //         try
+        //         {
+        //             // ✅ Tạo công ty mới với status Approved
+        //             var company = new Company
+        //             {
+        //                 Name = request.Name,
+        //                 Description = request.Description,
+        //                 Address = request.Address,
+        //                 Website = request.Website,
+        //                 TaxCode = request.TaxCode,
+        //                 LogoUrl = logoUrl,
+        //                 CompanyStatus = CompanyStatusEnum.Approved, // Automatically approved
+        //                 CreatedBy = adminUserId, // User who owns the company
+        //                 ApprovedBy = adminUserId, // Admin who approved/created it
+        //                 RejectReason = null
+        //             };
 
-                    // Save company first to get CompanyId
-                    await companyRepo.AddAsync(company);
-                    await _uow.SaveChangesAsync(); // Get CompanyId
+        //             // Save company first to get CompanyId
+        //             await companyRepo.AddAsync(company);
+        //             await _uow.SaveChangesAsync(); // Get CompanyId
 
-                    // ✅ Upload documents (nếu có) using CompanyDocumentService
-                    if (request.DocumentFiles != null && request.DocumentFiles.Count > 0)
-                    {
-                        await _companyDocumentService.UploadAndSaveDocumentsAsync(
-                            company.CompanyId,
-                            request.DocumentFiles,
-                            request.DocumentTypes);
-                    }
+        //             // ✅ Upload documents (nếu có) using CompanyDocumentService
+        //             if (request.DocumentFiles != null && request.DocumentFiles.Count > 0)
+        //             {
+        //                 await _companyDocumentService.UploadAndSaveDocumentsAsync(
+        //                     company.CompanyId,
+        //                     request.DocumentFiles,
+        //                     request.DocumentTypes);
+        //             }
 
-                    await _uow.CommitTransactionAsync();
+        //             await _uow.CommitTransactionAsync();
 
-                    return new ServiceResponse
-                    {
-                        Status = SRStatus.Success,
-                        Message = "Company created successfully.",
-                    };
-                }
-                catch
-                {
-                    await _uow.RollbackTransactionAsync();
-                    throw;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error creating company for system: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                return new ServiceResponse
-                {
-                    Status = SRStatus.Error,
-                    Message = "An error occurred while creating the company."
-                };
-            }
-        }
+        //             return new ServiceResponse
+        //             {
+        //                 Status = SRStatus.Success,
+        //                 Message = "Company created successfully.",
+        //             };
+        //         }
+        //         catch
+        //         {
+        //             await _uow.RollbackTransactionAsync();
+        //             throw;
+        //         }
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Console.WriteLine($"Error creating company for system: {ex.Message}");
+        //         Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        //         return new ServiceResponse
+        //         {
+        //             Status = SRStatus.Error,
+        //             Message = "An error occurred while creating the company."
+        //         };
+        //     }
+        // }
 
         // Get self company (for HR users to view their own company)
         public async Task<ServiceResponse> GetSelfCompanyAsync()
@@ -565,6 +587,25 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // ============================================
+                // VALIDATE CONTENT USING GOOGLE CLOUD NLP
+                // ============================================
+
+                // Validate Description (if provided, needs 3 meaningful words)
+                if (!string.IsNullOrWhiteSpace(request.Description))
+                {
+                    var (isDescValid, descError) = await _contentValidationService
+                        .ValidateJobContentAsync(request.Description, "Company Description", minMeaningfulTokens: 3);
+                    if (!isDescValid)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = descError
+                        };
+                    }
+                }
+
                 // ✅ Kiểm tra trùng tên công ty
                 if (await companyRepo.ExistsByNameAsync(request.Name))
                 {
@@ -717,6 +758,25 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
+                // ============================================
+                // VALIDATE CONTENT USING GOOGLE CLOUD NLP
+                // ==========================================
+
+                // Validate Description (if being updated, needs 3 meaningful words)
+                if (!string.IsNullOrWhiteSpace(request.Description))
+                {
+                    var (isDescValid, descError) = await _contentValidationService
+                        .ValidateJobContentAsync(request.Description, "Company Description", minMeaningfulTokens: 3);
+                    if (!isDescValid)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = descError
+                        };
+                    }
+                }
+
                 // Update allowed fields
                 if (!string.IsNullOrEmpty(request.Name))
                     company.Name = request.Name;
@@ -799,6 +859,40 @@ namespace BusinessObjectLayer.Services
                         Status = SRStatus.NotFound,
                         Message = "Company not found."
                     };
+                }
+
+                // ============================================
+                // VALIDATE CONTENT USING GOOGLE CLOUD NLP
+                // ============================================
+                
+                // Validate Name (if being updated, only needs 1 meaningful word)
+                if (!string.IsNullOrEmpty(request.Name))
+                {
+                    var (isNameValid, nameError) = await _contentValidationService
+                        .ValidateJobContentAsync(request.Name, "Company Name", minMeaningfulTokens: 1);
+                    if (!isNameValid)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = nameError
+                        };
+                    }
+                }
+
+                // Validate Description (if being updated, needs 3 meaningful words)
+                if (!string.IsNullOrWhiteSpace(request.Description))
+                {
+                    var (isDescValid, descError) = await _contentValidationService
+                        .ValidateJobContentAsync(request.Description, "Company Description", minMeaningfulTokens: 3);
+                    if (!isDescValid)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = descError
+                        };
+                    }
                 }
 
                 // Update allowed fields
@@ -920,6 +1014,25 @@ namespace BusinessObjectLayer.Services
                         Status = SRStatus.NotFound,
                         Message = "Company not found."
                     };
+                }
+
+                // ============================================
+                // VALIDATE CONTENT USING GOOGLE CLOUD NLP
+                // ============================================
+                
+                // Validate Description (if being updated, needs 3 meaningful words)
+                if (!string.IsNullOrWhiteSpace(request.Description))
+                {
+                    var (isDescValid, descError) = await _contentValidationService
+                        .ValidateJobContentAsync(request.Description, "Company Description", minMeaningfulTokens: 3);
+                    if (!isDescValid)
+                    {
+                        return new ServiceResponse
+                        {
+                            Status = SRStatus.Validation,
+                            Message = descError
+                        };
+                    }
                 }
 
                 // Update only profile fields (does NOT change status)

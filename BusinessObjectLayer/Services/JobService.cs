@@ -209,9 +209,9 @@ namespace BusinessObjectLayer.Services
                 // VALIDATE CONTENT USING GOOGLE CLOUD NLP
                 // ============================================
                 
-                // Validate Title
+                // Validate Title (only needs 1 meaningful word)
                 var (isTitleValid, titleError) = await _contentValidationService
-                    .ValidateJobContentAsync(request.Title ?? "", "Job Title");
+                    .ValidateJobContentAsync(request.Title ?? "", "Job Title", minMeaningfulTokens: 1);
                 if (!isTitleValid)
                 {
                     return new ServiceResponse
@@ -225,7 +225,7 @@ namespace BusinessObjectLayer.Services
                 if (!string.IsNullOrWhiteSpace(request.Description))
                 {
                     var (isDescValid, descError) = await _contentValidationService
-                        .ValidateJobContentAsync(request.Description, "Job Description");
+                        .ValidateJobContentAsync(request.Description, "Job Description", minMeaningfulTokens: 3);
                     if (!isDescValid)
                     {
                         return new ServiceResponse
@@ -236,9 +236,9 @@ namespace BusinessObjectLayer.Services
                     }
                 }
 
-                // Validate Requirements
+                // Validate Requirements (needs 3 meaningful words)
                 var (isReqValid, reqError) = await _contentValidationService
-                    .ValidateJobContentAsync(request.Requirements ?? "", "Job Requirements");
+                    .ValidateJobContentAsync(request.Requirements ?? "", "Job Requirements", minMeaningfulTokens: 3);
                 if (!isReqValid)
                 {
                     return new ServiceResponse
@@ -1114,9 +1114,9 @@ namespace BusinessObjectLayer.Services
                 // VALIDATE CONTENT USING GOOGLE CLOUD NLP
                 // ============================================
                 
-                // Validate Title
+                // Validate Title (only needs 1 meaningful word)
                 var (isTitleValid, titleError) = await _contentValidationService
-                    .ValidateJobContentAsync(request.Title ?? "", "Job Title");
+                    .ValidateJobContentAsync(request.Title ?? "", "Job Title", minMeaningfulTokens: 1);
                 if (!isTitleValid)
                 {
                     return new ServiceResponse
@@ -1130,7 +1130,7 @@ namespace BusinessObjectLayer.Services
                 if (!string.IsNullOrWhiteSpace(request.Description))
                 {
                     var (isDescValid, descError) = await _contentValidationService
-                        .ValidateJobContentAsync(request.Description, "Job Description");
+                        .ValidateJobContentAsync(request.Description, "Job Description", minMeaningfulTokens: 3);
                     if (!isDescValid)
                     {
                         return new ServiceResponse
@@ -1141,9 +1141,9 @@ namespace BusinessObjectLayer.Services
                     }
                 }
 
-                // Validate Requirements
+                // Validate Requirements (needs 3 meaningful words)
                 var (isReqValid, reqError) = await _contentValidationService
-                    .ValidateJobContentAsync(request.Requirements ?? "", "Job Requirements");
+                    .ValidateJobContentAsync(request.Requirements ?? "", "Job Requirements", minMeaningfulTokens: 3);
                 if (!isReqValid)
                 {
                     return new ServiceResponse

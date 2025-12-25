@@ -93,6 +93,13 @@ namespace DataAccessLayer.Repositories
                 .CountAsync(f => f.IsActive);
         }
 
+        public async Task<bool> HasRecentFeedbackAsync(int comUserId, DateTime sinceDate)
+        {
+            return await _context.Feedbacks
+                .AsNoTracking()
+                .AnyAsync(f => f.IsActive && f.ComUserId == comUserId && f.CreatedAt >= sinceDate);
+        }
+
         public async Task UpdateAsync(Feedback feedback)
         {
             _context.Feedbacks.Update(feedback);

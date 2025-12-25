@@ -16,6 +16,7 @@ namespace DataAccessLayer.IRepositories
         Task<int> GetTotalFeedbacksByComUserIdAsync(int comUserId);
         Task<List<Feedback>> GetAllFeedbacksAsync(int page = 1, int pageSize = 10);
         Task<int> GetTotalFeedbacksAsync();
+        Task<bool> HasRecentFeedbackAsync(int comUserId, DateTime sinceDate);
         Task UpdateAsync(Feedback feedback);
         Task SoftDeleteAsync(Feedback feedback);
     }

@@ -19,8 +19,8 @@ namespace BusinessObjectLayer.IServices
         Task<ServiceResponse> GetRejectedSelfCompanyAsync();
         Task<ServiceResponse> SelfCreateAsync(CompanyRequest request);
         Task<ServiceResponse> UpdateSelfCompanyAsync(CompanyRequest request);
-        Task<ServiceResponse> CreateAsync(CompanyRequest request);
-        Task<ServiceResponse> UpdateAsync(int id, CompanyRequest request);
+        // Task<ServiceResponse> CreateAsync(CompanyRequest request);
+        // Task<ServiceResponse> UpdateAsync(int id, CompanyRequest request);
         Task<ServiceResponse> UpdateCompanyProfileAsync(CompanyProfileUpdateRequest request);
         Task<ServiceResponse> DeleteAsync(int id);
         Task<ServiceResponse> UpdateCompanyStatusAsync(int companyId, CompanyStatusEnum status, string? rejectionReason = null);

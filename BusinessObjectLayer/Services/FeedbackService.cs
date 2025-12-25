@@ -15,10 +15,12 @@ namespace BusinessObjectLayer.Services
     public class FeedbackService : IFeedbackService
     {
         private readonly IUnitOfWork _uow;
+        private readonly IContentValidationService _contentValidationService;
 
-        public FeedbackService(IUnitOfWork uow)
+        public FeedbackService(IUnitOfWork uow, IContentValidationService contentValidationService)
         {
             _uow = uow;
+            _contentValidationService = contentValidationService;
         }
 
         public async Task<ServiceResponse> CreateAsync(FeedbackRequest request, ClaimsPrincipal userClaims)
@@ -62,7 +64,40 @@ namespace BusinessObjectLayer.Services
                 };
             }
 
+            // ============================================
+            // RATE LIMITING: Only 1 feedback per week
+            // ============================================
             var feedbackRepo = _uow.GetRepository<IFeedbackRepository>();
+            var oneWeekAgo = DateTime.UtcNow.AddDays(-7);
+            var hasRecentFeedback = await feedbackRepo.HasRecentFeedbackAsync(companyUser.ComUserId, oneWeekAgo);
+            
+            if (hasRecentFeedback)
+            {
+                return new ServiceResponse
+                {
+                    Status = SRStatus.Validation,
+                    Message = "You can only submit one feedback per week."
+                };
+            }
+
+            // ============================================
+            // VALIDATE CONTENT USING GOOGLE CLOUD NLP
+            // ============================================
+            
+            // Validate Comment (if provided, needs 3 meaningful words)
+            if (!string.IsNullOrWhiteSpace(request.Comment))
+            {
+                var (isCommentValid, commentError) = await _contentValidationService
+                    .ValidateJobContentAsync(request.Comment, "Feedback Comment", minMeaningfulTokens: 3);
+                if (!isCommentValid)
+                {
+                    return new ServiceResponse
+                    {
+                        Status = SRStatus.Validation,
+                        Message = commentError
+                    };
+                }
+            }
 
             var feedback = new Feedback
             {
