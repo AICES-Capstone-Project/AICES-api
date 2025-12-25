@@ -22,10 +22,6 @@ namespace BusinessObjectLayer.Services
             if (string.IsNullOrWhiteSpace(text))
                 return (false, $"{fieldName} cannot be empty");
 
-            // Check minimum length
-            if (text.Length < 5)
-                return (false, $"{fieldName} must be at least 5 characters");
-
             try
             {
                 var document = new Document
@@ -62,9 +58,9 @@ namespace BusinessObjectLayer.Services
                 Console.WriteLine($"Content validation error: {ex.Message}");
                 
                 // Fallback validation if Google API fails
-                var words = text.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                if (words.Length < 5)
-                    return (false, $"{fieldName} must contain at least 5 words");
+                var words = text.Split([' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries);
+                if (words.Length < 1)
+                    return (false, $"{fieldName} must contain at least 1 word");
                     
                 // Pass if API fails to not block users
                 return (true, string.Empty);
