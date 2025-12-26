@@ -470,6 +470,11 @@ namespace BusinessObjectLayer.Services
                 await companySubRepo.AddAsync(companySubscription);
                 await _uow.SaveChangesAsync();
 
+                // Reset usage counters when new subscription is activated
+                var usageCounterRepo = _uow.GetRepository<IUsageCounterRepository>();
+                await usageCounterRepo.ResetAllUsageCountersAsync(companyId);
+                await _uow.SaveChangesAsync();
+
                 // Update payment with ComSubId if paymentId exists in metadata
                 int.TryParse(session.Metadata?.GetValueOrDefault("paymentId") ?? "0", out int paymentId);
                 if (paymentId > 0)
@@ -1331,6 +1336,11 @@ namespace BusinessObjectLayer.Services
                 // Cancel ngay lập tức: mất quyền truy cập ngay
                 companySubscription.SubscriptionStatus = SubscriptionStatusEnum.Canceled;
                 await companySubRepo.UpdateAsync(companySubscription);
+                await _uow.SaveChangesAsync();
+
+                // Reset usage counters when subscription is canceled (back to free)
+                var usageCounterRepo = _uow.GetRepository<IUsageCounterRepository>();
+                await usageCounterRepo.ResetAllUsageCountersAsync(companySubscription.CompanyId);
                 await _uow.SaveChangesAsync();
 
                 return new ServiceResponse

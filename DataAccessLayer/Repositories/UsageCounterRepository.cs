@@ -145,5 +145,18 @@ namespace DataAccessLayer.Repositories
 
             return counter.Used < counter.Limit;
         }
+
+        public async Task ResetAllUsageCountersAsync(int companyId)
+        {
+            var counters = await _context.UsageCounters
+                .Where(c => c.CompanyId == companyId && c.IsActive)
+                .ToListAsync();
+
+            foreach (var counter in counters)
+            {
+                counter.IsActive = false;
+                counter.UpdatedAt = DateTime.UtcNow;
+            }
+        }
     }
 }

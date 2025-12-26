@@ -59,5 +59,11 @@ namespace DataAccessLayer.IRepositories
             UsageTypeEnum usageType,
             DateTime periodStartDate,
             DateTime periodEndDate);
+
+        /// <summary>
+        /// Reset all usage counters for a company by soft deleting them (IsActive = false).
+        /// This should be called when subscription changes (upgrade or cancel).
+        /// </summary>
+        Task ResetAllUsageCountersAsync(int companyId);
     }
 }
