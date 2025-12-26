@@ -51,7 +51,7 @@ namespace BusinessObjectLayer.Services
         // ===================================================
         // 1. CREATE CHECKOUT SESSION 
         // ===================================================
-        // using Stripe.Checkout; using Stripe; (ở đầu file)
+       
 
         public async Task<ServiceResponse> CreateCheckoutSessionAsync(CheckoutRequest request, ClaimsPrincipal userClaims)
         {
@@ -780,43 +780,102 @@ namespace BusinessObjectLayer.Services
                     await _uow.SaveChangesAsync();
                 }
 
-                // Gửi receipt email nếu có customer email và amount_paid > 0
-                if (!string.IsNullOrWhiteSpace(invoice.CustomerEmail) && invoice.AmountPaid > 0)
+                // Gửi receipt email - tự động lấy email từ nhiều nguồn
+                if (invoice.AmountPaid > 0)
                 {
                     try
                     {
-                        // Lấy subscription name từ metadata hoặc subscription entity
-                        string subscriptionName = subscriptionDef?.Name ?? "Subscription";
-                        decimal amountInDollars = (decimal)invoice.AmountPaid / 100; // Convert from cents to dollars
-                        string invoiceUrl = invoice.HostedInvoiceUrl ?? invoice.InvoicePdf ?? "";
+                        // Lấy email từ nhiều nguồn (ưu tiên từ cao đến thấp)
+                        string? customerEmail = invoice.CustomerEmail;
                         
-                        // Lấy receipt number từ invoice number
-                        string receiptNumber = invoice.Number ?? invoice.Id?.Replace("in_", "").Substring(0, Math.Min(8, invoice.Id?.Length ?? 8)) ?? "0000-0000";
-                        if (receiptNumber.Length > 8) receiptNumber = receiptNumber.Substring(0, 8);
-                        if (receiptNumber.Length >= 4) receiptNumber = receiptNumber.Insert(4, "-");
+                        // Fallback 1: Lấy từ Stripe Customer nếu invoice không có email
+                        if (string.IsNullOrWhiteSpace(customerEmail) && invoice.Customer != null)
+                        {
+                            try
+                            {
+                                var customerService = new CustomerService();
+                                string customerId = invoice.Customer is Stripe.Customer custObj ? custObj.Id : invoice.Customer.ToString();
+                                var customer = await customerService.GetAsync(customerId);
+                                customerEmail = customer?.Email;
+                                _logger.LogDebug("Retrieved email from Stripe Customer: {Email}", customerEmail);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Could not retrieve email from Stripe Customer for invoice {InvoiceId}", invoice.Id);
+                            }
+                        }
                         
+                        // Fallback 2: Lấy từ database CompanyUser nếu vẫn không có email
+                        if (string.IsNullOrWhiteSpace(customerEmail) && companyId > 0)
+                        {
+                            try
+                            {
+                                var companyUserRepo = _uow.GetRepository<ICompanyUserRepository>();
+                                
+                                // Ưu tiên lấy HR Manager đầu tiên
+                                var hrManagers = await companyUserRepo.GetHrManagersByCompanyIdAsync(companyId);
+                                var firstHrManager = hrManagers?.FirstOrDefault();
+                                
+                                if (firstHrManager?.User?.Email != null)
+                                {
+                                    customerEmail = firstHrManager.User.Email;
+                                    _logger.LogDebug("Retrieved email from HR Manager: {Email}", customerEmail);
+                                }
+                                else
+                                {
+                                    // Fallback: lấy approved member đầu tiên
+                                    var approvedMembers = await companyUserRepo.GetApprovedAndInvitedMembersByCompanyIdAsync(companyId);
+                                    var firstMember = approvedMembers?.FirstOrDefault();
+                                    customerEmail = firstMember?.User?.Email;
+                                    _logger.LogDebug("Retrieved email from first approved member: {Email}", customerEmail);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Could not retrieve email from database for company {CompanyId}", companyId);
+                            }
+                        }
                         
-                        string paymentMethod = "Card";
-                        
-                        // Lấy date paid từ invoice
-                        DateTime? datePaid = invoice.StatusTransitions?.PaidAt ?? invoice.EffectiveAt;
+                        // Gửi email nếu đã lấy được
+                        if (!string.IsNullOrWhiteSpace(customerEmail))
+                        {
+                            // Lấy subscription name từ metadata hoặc subscription entity
+                            string subscriptionName = subscriptionDef?.Name ?? "Subscription";
+                            decimal amountInDollars = (decimal)invoice.AmountPaid / 100; // Convert from cents to dollars
+                            string invoiceUrl = invoice.HostedInvoiceUrl ?? invoice.InvoicePdf ?? "";
+                            
+                            // Lấy receipt number từ invoice number
+                            string receiptNumber = invoice.Number ?? invoice.Id?.Replace("in_", "").Substring(0, Math.Min(8, invoice.Id?.Length ?? 8)) ?? "0000-0000";
+                            if (receiptNumber.Length > 8) receiptNumber = receiptNumber.Substring(0, 8);
+                            if (receiptNumber.Length >= 4) receiptNumber = receiptNumber.Insert(4, "-");
+                            
+                            
+                            string paymentMethod = "Card";
+                            
+                            // Lấy date paid từ invoice
+                            DateTime? datePaid = invoice.StatusTransitions?.PaidAt ?? invoice.EffectiveAt;
 
-                        await _emailService.SendReceiptEmailAsync(
-                            invoice.CustomerEmail,
-                            invoiceUrl,
-                            amountInDollars,
-                            invoice.Currency?.ToUpper() ?? "USD",
-                            subscriptionName,
-                            receiptNumber,
-                            paymentMethod,
-                            datePaid
-                        );
-                        _logger.LogInformation("Receipt email sent for invoice {InvoiceId} to {CustomerEmail}", invoice.Id, invoice.CustomerEmail);
+                            await _emailService.SendReceiptEmailAsync(
+                                customerEmail,
+                                invoiceUrl,
+                                amountInDollars,
+                                invoice.Currency?.ToUpper() ?? "USD",
+                                subscriptionName,
+                                receiptNumber,
+                                paymentMethod,
+                                datePaid
+                            );
+                            _logger.LogInformation("Receipt email sent for invoice {InvoiceId} to {CustomerEmail}", invoice.Id, customerEmail);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Could not find customer email for invoice {InvoiceId}. Receipt email not sent.", invoice.Id);
+                        }
                     }
                     catch (Exception ex)
                     {
                         // Log error nhưng không fail webhook
-                        _logger.LogError(ex, "Error sending receipt email for invoice {InvoiceId} to {CustomerEmail}", invoice.Id, invoice.CustomerEmail);
+                        _logger.LogError(ex, "Error sending receipt email for invoice {InvoiceId}", invoice.Id);
                     }
                 }
 
