@@ -131,16 +131,10 @@ namespace BusinessObjectLayer.Services
                 if (subscriptionCheck != null)
                     return subscriptionCheck;
 
-                var resumeApplications = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.JobId == jobId
-                                 && ra.CampaignId == campaignId
-                                 && ra.IsActive)
-                    .Include(ra => ra.Resume)
-                        .ThenInclude(r => r.Candidate)
-                    .ToListAsync();
+                var resumeApplicationRepo = _uow.GetRepository<IResumeApplicationRepository>();
+                var sortedApplications = await resumeApplicationRepo.GetForExcelExportAsync(jobId, campaignId);
 
-                if (resumeApplications == null || !resumeApplications.Any())
+                if (sortedApplications == null || !sortedApplications.Any())
                 {
                     return new ServiceResponse
                     {
@@ -149,17 +143,12 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var sortedApplications = resumeApplications
-                    .OrderByDescending(ra => ra.AdjustedScore ?? ra.TotalScore ?? 0m)
-                    .ThenBy(ra => ra.CreatedAt ?? DateTime.MinValue)
-                    .ToList();
-
                 // Create Excel file
                 using var package = new ExcelPackage();
                 var ws = package.Workbook.Worksheets.Add("Candidates Report");
 
                 // Header row
-                var headers = new[] { "Rank", "Full Name", "Email", "Score", "Phone", "Matched Skills", "Missing Skills", "AI Explanation" };
+                var headers = new[] { "Rank", "Full Name", "Email", "Score", "Phone", "Status", "Matched Skills", "Missing Skills", "AI Explanation" };
                 for (int i = 0; i < headers.Length; i++)
                 {
                     ws.Cells[1, i + 1].Value = headers[i];
@@ -186,9 +175,10 @@ namespace BusinessObjectLayer.Services
                     ws.Cells[row, 3].Value = candidate?.Email ?? "N/A";
                     ws.Cells[row, 4].Value = (double)(application?.AdjustedScore ?? application?.TotalScore ?? 0m);
                     ws.Cells[row, 5].Value = candidate?.PhoneNumber ?? "N/A";
-                    ws.Cells[row, 6].Value = application?.MatchSkills ?? string.Empty;
-                    ws.Cells[row, 7].Value = application?.MissingSkills ?? string.Empty;
-                    ws.Cells[row, 8].Value = application?.AIExplanation ?? string.Empty;
+                    ws.Cells[row, 6].Value = application?.Status.ToString() ?? "N/A";
+                    ws.Cells[row, 7].Value = application?.MatchSkills ?? string.Empty;
+                    ws.Cells[row, 8].Value = application?.MissingSkills ?? string.Empty;
+                    ws.Cells[row, 9].Value = application?.AIExplanation ?? string.Empty;
 
                     row++;
                     rank++;
@@ -198,14 +188,15 @@ namespace BusinessObjectLayer.Services
                 ws.Cells[ws.Dimension.Address].AutoFitColumns();
 
                 // Set minimum width for certain columns
-                ws.Column(6).Width = Math.Max(ws.Column(6).Width, 30); // Matched Skills
-                ws.Column(7).Width = Math.Max(ws.Column(7).Width, 30); // Missing Skills
-                ws.Column(8).Width = Math.Max(ws.Column(8).Width, 50); // AI Explanation
+                ws.Column(6).Width = Math.Max(ws.Column(6).Width, 15); // Status
+                ws.Column(7).Width = Math.Max(ws.Column(7).Width, 30); // Matched Skills
+                ws.Column(8).Width = Math.Max(ws.Column(8).Width, 30); // Missing Skills
+                ws.Column(9).Width = Math.Max(ws.Column(9).Width, 50); // AI Explanation
 
                 // Wrap text for long content columns
-                ws.Column(6).Style.WrapText = true;
                 ws.Column(7).Style.WrapText = true;
                 ws.Column(8).Style.WrapText = true;
+                ws.Column(9).Style.WrapText = true;
 
                 // Add borders to all data
                 using (var range = ws.Cells[1, 1, row - 1, headers.Length])
@@ -343,19 +334,10 @@ namespace BusinessObjectLayer.Services
                 if (subscriptionCheck != null)
                     return subscriptionCheck;
 
-                var resumeApplications = await _context.ResumeApplications
-                    .AsNoTracking()
-                    .Where(ra => ra.JobId == jobId
-                                 && ra.CampaignId == campaignId
-                                 && ra.IsActive)
-                    .Include(ra => ra.Resume)
-                        .ThenInclude(r => r.Candidate)
-                    .Include(ra => ra.ScoreDetails)
-                        .ThenInclude(sd => sd.Criteria)
-                    .Include(ra => ra.Job)
-                    .ToListAsync();
+                var resumeApplicationRepo = _uow.GetRepository<IResumeApplicationRepository>();
+                var sortedApplications = await resumeApplicationRepo.GetForPdfExportAsync(jobId, campaignId);
 
-                if (resumeApplications == null || !resumeApplications.Any())
+                if (sortedApplications == null || !sortedApplications.Any())
                 {
                     return new ServiceResponse
                     {
@@ -364,15 +346,7 @@ namespace BusinessObjectLayer.Services
                     };
                 }
 
-                var totalCandidates = resumeApplications.Count;
-                var parsedCount = resumeApplications.Count(ra => ra.Resume?.Status == ResumeStatusEnum.Completed);
-                var scoredCount = resumeApplications.Count(ra => ra.TotalScore.HasValue || ra.AdjustedScore.HasValue);
-                var shortlistedCount = scoredCount;
-
-                var sortedApplications = resumeApplications
-                    .OrderByDescending(ra => ra.AdjustedScore ?? ra.TotalScore ?? 0m)
-                    .ThenBy(ra => ra.CreatedAt ?? DateTime.MinValue)
-                    .ToList();
+                var totalCandidates = sortedApplications.Count;
 
                 var top5ResumeApplications = sortedApplications.Take(5).ToList();
 
@@ -388,7 +362,7 @@ namespace BusinessObjectLayer.Services
 
                         page.Header().Element(c => ComposeCoverHeader(c));
 
-                        page.Content().Element(c => ComposeCoverContent(c, company.Name, job, totalCandidates, parsedCount, scoredCount, shortlistedCount, top5ResumeApplications));
+                        page.Content().Element(c => ComposeCoverContent(c, company.Name, job, totalCandidates, top5ResumeApplications));
 
                         page.Footer().Element(c => ComposeFooter(c, 1));
                     });
@@ -521,7 +495,7 @@ namespace BusinessObjectLayer.Services
             });
         }
 
-        private void ComposeCoverContent(IContainer container, string companyName, Job job, int totalCandidates, int parsedCount, int scoredCount, int shortlistedCount, List<ResumeApplication> top5Applications)
+        private void ComposeCoverContent(IContainer container, string companyName, Job job, int totalCandidates, List<ResumeApplication> top5Applications)
         {
             container.PaddingVertical(20).Column(col =>
             {
@@ -538,14 +512,14 @@ namespace BusinessObjectLayer.Services
                 });
 
                 // Job Information Section
-                col.Item().PaddingBottom(20).Element(c => ComposeJobInfoSection(c, job, totalCandidates, parsedCount, scoredCount, shortlistedCount));
+                col.Item().PaddingBottom(20).Element(c => ComposeJobInfoSection(c, job, totalCandidates));
 
                 // Top 5 Candidates Section
                 col.Item().Element(c => ComposeTop5Section(c, top5Applications));
             });
         }
 
-        private void ComposeJobInfoSection(IContainer container, Job job, int totalCandidates, int parsedCount, int scoredCount, int shortlistedCount)
+        private void ComposeJobInfoSection(IContainer container, Job job, int totalCandidates)
         {
             container.Background(Colors.Grey.Lighten4).Padding(15).Column(col =>
             {
@@ -554,48 +528,18 @@ namespace BusinessObjectLayer.Services
                     .Bold()
                     .FontColor(Colors.Green.Darken2);
 
-                col.Item().PaddingTop(10).Row(row =>
+                col.Item().PaddingTop(10).Column(info =>
                 {
-                    row.RelativeItem().Column(left =>
+                    info.Item().Text(t =>
                     {
-                        left.Item().Text(t =>
-                        {
-                            t.Span("Job Title: ").Bold();
-                            t.Span(job.Title);
-                        });
-
-                        left.Item().Text(t =>
-                        {
-                            t.Span("Job ID: ").Bold();
-                            t.Span(job.JobId.ToString());
-                        });
+                        t.Span("Job Title: ").Bold();
+                        t.Span(job.Title);
                     });
 
-                    row.RelativeItem().Column(right =>
+                    info.Item().Text(t =>
                     {
-                        right.Item().Text(t =>
-                        {
-                            t.Span("Total Candidates: ").Bold();
-                            t.Span(totalCandidates.ToString());
-                        });
-
-                        right.Item().Text(t =>
-                        {
-                            t.Span("Parsed: ").Bold();
-                            t.Span(parsedCount.ToString());
-                        });
-
-                        right.Item().Text(t =>
-                        {
-                            t.Span("Scored: ").Bold();
-                            t.Span(scoredCount.ToString());
-                        });
-
-                        right.Item().Text(t =>
-                        {
-                            t.Span("Shortlisted: ").Bold();
-                            t.Span(shortlistedCount.ToString());
-                        });
+                        t.Span("Total Applications: ").Bold();
+                        t.Span(totalCandidates.ToString());
                     });
                 });
             });
@@ -672,7 +616,7 @@ namespace BusinessObjectLayer.Services
         {
             if (score >= 80) return "#4CAF50"; // Green
             if (score >= 60) return "#8BC34A"; // Light Green
-            if (score >= 40) return "#FFEB3B"; // Yellow
+            if (score >= 40) return "#F9A825"; // Darker Yellow/Amber
             if (score >= 20) return "#FF9800"; // Orange
             return "#F44336"; // Red
         }
@@ -681,13 +625,21 @@ namespace BusinessObjectLayer.Services
         {
             var candidate = application.Resume?.Candidate;
             var score = application.AdjustedScore ?? application.TotalScore ?? 0m;
+            var status = application.Status.ToString();
 
             container.Background(Colors.Green.Darken2).Padding(15).Row(row =>
             {
-                row.RelativeItem().Text($"Candidate #{rank} — {candidate?.FullName ?? "Unknown"}")
-                    .FontSize(18)
-                    .Bold()
-                    .FontColor(Colors.White);
+                row.RelativeItem().Column(col =>
+                {
+                    col.Item().Text($"Candidate {rank} — {candidate?.FullName ?? "Unknown"}")
+                        .FontSize(18)
+                        .Bold()
+                        .FontColor(Colors.White);
+                    
+                    col.Item().Text($"Status: {status}")
+                        .FontSize(12)
+                        .FontColor(Colors.White);
+                });
 
                 row.ConstantItem(120).AlignRight().Text($"Score: {score:F1}")
                     .FontSize(16)
@@ -885,7 +837,7 @@ namespace BusinessObjectLayer.Services
         {
             container.Background(Colors.Yellow.Lighten4).Padding(12).Column(col =>
             {
-                col.Item().Text("AI Summary / Verdict")
+                col.Item().Text("AI Summary")
                     .FontSize(14)
                     .Bold()
                     .FontColor(Colors.Green.Darken2);

@@ -360,6 +360,47 @@ namespace DataAccessLayer.Repositories
                 .Distinct()
                 .ToDictionaryAsync(x => x.JobId, x => x.Title);
         }
+
+        public async Task<List<ResumeApplication>> GetForExcelExportAsync(int jobId, int campaignId)
+        {
+            return await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.JobId == jobId
+                             && ra.CampaignId == campaignId
+                             && ra.IsActive
+                             && (ra.Status == Data.Enum.ApplicationStatusEnum.Reviewed
+                                 || ra.Status == Data.Enum.ApplicationStatusEnum.Shortlisted
+                                 || ra.Status == Data.Enum.ApplicationStatusEnum.Interview
+                                 || ra.Status == Data.Enum.ApplicationStatusEnum.Rejected
+                                 || ra.Status == Data.Enum.ApplicationStatusEnum.Hired))
+                .Include(ra => ra.Resume)
+                    .ThenInclude(r => r.Candidate)
+                .OrderByDescending(ra => ra.AdjustedScore ?? ra.TotalScore ?? 0m)
+                .ThenBy(ra => ra.CreatedAt ?? DateTime.MinValue)
+                .ToListAsync();
+        }
+
+        public async Task<List<ResumeApplication>> GetForPdfExportAsync(int jobId, int campaignId)
+        {
+            return await _context.ResumeApplications
+                .AsNoTracking()
+                .Where(ra => ra.JobId == jobId
+                             && ra.CampaignId == campaignId
+                             && ra.IsActive
+                             && (ra.Status == Data.Enum.ApplicationStatusEnum.Reviewed
+                                 || ra.Status == Data.Enum.ApplicationStatusEnum.Shortlisted
+                                 || ra.Status == Data.Enum.ApplicationStatusEnum.Interview
+                                 || ra.Status == Data.Enum.ApplicationStatusEnum.Rejected
+                                 || ra.Status == Data.Enum.ApplicationStatusEnum.Hired))
+                .Include(ra => ra.Resume)
+                    .ThenInclude(r => r.Candidate)
+                .Include(ra => ra.ScoreDetails)
+                    .ThenInclude(sd => sd.Criteria)
+                .Include(ra => ra.Job)
+                .OrderByDescending(ra => ra.AdjustedScore ?? ra.TotalScore ?? 0m)
+                .ThenBy(ra => ra.CreatedAt ?? DateTime.MinValue)
+                .ToListAsync();
+        }
     }
 }
 
