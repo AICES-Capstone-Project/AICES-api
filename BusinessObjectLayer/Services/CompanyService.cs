@@ -1,5 +1,6 @@
 using BusinessObjectLayer.IServices;
 using BusinessObjectLayer.Services.Auth;
+using BusinessObjectLayer.Hubs;
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Data.Entities;
@@ -11,6 +12,7 @@ using DataAccessLayer;
 using DataAccessLayer.IRepositories;
 using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -29,6 +31,7 @@ namespace BusinessObjectLayer.Services
         private readonly INotificationService _notificationService;
         private readonly IEmailService _emailService;
         private readonly IContentValidationService _contentValidationService;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
         public CompanyService(
             IUnitOfWork uow,
@@ -37,7 +40,8 @@ namespace BusinessObjectLayer.Services
             IHttpContextAccessor httpContextAccessor,
             INotificationService notificationService,
             IEmailService emailService,
-            IContentValidationService contentValidationService)
+            IContentValidationService contentValidationService,
+            IHubContext<NotificationHub> hubContext)
         {
             _uow = uow;
             _companyDocumentService = companyDocumentService;
@@ -46,6 +50,7 @@ namespace BusinessObjectLayer.Services
             _notificationService = notificationService;
             _emailService = emailService;
             _contentValidationService = contentValidationService;
+            _hubContext = hubContext;
         }
 
         // Get public companies (active and approved only)
@@ -1374,22 +1379,36 @@ namespace BusinessObjectLayer.Services
                                     Console.WriteLine($"Failed to send approval email: {ex.Message}");
                                 }
 
-                                // Force logout: clear session to require re-login
+                                // Invalidate current session to force token refresh (role changed from HR_Recruiter to HR_Manager)
                                 try
                                 {
                                     var userRepo = _uow.GetRepository<IUserRepository>();
                                     var creatorUser = await userRepo.GetForUpdateAsync(creatorUserId.Value);
                                     if (creatorUser != null)
                                     {
-                                        creatorUser.CurrentSessionId = null;
-                                        creatorUser.CurrentSessionExpiry = null;
+                                        // Generate new session ID to invalidate old token
+                                        // User will get 401 on next API call and can use refresh token to get new token with updated role
+                                        creatorUser.CurrentSessionId = Guid.NewGuid().ToString("N");
+                                        creatorUser.CurrentSessionExpiry = DateTime.UtcNow.AddMinutes(int.Parse(Environment.GetEnvironmentVariable("JWTCONFIG__TOKENVALIDITYMINS") ?? "60"));
                                         await userRepo.UpdateAsync(creatorUser);
                                         await _uow.SaveChangesAsync();
+
+                                        // Send SignalR notification to inform user to refresh token
+                                        await _hubContext.Clients.Group($"user-{creatorUserId.Value}")
+                                            .SendAsync("RoleChanged", new
+                                            {
+                                                message = "Your role has been updated to HR_Manager",
+                                                newRole = "HR_Manager",
+                                                action = "refresh_token", // Frontend should call refresh token endpoint
+                                                timestamp = DateTime.UtcNow
+                                            });
+
+                                        Console.WriteLine($"✅ Session invalidated for user {creatorUserId.Value}, role changed to HR_Manager");
                                     }
                                 }
                                 catch (Exception ex)
                                 {
-                                    Console.WriteLine($"Failed to logout user: {ex.Message}");
+                                    Console.WriteLine($"Failed to invalidate session: {ex.Message}");
                                 }
                             }
 
