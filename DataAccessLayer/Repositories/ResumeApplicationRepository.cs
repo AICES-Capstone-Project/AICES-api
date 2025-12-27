@@ -235,7 +235,9 @@ namespace DataAccessLayer.Repositories
                         // ✅ NEW: Also block if application failed due to business logic rejection
                         || (ra.Status == Data.Enum.ApplicationStatusEnum.Failed 
                             && (ra.ErrorType == Data.Enum.ApplicationErrorEnum.JobTitleNotMatched 
-                                || ra.ErrorType == Data.Enum.ApplicationErrorEnum.InvalidJobData))
+                                || ra.ErrorType == Data.Enum.ApplicationErrorEnum.InvalidJobData
+                                || ra.ErrorType == Data.Enum.ApplicationErrorEnum.InvalidResumeData
+                                || ra.ErrorType == Data.Enum.ApplicationErrorEnum.TechnicalError))
                     ))
                 .Include(ra => ra.Resume)
                 .AnyAsync();

@@ -711,7 +711,7 @@ namespace BusinessObjectLayer.Services
                 else
                 {
                     clonedApp.Status = ApplicationStatusEnum.Failed;
-                    clonedApp.ErrorType = decision.ExistingApplication?.ErrorType ?? ApplicationErrorEnum.TechnicalError;
+                    clonedApp.ErrorType = decision.ExistingApplication?.ErrorType ?? ApplicationErrorEnum.InvalidResumeData;
                     clonedApp.ErrorMessage = decision.ExistingApplication?.ErrorMessage ?? $"Auto-rejected: {existingResume.Status}";
                 }
 
