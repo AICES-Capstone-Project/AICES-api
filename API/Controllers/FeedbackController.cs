@@ -58,7 +58,7 @@ namespace API.Controllers
 
         
         [HttpGet]
-        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+        
         public async Task<IActionResult> GetAllFeedbacks([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             var response = await _feedbackService.GetAllAsync(page, pageSize);
@@ -67,7 +67,7 @@ namespace API.Controllers
 
         
         [HttpGet("{feedbackId}")]
-        [Authorize(Roles = "System_Admin,System_Manager,System_Staff")]
+        
         public async Task<IActionResult> GetFeedbackDetail(int feedbackId)
         {
             var response = await _feedbackService.GetByIdAsync(feedbackId);
