@@ -215,14 +215,24 @@ namespace DataAccessLayer.Repositories
 
         public async Task<bool> IsDuplicateResumeAsync(int jobId, int campaignId, string fileHash)
         {
+            // ✅ Check for duplicates including business logic failures (JobTitleNotMatched)
+            // We allow retry for technical errors (InvalidResumeData, CorruptedFile) but NOT for business logic rejections
             return await _context.ResumeApplications
                 .AsNoTracking()
                 .Where(ra => ra.JobId == jobId
                     && ra.CampaignId == campaignId
                     && ra.Resume.FileHash == fileHash
-                    && (ra.Resume.Status == Data.Enum.ResumeStatusEnum.Completed || ra.Resume.Status == Data.Enum.ResumeStatusEnum.Pending)
                     && ra.Resume.IsActive == true
-                    && ra.IsActive == true)
+                    && ra.IsActive == true
+                    && (
+                        // Resume is in valid processing state (Pending or Completed)
+                        ra.Resume.Status == Data.Enum.ResumeStatusEnum.Completed 
+                        || ra.Resume.Status == Data.Enum.ResumeStatusEnum.Pending
+                        // OR application failed due to business logic rejection (not technical errors)
+                        || (ra.Status == Data.Enum.ApplicationStatusEnum.Failed 
+                            && (ra.ErrorType == Data.Enum.ApplicationErrorEnum.JobTitleNotMatched 
+                                || ra.ErrorType == Data.Enum.ApplicationErrorEnum.InvalidJobData))
+                    ))
                 .Include(ra => ra.Resume)
                 .AnyAsync();
         }
