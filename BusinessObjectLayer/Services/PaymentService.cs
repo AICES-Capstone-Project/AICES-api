@@ -104,7 +104,10 @@ namespace BusinessObjectLayer.Services
             
             // Get user email
             var companyUserEntity = await companyUserRepo.GetCompanyUserByUserIdAsync(userId);
-            string userEmail = companyUserEntity?.User?.Email;
+            string? userEmail = companyUserEntity?.User?.Email;
+            
+            _logger.LogInformation("CreateCheckout - UserId: {UserId}, UserEmail: {UserEmail}, CustomerId: {CustomerId}", 
+                userId, userEmail ?? "NULL", customerId ?? "NULL");
 
             if (string.IsNullOrEmpty(customerId))
             {
@@ -118,22 +121,35 @@ namespace BusinessObjectLayer.Services
                 await companyRepo.UpdateAsync(company);
                 await _uow.SaveChangesAsync();
                 customerId = cust.Id;
+                _logger.LogInformation("Created new Stripe customer: {CustomerId} with email: {Email}", customerId, userEmail ?? "NULL");
             }
             else
             {
-                // Customer already exists - update email if missing or different
+                // Customer already exists - ALWAYS update email to ensure it's current
                 var existingCustomer = await customerService.GetAsync(customerId);
-                if (existingCustomer != null && !string.IsNullOrWhiteSpace(userEmail))
+                if (existingCustomer != null)
                 {
-                    // Update email if customer doesn't have one or if it's different
-                    if (string.IsNullOrWhiteSpace(existingCustomer.Email) || 
-                        !existingCustomer.Email.Equals(userEmail, StringComparison.OrdinalIgnoreCase))
+                    if (!string.IsNullOrWhiteSpace(userEmail))
                     {
-                        var updateOptions = new CustomerUpdateOptions
+                        // Always update email to ensure it's current
+                        if (string.IsNullOrWhiteSpace(existingCustomer.Email) || 
+                            !existingCustomer.Email.Equals(userEmail, StringComparison.OrdinalIgnoreCase))
                         {
-                            Email = userEmail
-                        };
-                        await customerService.UpdateAsync(customerId, updateOptions);
+                            var updateOptions = new CustomerUpdateOptions
+                            {
+                                Email = userEmail
+                            };
+                            await customerService.UpdateAsync(customerId, updateOptions);
+                            _logger.LogInformation("Updated Stripe customer {CustomerId} email to: {Email}", customerId, userEmail);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("Stripe customer {CustomerId} already has correct email: {Email}", customerId, userEmail);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("User {UserId} has no email - Stripe checkout may require manual email input", userId);
                     }
                 }
             }
@@ -179,11 +195,14 @@ namespace BusinessObjectLayer.Services
                 { "paymentId", payment.PaymentId.ToString() }
             };
 
+            // Create Stripe Checkout Session
+            // Note: When Customer is provided, Stripe uses email from Customer record (not CustomerEmail param)
             var options = new Stripe.Checkout.SessionCreateOptions
             {
                 Mode = "subscription",
                 Customer = customerId,
-                CustomerEmail = userEmail, // Ensure email is passed to checkout for receipt delivery
+                // CustomerEmail is ONLY used when Customer is NOT provided
+                // Since we set Customer above, email will come from the Customer record in Stripe
                 SuccessUrl = $"{domain}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
                 CancelUrl = $"{domain}/subscriptions",
                 ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(31).UtcDateTime,
@@ -204,10 +223,15 @@ namespace BusinessObjectLayer.Services
 
             _logger.LogDebug("Checkout session expiration - ExpiresAt: {ExpiresAt}, UTC Now: {UtcNow}, Local Time: {LocalTime}, Unix: {UnixTime}", 
                 options.ExpiresAt, DateTime.UtcNow, DateTime.Now, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-
+            
+            _logger.LogInformation("Creating Stripe session with Customer: {CustomerId}, Email: {Email}", 
+                customerId, userEmail ?? "NULL");
 
             var sessionService = new SessionService();
             var session = await sessionService.CreateAsync(options);
+            
+            _logger.LogInformation("Stripe session created successfully: {SessionId}, URL: {Url}", 
+                session.Id, session.Url);
 
             // We can add paymentId into session metadata? Stripe session metadata is already set; we could store mapping in our DB if needed.
 
