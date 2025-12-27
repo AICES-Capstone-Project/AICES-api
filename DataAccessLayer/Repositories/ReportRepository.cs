@@ -519,15 +519,14 @@ namespace DataAccessLayer.Repositories
                 })
                 .ToDictionaryAsync(x => x.SubscriptionId, x => x.CompanyCount);
 
-            // Get revenue per subscription (only from active subscriptions with paid transactions)
+            // Get revenue per subscription (all time revenue including expired/canceled subscriptions)
             var planRevenueDict = await (from t in _context.Transactions
                                         join p in _context.Payments on t.PaymentId equals p.PaymentId
                                         join cs in _context.CompanySubscriptions on p.ComSubId equals cs.ComSubId
                                         where t.IsActive &&
                                               p.IsActive &&
                                               p.PaymentStatus == PaymentStatusEnum.Paid &&
-                                              cs.IsActive &&
-                                              cs.SubscriptionStatus == SubscriptionStatusEnum.Active
+                                              cs.IsActive
                                         group t by cs.SubscriptionId into g
                                         select new
                                         {
