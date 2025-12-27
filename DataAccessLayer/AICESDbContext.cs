@@ -602,21 +602,27 @@ namespace DataAccessLayer
                 .HasConversion<string>()
                 .HasMaxLength(50);
 
+            // Configure enum conversion for UsageCounterStatus (store as string)
+            modelBuilder.Entity<UsageCounter>()
+                .Property(u => u.Status)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
             // ===== USAGE COUNTER INDEXES =====
             
-            // Unique constraint: một company chỉ có 1 counter cho mỗi usageType + period
+            // Unique constraint: một company chỉ có 1 counter cho mỗi usageType + period với Status = Active và IsActive = true
             // CRITICAL: Index này bắt buộc để atomic check-and-increment hoạt động
             modelBuilder.Entity<UsageCounter>()
                 .HasIndex(u => new { u.CompanyId, u.UsageType, u.PeriodStartDate, u.PeriodEndDate })
                 .IsUnique()
-                .HasFilter("\"IsActive\" = true")
+                .HasFilter("\"IsActive\" = true AND \"Status\" = 'Active'")
                 .HasDatabaseName("IX_UsageCounters_CompanyId_UsageType_Period_Unique");
 
-            // Index for fast lookup
+            // Index for fast lookup by Status (only for non-deleted records)
             modelBuilder.Entity<UsageCounter>()
-                .HasIndex(u => new { u.CompanyId, u.UsageType, u.IsActive })
-                .HasFilter("\"IsActive\" = true")
-                .HasDatabaseName("IX_UsageCounters_CompanyId_UsageType_IsActive");
+                .HasIndex(u => new { u.CompanyId, u.UsageType, u.Status })
+                .HasFilter("\"IsActive\" = true AND \"Status\" IN ('Active', 'Archived')")
+                .HasDatabaseName("IX_UsageCounters_CompanyId_UsageType_Status");
 
             // ===== SEED DATA =====
 

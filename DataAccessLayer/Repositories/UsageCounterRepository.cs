@@ -31,7 +31,8 @@ namespace DataAccessLayer.Repositories
                     && c.UsageType == usageType
                     && c.PeriodStartDate == periodStartDate
                     && c.PeriodEndDate == periodEndDate
-                    && c.IsActive);
+                    && c.IsActive == true
+                    && c.Status == UsageCounterStatusEnum.Active);
 
             if (counter == null)
             {
@@ -44,6 +45,7 @@ namespace DataAccessLayer.Repositories
                     PeriodEndDate = periodEndDate,
                     Used = 0,
                     Limit = limit,
+                    Status = UsageCounterStatusEnum.Active,
                     UpdatedAt = DateTime.UtcNow
                 };
                 await _context.UsageCounters.AddAsync(counter);
@@ -88,7 +90,8 @@ namespace DataAccessLayer.Repositories
                     && c.UsageType == usageType
                     && c.PeriodStartDate == periodStartDate
                     && c.PeriodEndDate == periodEndDate
-                    && c.IsActive);
+                    && c.IsActive == true
+                    && c.Status == UsageCounterStatusEnum.Active);
         }
 
         public async Task<bool> CheckAndIncrementIfAllowedAsync(
@@ -110,6 +113,7 @@ namespace DataAccessLayer.Repositories
                         AND ""PeriodStartDate"" = {2}
                         AND ""PeriodEndDate"" = {3}
                         AND ""IsActive"" = true
+                        AND ""Status"" = 'Active'
                         AND ""Used"" < ""Limit""
                     FOR UPDATE
                     LIMIT 1
@@ -134,7 +138,8 @@ namespace DataAccessLayer.Repositories
                     && c.UsageType == usageType
                     && c.PeriodStartDate == periodStartDate
                     && c.PeriodEndDate == periodEndDate
-                    && c.IsActive);
+                    && c.IsActive == true
+                    && c.Status == UsageCounterStatusEnum.Active);
 
             return counter?.Used ?? 0;
         }
@@ -152,7 +157,8 @@ namespace DataAccessLayer.Repositories
                     && c.UsageType == usageType
                     && c.PeriodStartDate == periodStartDate
                     && c.PeriodEndDate == periodEndDate
-                    && c.IsActive);
+                    && c.IsActive == true
+                    && c.Status == UsageCounterStatusEnum.Active);
 
             if (counter == null)
                 return true; // No counter = no limit yet
@@ -163,12 +169,15 @@ namespace DataAccessLayer.Repositories
         public async Task ResetAllUsageCountersAsync(int companyId)
         {
             var counters = await _context.UsageCounters
-                .Where(c => c.CompanyId == companyId && c.IsActive)
+                .Where(c => c.CompanyId == companyId 
+                    && c.IsActive == true 
+                    && c.Status == UsageCounterStatusEnum.Active)
                 .ToListAsync();
 
             foreach (var counter in counters)
             {
-                counter.IsActive = false;
+                // Archive: Set Status = Archived but keep IsActive = true (not soft delete)
+                counter.Status = UsageCounterStatusEnum.Archived;
                 counter.UpdatedAt = DateTime.UtcNow;
             }
         }
@@ -180,14 +189,18 @@ namespace DataAccessLayer.Repositories
         /// </summary>
         public async Task ArchiveAndResetUsageCountersAsync(int companyId)
         {
+            // Only archive counters that are active (not soft deleted) and have Active status
             var activeCounters = await _context.UsageCounters
-                .Where(c => c.CompanyId == companyId && c.IsActive)
+                .Where(c => c.CompanyId == companyId 
+                    && c.IsActive == true 
+                    && c.Status == UsageCounterStatusEnum.Active)
                 .ToListAsync();
 
             foreach (var counter in activeCounters)
             {
-                // Archive: Set IsActive = false to preserve as historical record
-                counter.IsActive = false;
+                // Archive: Set Status = Archived but KEEP IsActive = true (not soft delete)
+                // This preserves the record for dashboard tracking while marking it as archived
+                counter.Status = UsageCounterStatusEnum.Archived;
                 counter.UpdatedAt = DateTime.UtcNow;
                 
                 // Create new counter for same period with reset usage
@@ -200,6 +213,7 @@ namespace DataAccessLayer.Repositories
                     PeriodEndDate = counter.PeriodEndDate,
                     Used = 0, // Reset to 0
                     Limit = counter.Limit, // Will be updated by GetOrCreateCounterAsync with new subscription limit
+                    Status = UsageCounterStatusEnum.Active,
                     IsActive = true,
                     UpdatedAt = DateTime.UtcNow
                 };

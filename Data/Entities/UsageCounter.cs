@@ -30,6 +30,11 @@ namespace Data.Entities
 
         public DateTime? UpdatedAt { get; set; }  // Lần cuối update counter
 
+        /// <summary>
+        /// Status of the counter: Active (currently tracking), Archived (preserved for history), Expired (period ended)
+        /// </summary>
+        public UsageCounterStatusEnum Status { get; set; } = UsageCounterStatusEnum.Active;
+
         // Navigation
         public Company Company { get; set; } = null!;
         public CompanySubscription? CompanySubscription { get; set; }

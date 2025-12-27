@@ -562,12 +562,14 @@ namespace DataAccessLayer.Repositories
             }
 
             // Aggregate data from UsageCounters (Primary source for billing/limit consistency)
+            // Query both Active and Archived counters (but not soft deleted ones) for complete historical tracking
             var usageData = await _context.UsageCounters
                 .AsNoTracking()
                 .Where(uc => uc.CompanyId == companyId 
                           && uc.PeriodStartDate >= from 
                           && uc.PeriodStartDate <= now 
-                          && uc.IsActive)
+                          && uc.IsActive == true
+                          && (uc.Status == UsageCounterStatusEnum.Active || uc.Status == UsageCounterStatusEnum.Archived))
                 .ToListAsync();
 
             // Get subscription limits
