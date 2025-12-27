@@ -304,9 +304,9 @@ namespace BusinessObjectLayer.Services
                     Message = reuseDecision.ShouldClone ? "Using existing analysis." : "Upload successful.",
                     Data = new ResumeUploadResponse
                     {
-                        ResumeId = resumeId,
-                        QueueJobId = queueJobId,
-                        Status = reuseDecision.ShouldClone ? ResumeStatusEnum.Completed : ResumeStatusEnum.Pending
+                        ApplicationId = applicationId,
+                        Status = reuseDecision.ShouldClone ? "Completed" : "Pending",
+                        OriginalFileName = file.FileName
                     }
                 };
             }

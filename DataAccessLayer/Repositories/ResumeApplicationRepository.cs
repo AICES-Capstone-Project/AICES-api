@@ -215,12 +215,16 @@ namespace DataAccessLayer.Repositories
 
         public async Task<bool> IsDuplicateResumeAsync(int jobId, int campaignId, string fileHash)
         {
-            // ✅ Check for duplicates including business logic failures (JobTitleNotMatched)
-            // We allow retry for technical errors (InvalidResumeData, CorruptedFile) but NOT for business logic rejections
+            // ✅ Check for duplicates in SAME JOB + SAME CAMPAIGN
+            // Blocks:
+            // 1. Re-uploading to same job + same campaign (any status: Pending, Completed, or Failed with business errors)
+            // Allows:
+            // 1. Uploading to same job but different campaign (will reuse analysis via DetermineReuseStrategy)
+            // 2. Retry for technical errors (InvalidResumeData, CorruptedFile, ServerError, Timeout)
             return await _context.ResumeApplications
                 .AsNoTracking()
                 .Where(ra => ra.JobId == jobId
-                    && ra.CampaignId == campaignId
+                    && ra.CampaignId == campaignId  // ✅ Check within same campaign
                     && ra.Resume.FileHash == fileHash
                     && ra.Resume.IsActive == true
                     && ra.IsActive == true
@@ -228,7 +232,7 @@ namespace DataAccessLayer.Repositories
                         // Resume is in valid processing state (Pending or Completed)
                         ra.Resume.Status == Data.Enum.ResumeStatusEnum.Completed 
                         || ra.Resume.Status == Data.Enum.ResumeStatusEnum.Pending
-                        // OR application failed due to business logic rejection (not technical errors)
+                        // ✅ NEW: Also block if application failed due to business logic rejection
                         || (ra.Status == Data.Enum.ApplicationStatusEnum.Failed 
                             && (ra.ErrorType == Data.Enum.ApplicationErrorEnum.JobTitleNotMatched 
                                 || ra.ErrorType == Data.Enum.ApplicationErrorEnum.InvalidJobData))

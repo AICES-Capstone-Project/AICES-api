@@ -4,9 +4,9 @@ namespace Data.Models.Response
 {
     public class ResumeUploadResponse
     {
-        public int ResumeId { get; set; }
-        public string QueueJobId { get; set; } = string.Empty;
-        public ResumeStatusEnum Status { get; set; }
+        public int ApplicationId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string OriginalFileName { get; set; } = string.Empty;
     }
 }
 
