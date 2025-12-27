@@ -172,5 +172,40 @@ namespace DataAccessLayer.Repositories
                 counter.UpdatedAt = DateTime.UtcNow;
             }
         }
+
+        /// <summary>
+        /// Archive current usage counters and reset usage to 0 for active period.
+        /// This preserves historical data while resetting the usage count.
+        /// Used when subscription changes (upgrade/downgrade/cancel).
+        /// </summary>
+        public async Task ArchiveAndResetUsageCountersAsync(int companyId)
+        {
+            var activeCounters = await _context.UsageCounters
+                .Where(c => c.CompanyId == companyId && c.IsActive)
+                .ToListAsync();
+
+            foreach (var counter in activeCounters)
+            {
+                // Archive: Set IsActive = false to preserve as historical record
+                counter.IsActive = false;
+                counter.UpdatedAt = DateTime.UtcNow;
+                
+                // Create new counter for same period with reset usage
+                var newCounter = new UsageCounter
+                {
+                    CompanyId = counter.CompanyId,
+                    CompanySubscriptionId = counter.CompanySubscriptionId, // Will be updated by GetOrCreateCounterAsync
+                    UsageType = counter.UsageType,
+                    PeriodStartDate = counter.PeriodStartDate,
+                    PeriodEndDate = counter.PeriodEndDate,
+                    Used = 0, // Reset to 0
+                    Limit = counter.Limit, // Will be updated by GetOrCreateCounterAsync with new subscription limit
+                    IsActive = true,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                
+                await _context.UsageCounters.AddAsync(newCounter);
+            }
+        }
     }
 }

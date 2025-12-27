@@ -65,5 +65,12 @@ namespace DataAccessLayer.IRepositories
         /// This should be called when subscription changes (upgrade or cancel).
         /// </summary>
         Task ResetAllUsageCountersAsync(int companyId);
+
+        /// <summary>
+        /// Archive current usage counters and reset usage to 0 for active period.
+        /// This preserves historical data while resetting the usage count.
+        /// Used when subscription changes (upgrade/downgrade/cancel).
+        /// </summary>
+        Task ArchiveAndResetUsageCountersAsync(int companyId);
     }
 }
