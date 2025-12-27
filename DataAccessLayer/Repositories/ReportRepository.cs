@@ -54,13 +54,16 @@ namespace DataAccessLayer.Repositories
 
         public async Task<decimal> GetTotalRevenueFromPaidPaymentsAsync()
         {
-            return await _context.Transactions
+            var totalInCents = await _context.Transactions
                 .AsNoTracking()
                 .Where(t => t.IsActive &&
                        t.Payment != null &&
                        t.Payment.IsActive &&
                        t.Payment.PaymentStatus == PaymentStatusEnum.Paid)
                 .SumAsync(t => (decimal?)t.Amount) ?? 0;
+            
+            // Convert cents to dollars
+            return totalInCents / 100;
         }
 
         public async Task<int> GetCompaniesWithSubscriptionsCountAsync()
@@ -457,7 +460,7 @@ namespace DataAccessLayer.Repositories
             var firstDay = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
             var lastDay = firstDay.AddMonths(1);
 
-            return await _context.Transactions
+            var totalInCents = await _context.Transactions
                 .AsNoTracking()
                 .Where(t => t.IsActive &&
                        t.Payment != null &&
@@ -466,6 +469,9 @@ namespace DataAccessLayer.Repositories
                        t.CreatedAt >= firstDay &&
                        t.CreatedAt < lastDay)
                 .SumAsync(t => (decimal?)t.Amount) ?? 0;
+            
+            // Convert cents to dollars
+            return totalInCents / 100;
         }
 
         public async Task<int> GetCompaniesWithSubscriptionsForRevenueAsync()
@@ -535,19 +541,23 @@ namespace DataAccessLayer.Repositories
                 SubscriptionId = s.SubscriptionId,
                 PlanName = s.Name,
                 CompanyCount = companyCountDict.TryGetValue(s.SubscriptionId, out var count) ? count : 0,
-                Revenue = planRevenueDict.TryGetValue(s.SubscriptionId, out var revenue) ? revenue : 0
+                // Convert cents to dollars
+                Revenue = planRevenueDict.TryGetValue(s.SubscriptionId, out var revenue) ? revenue / 100 : 0
             }).ToList();
         }
 
         public async Task<decimal> GetTotalRevenueAsync()
         {
-            return await _context.Transactions
+            var totalInCents = await _context.Transactions
                 .AsNoTracking()
                 .Where(t => t.IsActive &&
                        t.Payment != null &&
                        t.Payment.IsActive &&
                        t.Payment.PaymentStatus == PaymentStatusEnum.Paid)
                 .SumAsync(t => (decimal?)t.Amount) ?? 0;
+            
+            // Convert cents to dollars
+            return totalInCents / 100;
         }
 
         #endregion
