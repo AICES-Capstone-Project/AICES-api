@@ -204,12 +204,13 @@ namespace DataAccessLayer.Repositories
 
         public async Task<decimal> GetTotalRevenueAsync()
         {
-            var total = await _context.Transactions
+            var totalInCents = await _context.Transactions
                 .AsNoTracking()
                 .Where(t => t.Payment.IsActive && t.Payment.PaymentStatus == PaymentStatusEnum.Paid)
                 .SumAsync(t => (decimal?)t.Amount) ?? 0m;
 
-            return total;
+            // Convert cents to dollars
+            return totalInCents / 100;
         }
 
         public async Task<List<(int CompanyId, string CompanyName, int ResumeCount, int JobCount)>> GetTopCompaniesByResumeAndJobAsync(int top)
