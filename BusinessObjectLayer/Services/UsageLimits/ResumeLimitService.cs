@@ -101,6 +101,45 @@ namespace BusinessObjectLayer.Services.UsageLimits
         }
 
         /// <summary>
+        /// Pre-create the usage counter to avoid race conditions during parallel batch uploads
+        /// Call this BEFORE starting parallel uploads to ensure counter exists
+        /// </summary>
+        public async Task EnsureCounterExistsAsync(int companyId)
+        {
+            try
+            {
+                var (resumeLimit, hoursLimit, periodStartDate, periodEndDate, companySubscriptionId) 
+                    = await GetSubscriptionLimitInfoAsync(companyId);
+
+                if (resumeLimit <= 0)
+                {
+                    // No limit, no counter needed
+                    return;
+                }
+
+                var usageCounterRepo = _uow.GetRepository<IUsageCounterRepository>();
+                
+                // Create counter if it doesn't exist (idempotent operation)
+                var counter = await usageCounterRepo.GetOrCreateCounterAsync(
+                    companyId,
+                    UsageTypeEnum.Resume,
+                    companySubscriptionId,
+                    periodStartDate,
+                    periodEndDate,
+                    resumeLimit);
+                
+                await _uow.SaveChangesAsync();
+                
+                Console.WriteLine($"✅ Usage counter ensured for company {companyId}");
+            }
+            catch (Exception ex)
+            {
+                // Log but don't fail - individual uploads will handle counter creation with retry
+                Console.WriteLine($"⚠️ Could not pre-create usage counter: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Check and increment resume limit atomically within transaction
         /// MUST be called within a transaction (BeginTransactionAsync)
         /// This is the critical method that prevents race conditions

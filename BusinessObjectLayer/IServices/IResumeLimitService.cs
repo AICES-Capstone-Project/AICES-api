@@ -7,6 +7,7 @@ namespace BusinessObjectLayer.IServices
     {
         Task<ServiceResponse> CheckResumeLimitAsync(int companyId);
         Task<ServiceResponse> CheckResumeLimitInTransactionAsync(int companyId);
+        Task EnsureCounterExistsAsync(int companyId);
     }
 }
 

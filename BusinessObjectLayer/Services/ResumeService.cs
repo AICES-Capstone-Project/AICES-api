@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using BusinessObjectLayer.Hubs;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 
 namespace BusinessObjectLayer.Services
 {
@@ -34,8 +35,10 @@ namespace BusinessObjectLayer.Services
         private readonly IHubContext<ResumeHub> _hubContext;
         
         // ✅ IMPROVED: Allow 10 concurrent uploads per company (up from 1)
+        // ⚠️ Note: For batches > 50, we limit to 5 to reduce database contention
         private readonly ConcurrentDictionary<int, SemaphoreSlim> _companyLocks;
         private const int MAX_CONCURRENT_UPLOADS_PER_COMPANY = 10;
+        private const int MAX_CONCURRENT_UPLOADS_LARGE_BATCH = 5; // For batches > 50 files
 
         public ResumeService(
             IUnitOfWork uow,
@@ -107,14 +110,29 @@ namespace BusinessObjectLayer.Services
                     return campaignJobValidation;
                 }
 
-                // Note: Individual uploads will check quota atomically
-                // This is just a quick check to fail fast if clearly over limit
+                // ✅ NEW: Pre-create usage counter to avoid race conditions during parallel uploads
+                // This ensures the counter exists before all parallel tasks try to access it
+                await _resumeLimitService.EnsureCounterExistsAsync(companyId);
 
-                // Process all files in parallel (up to MAX_CONCURRENT_UPLOADS_PER_COMPANY)
-                // ✅ FIX: Create a new scope with fresh DbContext for each parallel upload
-                var uploadTasks = files.Select(file => 
-                    UploadSingleResumeWithScopeAsync(campaignId, jobId, file, companyId)
-                ).ToList();
+                // ✅ IMPROVED: Reduce concurrency for large batches to prevent database contention
+                int maxConcurrency = files.Count > 50 ? MAX_CONCURRENT_UPLOADS_LARGE_BATCH : MAX_CONCURRENT_UPLOADS_PER_COMPANY;
+                
+                Console.WriteLine($"📦 Processing {files.Count} files with max concurrency: {maxConcurrency}");
+
+                // Process files in parallel with controlled concurrency
+                var semaphore = new SemaphoreSlim(maxConcurrency, maxConcurrency);
+                var uploadTasks = files.Select(async file => 
+                {
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        return await UploadSingleResumeWithScopeAsync(campaignId, jobId, file, companyId);
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }).ToList();
 
                 var results = await Task.WhenAll(uploadTasks);
 
@@ -230,47 +248,114 @@ namespace BusinessObjectLayer.Services
                     fileUrl = existingResume.FileUrl;
                 }
 
-                // Step 4: Create records in DB (short transaction)
-                int resumeId, applicationId;
+                // Step 4: Create records in DB (short transaction) with retry logic
+                int resumeId = 0, applicationId = 0;
                 string queueJobId = Guid.NewGuid().ToString();
 
-                await unitOfWork.BeginTransactionAsync();
-                try
+                // ✅ IMPROVED: Retry transaction up to 3 times for transient database conflicts
+                int maxRetries = 3;
+                int retryCount = 0;
+                ServiceResponse? transactionResult = null;
+                bool transactionSucceeded = false;
+                
+                while (retryCount < maxRetries)
                 {
-                    // Check and increment quota atomically
-                    if (!reuseDecision.ShouldClone)
+                    try
                     {
-                        var quotaCheck = await resumeLimitSvc.CheckResumeLimitInTransactionAsync(companyId);
-                        if (quotaCheck.Status != SRStatus.Success)
+                        await unitOfWork.BeginTransactionAsync();
+                        
+                        // Check and increment quota atomically
+                        if (!reuseDecision.ShouldClone)
                         {
-                            await unitOfWork.RollbackTransactionAsync();
-                            // Cleanup uploaded file if any
+                            var quotaCheck = await resumeLimitSvc.CheckResumeLimitInTransactionAsync(companyId);
+                            if (quotaCheck.Status != SRStatus.Success)
+                            {
+                                await unitOfWork.RollbackTransactionAsync();
+                                // Cleanup uploaded file if any
+                                if (!string.IsNullOrEmpty(fileUrl))
+                                {
+                                    _ = Task.Run(() => _storageHelper.DeleteFileAsync(fileUrl));
+                                }
+                                return quotaCheck;
+                            }
+                        }
+
+                        var createResult = await CreateResumeAndApplicationAsync(
+                            reuseDecision, existingResume, fileUrl, fileHash, file.FileName,
+                            companyId, jobId, campaignId, queueJobId, unitOfWork, resumeAppRepo);
+
+                        resumeId = createResult.ResumeId;
+                        applicationId = createResult.ApplicationId;
+
+                        await unitOfWork.CommitTransactionAsync();
+                        
+                        // Success - break out of retry loop
+                        transactionSucceeded = true;
+                        transactionResult = null;
+                        break;
+                    }
+                    catch (DbUpdateConcurrencyException ex)
+                    {
+                        retryCount++;
+                        Console.WriteLine($"⚠️ Concurrency conflict on attempt {retryCount}/{maxRetries}: {ex.Message}");
+                        
+                        try { await unitOfWork.RollbackTransactionAsync(); } catch { }
+                        
+                        if (retryCount >= maxRetries)
+                        {
+                            transactionResult = new ServiceResponse
+                            {
+                                Status = SRStatus.Error,
+                                Message = "Database conflict after multiple retries. Please try again."
+                            };
+                            break;
+                        }
+                        
+                        // Exponential backoff: 50ms, 100ms, 200ms
+                        await Task.Delay(50 * (int)Math.Pow(2, retryCount - 1));
+                    }
+                    catch (Exception ex)
+                    {
+                        retryCount++;
+                        Console.WriteLine($"⚠️ Transaction error on attempt {retryCount}/{maxRetries}: {ex.Message}");
+                        
+                        try { await unitOfWork.RollbackTransactionAsync(); } catch { }
+                        
+                        if (retryCount >= maxRetries)
+                        {
+                            // Cleanup uploaded file
                             if (!string.IsNullOrEmpty(fileUrl))
                             {
                                 _ = Task.Run(() => _storageHelper.DeleteFileAsync(fileUrl));
                             }
-                            return quotaCheck;
+                            
+                            transactionResult = new ServiceResponse
+                            {
+                                Status = SRStatus.Error,
+                                Message = $"Error creating resume record: {ex.Message}"
+                            };
+                            break;
                         }
+                        
+                        // Exponential backoff for general errors too
+                        await Task.Delay(50 * (int)Math.Pow(2, retryCount - 1));
                     }
-
-                    var createResult = await CreateResumeAndApplicationAsync(
-                        reuseDecision, existingResume, fileUrl, fileHash, file.FileName,
-                        companyId, jobId, campaignId, queueJobId, unitOfWork, resumeAppRepo);
-
-                    resumeId = createResult.ResumeId;
-                    applicationId = createResult.ApplicationId;
-
-                    await unitOfWork.CommitTransactionAsync();
                 }
-                catch
+                
+                // If we had errors after all retries, return error response
+                if (transactionResult != null)
                 {
-                    await unitOfWork.RollbackTransactionAsync();
-                    // Cleanup uploaded file
-                    if (!string.IsNullOrEmpty(fileUrl))
+                    return transactionResult;
+                }
+                
+                // Ensure transaction succeeded before proceeding
+                if (!transactionSucceeded)
+                {
+                    return new ServiceResponse
                     {
-                        _ = Task.Run(() => _storageHelper.DeleteFileAsync(fileUrl));
-                    }
-                    throw;
+                        Status = SRStatus.Error,
+                        Message = "Failed to create resume record after multiple attempts."
+                    };
                 }
 
                 // Step 5: Queue processing (async, non-blocking)
