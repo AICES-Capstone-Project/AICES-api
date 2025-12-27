@@ -31,6 +31,7 @@ namespace DataAccessLayer.Repositories
         {
             return await _context.CompanyUsers
                 .AsNoTracking()
+                .Include(cu => cu.User)  // Include User to get email
                 .Include(cu => cu.Company)
                 .FirstOrDefaultAsync(cu => cu.IsActive && cu.UserId == userId);
         }
