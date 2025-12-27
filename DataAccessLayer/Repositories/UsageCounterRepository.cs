@@ -50,10 +50,24 @@ namespace DataAccessLayer.Repositories
             }
             else
             {
-                // Update limit if changed (e.g., subscription upgraded)
+                // ✅ Update limit and subscription ID if changed (e.g., subscription upgraded/downgraded)
+                bool updated = false;
+                
                 if (counter.Limit != limit)
                 {
                     counter.Limit = limit;
+                    updated = true;
+                }
+                
+                // Update CompanySubscriptionId to reflect current subscription
+                if (counter.CompanySubscriptionId != companySubscriptionId)
+                {
+                    counter.CompanySubscriptionId = companySubscriptionId;
+                    updated = true;
+                }
+                
+                if (updated)
+                {
                     counter.UpdatedAt = DateTime.UtcNow;
                 }
             }

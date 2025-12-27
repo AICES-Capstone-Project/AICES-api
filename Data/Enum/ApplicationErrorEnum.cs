@@ -16,6 +16,7 @@ namespace Data.Enum
         JobTitleNotMatched,
         // TechnicalError: When there is a technical failure during AI processing (timeout, AI service down)
         TechnicalError,
+        InvalidResumeData,
     }
 }
 

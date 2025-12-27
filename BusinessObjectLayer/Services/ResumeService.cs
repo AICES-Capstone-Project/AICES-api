@@ -912,7 +912,7 @@ namespace BusinessObjectLayer.Services
                         {
                             case "invalid_resume_data":
                                 fileStatus = ResumeStatusEnum.InvalidResumeData;
-                                applicationError = ApplicationErrorEnum.TechnicalError;
+                                applicationError = ApplicationErrorEnum.InvalidResumeData;
                                 errorMessage = request.Reason ?? "The uploaded file is not a valid resume.";
                                 break;
                             

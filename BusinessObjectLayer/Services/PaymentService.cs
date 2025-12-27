@@ -470,10 +470,13 @@ namespace BusinessObjectLayer.Services
                 await companySubRepo.AddAsync(companySubscription);
                 await _uow.SaveChangesAsync();
 
-                // Reset usage counters when new subscription is activated
-                var usageCounterRepo = _uow.GetRepository<IUsageCounterRepository>();
-                await usageCounterRepo.ResetAllUsageCountersAsync(companyId);
-                await _uow.SaveChangesAsync();
+                // ✅ FIX: DO NOT reset usage counters when new subscription is activated
+                // Reason 1: Preserve usage history for dashboard tracking
+                // Reason 2: Prevent credit loss when upgrading mid-period (e.g., used 3/3 free, upgrade to 10 paid → should get 7 remaining, not reset to 0)
+                // The GetOrCreateCounterAsync method will automatically handle:
+                // - Creating new counters for new periods
+                // - Updating limits for existing counters in same period
+                // - Old counters will naturally expire based on their period dates
 
                 // Update payment with ComSubId if paymentId exists in metadata
                 int.TryParse(session.Metadata?.GetValueOrDefault("paymentId") ?? "0", out int paymentId);
@@ -1397,10 +1400,10 @@ namespace BusinessObjectLayer.Services
                 await companySubRepo.UpdateAsync(companySubscription);
                 await _uow.SaveChangesAsync();
 
-                // Reset usage counters when subscription is canceled (back to free)
-                var usageCounterRepo = _uow.GetRepository<IUsageCounterRepository>();
-                await usageCounterRepo.ResetAllUsageCountersAsync(companySubscription.CompanyId);
-                await _uow.SaveChangesAsync();
+                // ✅ FIX: DO NOT reset usage counters when subscription is canceled
+                // Reason: We need to preserve usage history for dashboard tracking
+                // The usage limit will automatically switch to Free plan limits based on active subscription check
+                // Old counters will naturally expire based on their period dates
 
                 return new ServiceResponse
                 {
